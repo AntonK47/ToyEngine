@@ -8,54 +8,21 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
 
-// Tell SDL not to mess with main()
-//#define SDL_MAIN_HANDLED
 #define NOMINMAX
-#define VULKAN_VALIDATION
 
-#include <cassert>
 #include <iostream>
 #include <glm/glm.hpp>
 #include <SDL2/SDL.h>
 #include "VulkanRenderInterface.h"
 #include "SDLWindow.h"
-#include "GlslRuntimeCompiler.h"
 #include <fstream>
 
-namespace
-{
-    std::string loadTextShaderFile(const std::string& filePath)
-    {
-        auto length = uint32_t{};
-        auto buffer = std::string{};
-        {
-            using namespace std::string_literals;
-            auto fileStream = std::ifstream{ filePath,  std::ios::ate };
-            assert(fileStream.is_open());
-            length = static_cast<uint32_t>(fileStream.tellg());
-            fileStream.seekg(0);
 
-            buffer.resize(length);
-            fileStream.read(buffer.data(), length);
-            fileStream.close();
-        }
-        return buffer;
-    }
-}
 
 int Application::run()
 {
     auto window = toy::window::SDLWindow{ 1280, 720 };
     auto renderer = toy::renderer::api::vulkan::VulkanRenderInterface{};
-
-
-    /*
-     * Create surface
-     *  - we need fetch supported formats and select the matched format
-     */
-
-    /*renderer.create
-    renderer.createSurface(window.get)*/
 
     const auto rendererDescriptor = toy::renderer::RendererDescriptor
     {
@@ -154,32 +121,5 @@ int Application::run()
 
     renderer.deinitialize();
 
-    using namespace toy::renderer::compiler;
-    const auto shaderCode = (GlslShaderCode)loadTextShaderFile("E:/Develop/VulkanMultithreading/RenderInterfaceTest/TestShaders/noopShader.frag");
-    auto byteCode = ShaderByteCode{};
-    const auto result = GlslRuntimeCompiler::compileToSpirv(
-        GlslRuntimeCompiler::ShaderInfo
-        {
-            "entry",
-            { "DEFINE1" },
-            ShaderStage::fragment,
-            shaderCode,
-            true
-        },
-        byteCode);
-
-
     return EXIT_SUCCESS;
-
-
-	/*
-	 * Renderer initialization
-	 *  fetch required extensions
-	 *  handle window resize
-	 *  pass window handler
-	 */
-
-	/*
-	 * game loop?? Not really because of multithreading?
-	 */
 }

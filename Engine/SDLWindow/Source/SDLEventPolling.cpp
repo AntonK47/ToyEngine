@@ -60,7 +60,6 @@ void SDLWindow::pollEvents()
             KEYDOWN_ASSIGNMENT(nine, SDLK_9)
             break;
         default:
-
             break;
         }
     }

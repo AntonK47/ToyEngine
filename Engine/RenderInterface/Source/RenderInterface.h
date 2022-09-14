@@ -8,7 +8,6 @@
 #include <vector>
 
 
-
 namespace toy::renderer
 {
 	using namespace core;
@@ -76,7 +75,6 @@ namespace toy::renderer
 		flag |= rhs;
 		return flag;
 	}*/
-
 
 
 	enum class UsageContext

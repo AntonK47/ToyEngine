@@ -1,9 +1,8 @@
 #pragma once
 
-
 class Application
 {
 public:
-	int run();
+	static int run();
 };
 

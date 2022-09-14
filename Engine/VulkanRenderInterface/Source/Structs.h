@@ -4,8 +4,6 @@
 
 namespace toy::renderer::api::vulkan
 {
-	
-
 	struct CommandLists
 	{
 		vk::CommandPool pool;
@@ -30,7 +28,6 @@ namespace toy::renderer::api::vulkan
 
 		std::function<void(void)> deleter;
 	};
-
 
 	template <typename T>
 	struct Pool
@@ -58,7 +55,6 @@ namespace toy::renderer::api::vulkan
 
 	using BufferPool = Pool<Buffer>;
 
-
 	struct DeviceQueue
 	{
 		u32 familyIndex{};
@@ -75,6 +71,5 @@ namespace toy::renderer::api::vulkan
 		u32 localDataIndex;
 
 		inline static RenderThread* instance{ nullptr };
-
 	};
 }

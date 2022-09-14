@@ -14,7 +14,7 @@ SDLWindow::SDLWindow(const u32 width, const u32 height) : Window(width, height)
         {
             //TODO: LOG ERROR
         }
-#ifdef VULKAN_BACKEND
+#ifdef TOY_ENGINE_VULKAN_BACKEND
         window_ = SDL_CreateWindow("Vulkan Window",
             SDL_WINDOWPOS_CENTERED,
             SDL_WINDOWPOS_CENTERED,

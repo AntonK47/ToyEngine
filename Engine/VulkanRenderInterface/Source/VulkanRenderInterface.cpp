@@ -4,10 +4,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include <vulkan/vulkan_win32.h>
 #include <VulkanCommandList.h>
-
-#define VULKAN_VALIDATION
 
 using namespace toy::renderer;
 using namespace api::vulkan;
@@ -340,12 +337,12 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
     auto extensions = std::vector<const char*>{};
     
     auto layers = std::vector<const char*>{};
-#if defined(VULKAN_VALIDATION)
+#ifdef TOY_ENGINE_ENABLE_VULKAN_VALIDATION
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
-#if defined(VULKAN_BACKEND)
+#ifdef TOY_ENGINE_VULKAN_BACKEND
     extensions.insert(extensions.end(),
         descriptor.meta.requiredExtensions.begin(),
         descriptor.meta.requiredExtensions.end());
@@ -383,6 +380,7 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
     device_ = createDevice(adapter_, { queues_[QueueType::graphics], queues_[QueueType::transfer], queues_[QueueType::asyncCompute] }, requestedFeatures);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device_);
 
+#ifdef TOY_ENGINE_ENABLE_VULKAN_VALIDATION
     const auto debugUtilsMessengerCreateInfo = vk::DebugUtilsMessengerCreateInfoEXT
     {
         .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
@@ -395,7 +393,7 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
     };
 
     const auto debugUtilsHandler = instance_.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo);
-
+#endif
 
     const auto allocatorCreateInfo = VmaAllocatorCreateInfo
     {

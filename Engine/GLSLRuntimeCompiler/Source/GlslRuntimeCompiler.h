@@ -1,14 +1,10 @@
 #pragma once
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
-
 #include "CommonTypes.h"
-
 
 namespace toy::renderer::compiler
 {
-
-
 	using ShaderByteCode = std::vector<core::u32>;
 	using GlslShaderCode = std::string;
 
@@ -150,8 +146,6 @@ namespace toy::renderer::compiler
                 /* .generalConstantMatrixVectorIndexing = */ 1,
             } };
 	public:
-
-        
 
         struct ShaderInfo
         {

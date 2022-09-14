@@ -10,8 +10,6 @@
 
 namespace toy::window
 {
-#define VULKAN_BACKEND
-
     struct WindowHandler
     {
 #ifdef WIN32
@@ -22,7 +20,7 @@ namespace toy::window
 
     struct BackendRendererMeta
     {
-#ifdef VULKAN_BACKEND
+#ifdef TOY_ENGINE_VULKAN_BACKEND
         std::vector<const char*> requiredExtensions;
 #endif
     };

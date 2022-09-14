@@ -1,5 +1,4 @@
 #include "UploadBufferRing.h"
-
 #include <vk_mem_alloc.h>
 
 using namespace toy::renderer::api::vulkan;
@@ -45,7 +44,6 @@ void* UploadBufferRing::allocate(uint64_t size)
 	}
 
 	return dataBegin;
-
 }
 
 void UploadBufferRing::free(uint32_t size)

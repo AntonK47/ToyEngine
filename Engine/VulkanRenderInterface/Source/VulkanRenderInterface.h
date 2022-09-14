@@ -1,7 +1,9 @@
 #pragma once
+
 #if defined(_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
+
 #include <map>
 #include "vk.h"
 #include <vk_mem_alloc.h>
@@ -36,11 +38,7 @@ namespace toy::renderer::api::vulkan
 		std::map<QueueType, std::vector<PerFrameCommandPoolData>> perQueueType;
 	};
 
-
 	struct UploadBufferRing;
-
-	
-
 
 	class VulkanRenderInterface : public RenderInterface
 	{
@@ -85,16 +83,10 @@ namespace toy::renderer::api::vulkan
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
-		/*DeviceQueue graphicsQueue_;
-		DeviceQueue transferQueue_;
-		DeviceQueue asyncComputeQueue_;*/
 		DeviceQueue presentQueue_;
 
 		BufferPool bufferPool_;
 		VmaAllocator allocator_{};
-
-
-
 
 		vk::Device device_;
 		vk::Instance instance_;
@@ -120,8 +112,4 @@ namespace toy::renderer::api::vulkan
 		const u32 swapchainImagesCount_ = 3;
 		std::vector<vk::ImageView> swapchainImageViews_;
 	};
-
-	
-
-	
 }
