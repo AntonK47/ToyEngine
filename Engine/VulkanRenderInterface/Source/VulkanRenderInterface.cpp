@@ -491,13 +491,13 @@ void VulkanRenderInterface::nextFrame()
 {
 }
 
-Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescription)
+Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescriptor)
 {
 	return {};
 }
 
 Handle<Pipeline> VulkanRenderInterface::createPipeline(
-	const GraphicsPipelineDescription& graphicsPipelineDescription, const std::vector<BindGroup>& bindGroups)
+	const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroup>& bindGroups)
 {
 	return {};
 }

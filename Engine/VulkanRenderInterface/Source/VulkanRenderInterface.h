@@ -76,8 +76,8 @@ namespace toy::renderer::api::vulkan
 		void initialize(RendererDescriptor descriptor) override;
 		void deinitialize() override;
 		void nextFrame() override;
-		Handle<RenderTarget> createRenderTarget(RenderTargetDescription) override;
-		Handle<Pipeline> createPipeline(const GraphicsPipelineDescription& graphicsPipelineDescription,
+		Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) override;
+		Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription,
 			const std::vector<BindGroup>& bindGroups) override;
 
 	private:

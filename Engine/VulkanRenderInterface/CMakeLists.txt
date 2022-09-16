@@ -11,7 +11,7 @@ set(MODULE_SOURCES
 	Source/VulkanRenderInterface.cpp
 	Source/vk.cpp
 	Source/UploadBufferRing.cpp
-)
+ "Source/VulkanCommandList.cpp")
 
 add_library(${MODULE_NAME} 
 	STATIC

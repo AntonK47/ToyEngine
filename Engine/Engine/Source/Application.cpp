@@ -46,19 +46,26 @@ int Application::run()
         {
             std::cout << "zero button has been pressed!" << std::endl;
         }
-        
-        for(const auto event : events)
+        if (io.keyboardState.nine == toy::io::ButtonState::pressed)
         {
-	        if(event == toy::window::Event::quit)
-	        {
+            std::cout << "9!" << std::endl;
+        }
+
+        for (const auto event : events)
+        {
+            if (event == toy::window::Event::quit)
+            {
                 stillRunning = false;
-	        }
+            }
         }
 
         renderer.nextFrame();
         auto commandList = renderer.acquireCommandList(toy::renderer::QueueType::graphics, toy::renderer::CommandListType::primary);
         commandList->barrier({});
 
+
+
+        //==========================================
         using namespace toy::renderer;
         //This function should also be multi threaded.
 
@@ -71,51 +78,69 @@ int Application::run()
         };
 
         auto someCoolProgram = renderer.createPipeline(
-            GraphicsPipelineDescription
+            GraphicsPipelineDescriptor
             {
-	            ShaderModule{},
+                ShaderModule{},
                 ShaderModule{},
                 RenderTargetsDescription
-            	{
-					.colorRenderTargets = std::initializer_list
-            		{
-            			ColorRenderTargetDescription{}
-            		},
-            		.depthRenderTarget = DepthRenderTargetDescription{},
-            		.stencilRenderTarget = StencilRenderTargetDescription{}
-            	},
-            	{
-            		.depthTestEnabled = true
-            	}
+                {
+                    .colorRenderTargets = std::initializer_list
+                    {
+                        ColorRenderTargetDescriptor{}
+                    },
+                    .depthRenderTarget = DepthRenderTargetDescriptor{},
+                    .stencilRenderTarget = StencilRenderTargetDescriptor{}
+                },
+                {
+                    .depthTestEnabled = true
+                }
             },
             {
                 BindGroup
-	            {
-	                .set = 0, //rename to bind frequency to make opaque set assignment??
-	                .bindings = 
-	                {
+                {
+                    .set = 0, //rename to bind frequency to make opaque set assignment??
+                    .bindings =
+                    {
                         {
                             .binding = 0,
-							.uniform = UniformDeclaration{}
+                            .uniform = UniformDeclaration{}
                         },
                         {
                             .binding = 1,
                             .sampler2D = Sampler2DDeclaration{}
                         }
-	                }
-	            },
+                    }
+                },
                 BindGroup
                 {
-					.set = 1,
+                    .set = 1,
                     .bindings =
                     {
                         {
                             .binding = 0,
-							.bindlessArray = BindlessArrayDeclaration{}//?????
+                            .bindlessArray = BindlessArrayDeclaration{}//?????
                         }
                     }
                 }
             });
+        //bind groups can be shared across multiple pipelines, so I can use BindGroup caching????????????????????????????
+
+        // => so I need BindGroupDescriptor =D
+
+        using Matrix = std::array<float, 9>;
+
+        struct ViewData
+        {
+            int i;
+            Matrix m;
+        };
+
+        struct MemoryCheck
+        {
+            ViewData view;
+        } bindGroup0Memory;
+
+        bindGroup0Memory.view = ViewData{ 1, {} };
 
     }
 

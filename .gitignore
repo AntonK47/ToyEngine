@@ -472,3 +472,8 @@ FodyWeavers.xsd
 # End of https://www.toptal.com/developers/gitignore/api/c++,visualstudio,visualstudiocode,cmake
 
 /out/*
+
+CMakeSettings.json
+
+design*.txt
+*DotSettings

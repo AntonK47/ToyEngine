@@ -146,7 +146,7 @@ namespace toy::renderer
 		float a;
 	};
 
-	struct RenderTargetDescription
+	struct RenderTargetDescriptor
 	{
 		Handle<Texture> texture;//Maybe I should have some type for render targets, that also contains image view and appropriate image layout.
 		LoadOperation load;
@@ -159,14 +159,24 @@ namespace toy::renderer
 	struct Pipeline {};
 	struct ShaderModule {};
 
-	struct ColorRenderTargetDescription {};
-	struct DepthRenderTargetDescription {};
-	struct StencilRenderTargetDescription {};
+	enum class Format
+	{
+		RGBA8,
+		RGBA16,
+		R11G11B10
+	};
+
+	struct ColorRenderTargetDescriptor
+	{
+		Format format;
+	};
+	struct DepthRenderTargetDescriptor {};
+	struct StencilRenderTargetDescriptor {};
 	struct RenderTargetsDescription
 	{
-		std::vector<ColorRenderTargetDescription> colorRenderTargets;
-		DepthRenderTargetDescription depthRenderTarget;
-		StencilRenderTargetDescription stencilRenderTarget;
+		std::vector<ColorRenderTargetDescriptor> colorRenderTargets;
+		DepthRenderTargetDescriptor depthRenderTarget;
+		StencilRenderTargetDescriptor stencilRenderTarget;
 	};
 
 	struct PipelineState
@@ -174,7 +184,7 @@ namespace toy::renderer
 		bool depthTestEnabled;
 	};
 
-	struct GraphicsPipelineDescription
+	struct GraphicsPipelineDescriptor
 	{
 		ShaderModule vertexShader;
 		ShaderModule fragmentShader;
@@ -215,18 +225,37 @@ namespace toy::renderer
 
 		//this function should be thread save????
 		//Do I need make multi threaded resource creation? It can depend on Frame Graph resource management.
-		virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescription) = 0;
+		virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
 		//=================
 		virtual void nextFrame() = 0;
 		/*virtual void present();
 		virtual void waitForSwapchain();*/
 
 		//draft for pipeline creation
-		virtual Handle<Pipeline> createPipeline(const GraphicsPipelineDescription& graphicsPipelineDescription, const std::vector<BindGroup>& bindGroups = {}) = 0;
+		virtual Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroup>& bindGroups = {}) = 0;
 	};
 
 
-	struct BarrierDescription {};
+
+
+	struct PipelineDescriptor
+	{
+
+	};
+
+	struct PipelinePool
+	{
+	};
+
+
+
+	
+
+
+
+
+
+	struct BarrierDescriptor {};
 	struct SplitBarrier
 	{
 		/*
@@ -234,21 +263,21 @@ namespace toy::renderer
 		 */
 	};
 
-	struct RenderingDescription
+	struct RenderingDescriptor
 	{
-		std::vector<RenderTargetDescription> colorRenderTargets;
-		RenderTargetDescription depthRenderTarget{};
-		RenderTargetDescription stencilRenderTarget{};
+		std::vector<RenderTargetDescriptor> colorRenderTargets;
+		RenderTargetDescriptor depthRenderTarget{};
+		RenderTargetDescriptor stencilRenderTarget{};
 	};
 
 	class CommandList
 	{
 	public:
 		virtual ~CommandList() = default;
-		virtual void barrier(const std::initializer_list<BarrierDescription>& descriptions) = 0;
-		virtual Handle<SplitBarrier> beginSplitBarrier(const BarrierDescription& description) = 0;
+		virtual void barrier(const std::initializer_list<BarrierDescriptor>& descriptions) = 0;
+		virtual Handle<SplitBarrier> beginSplitBarrier(const BarrierDescriptor& description) = 0;
 		virtual void endSplitBarrier(Handle<SplitBarrier> barrier) = 0;
-		virtual void beginRendering(RenderingDescription description) = 0;
+		virtual void beginRendering(RenderingDescriptor description) = 0;
 		virtual void endRendering() = 0;
 	};
 }
