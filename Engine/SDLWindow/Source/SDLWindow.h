@@ -1,9 +1,8 @@
 #pragma once
 
-
 #define SDL_MAIN_HANDLED
+#include <Window.h>
 #include <SDL2/SDL.h>
-#include "Window.h"
 
 namespace toy::window
 {

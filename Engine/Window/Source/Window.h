@@ -1,11 +1,8 @@
 #pragma once
 
-#define NOMINMAX
-
-#include "CommonTypes.h"
-
 #include <vector>
-#include <Windows.h>
+
+#include "Common.h"
 #include "WindowIO.h"
 
 namespace toy::window

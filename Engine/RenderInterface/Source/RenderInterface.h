@@ -1,10 +1,9 @@
 #pragma once
-#include <CommonTypes.h>
-#include <Window.h>
-
 #include <functional>
 #include <string>
 #include <vector>
+#include <Window.h>
+
 #include "BindGroupAllocator.h"
 #include "CommandList.h"
 #include "Resource.h"

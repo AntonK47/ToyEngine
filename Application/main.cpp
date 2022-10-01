@@ -2,5 +2,5 @@
 
 int main()
 {
-    return Application{}.run();
+    return Application::run();
 }

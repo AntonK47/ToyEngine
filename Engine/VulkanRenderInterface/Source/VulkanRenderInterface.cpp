@@ -1,12 +1,10 @@
 #include "VulkanRenderInterface.h"
 
-
-#include <Windows.h>
 #include <iostream>
 #include <map>
 #include <vector>
 #include <VulkanCommandList.h>
-
+#include <Windows.h>
 #include <vulkan/vulkan_profiles.hpp>
 
 using namespace toy::renderer;

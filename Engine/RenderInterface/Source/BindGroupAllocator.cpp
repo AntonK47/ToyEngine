@@ -1,5 +1,6 @@
 #include "BindGroupAllocator.h"
-#include "Hash.h"
+
+#include <Hash.h>
 
 using namespace toy::renderer;
 

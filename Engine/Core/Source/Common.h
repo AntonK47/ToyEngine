@@ -1,4 +1,5 @@
 #pragma once
+#include "CommonTypes.h"
 
 #if defined(__ANDROID__)
 #define VK_USE_PLATFORM_ANDROID_KHR
@@ -10,4 +11,5 @@
 
 #ifndef NOMINMAX
 #define NOMINMAX
+#include <Windows.h>
 #endif

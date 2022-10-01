@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "CommandListValidator.h"
-#include "CommonTypes.h"
+#include "Common.h"
 #include "Resource.h"
 
 namespace toy::renderer

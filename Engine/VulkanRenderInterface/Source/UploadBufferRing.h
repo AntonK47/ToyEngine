@@ -1,10 +1,8 @@
 #pragma once
 #include <mutex>
 
-#include "Vulkan.h"
-#include <vk_mem_alloc.h>
-
 #include "Structs.h"
+#include "Vulkan.h"
 
 namespace toy::renderer::api::vulkan
 {
