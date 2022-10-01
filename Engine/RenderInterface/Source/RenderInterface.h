@@ -6,6 +6,10 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <variant>
+#include "BindGroupAllocator.h"
+#include "CommandListValidator.h"
+
 
 
 namespace toy::renderer

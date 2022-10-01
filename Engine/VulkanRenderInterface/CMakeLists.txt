@@ -5,13 +5,13 @@ set(MODULE_HEADERS
 	"Source/Vulkan.h"
 	Source/Structs.h
 	Source/UploadBufferRing.h
+ "Source/VulkanBindGroupAllocator.h")
 
-)
 set(MODULE_SOURCES
 	Source/VulkanRenderInterface.cpp
 	Source/Vulkan.cpp
 	Source/UploadBufferRing.cpp
- "Source/VulkanCommandList.cpp")
+ "Source/VulkanCommandList.cpp" "Source/VulkanBindGroupAllocator.cpp")
 
 add_library(${MODULE_NAME} 
 	STATIC

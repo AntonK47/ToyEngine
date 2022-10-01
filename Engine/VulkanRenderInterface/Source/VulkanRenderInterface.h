@@ -11,6 +11,7 @@
 #include <mutex>
 #include "Structs.h"
 #include "UploadBufferRing.h"
+#include "VulkanBindGroupAllocator.h"
 
 class Application;
 
@@ -78,7 +79,14 @@ namespace toy::renderer::api::vulkan
 		void nextFrame() override;
 		Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) override;
 		Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription,
-			const std::vector<BindGroup>& bindGroups) override;
+			const std::vector<BindGroupDescriptor>& bindGroups) override;
+	private:
+		[[nodiscard]] BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) override;
+	public:
+		[[nodiscard]] SwapchainImage acquireNextSwapchainImage() override;
+		void present() override;
+		void submitCommandList(const std::unique_ptr<CommandList> commandList) override;
+
 
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
