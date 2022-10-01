@@ -2,14 +2,14 @@ set(MODULE_NAME VulkanRenderInterface)
 set(MODULE_HEADERS 
 	Source/VulkanCommandList.h
 	Source/VulkanRenderInterface.h
-	Source/vk.h
+	"Source/Vulkan.h"
 	Source/Structs.h
 	Source/UploadBufferRing.h
 
 )
 set(MODULE_SOURCES
 	Source/VulkanRenderInterface.cpp
-	Source/vk.cpp
+	Source/Vulkan.cpp
 	Source/UploadBufferRing.cpp
  "Source/VulkanCommandList.cpp")
 
