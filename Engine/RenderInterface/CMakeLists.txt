@@ -2,6 +2,8 @@ set(MODULE_NAME RenderInterface)
 set(MODULE_SOURCES 
 	Source/RenderInterface.cpp
 )
+	"Source/CommandListValidator.h"
+	"Source/CommandListValidator.cpp")
 set(MODULE_HEADERS 
 	Source/RenderInterface.h
 )
