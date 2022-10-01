@@ -1,5 +1,5 @@
 #pragma once
-
+//#define RENDERER_VALIDATION
 #include <CommonTypes.h>
 #include <Window.h>
 
@@ -150,13 +150,33 @@ namespace toy::renderer
 		float a;
 	};
 
+	struct Resource
+	{};
+
+	struct ImageResource : Resource
+	{
+		
+	};
+
+	struct ImageView : Resource
+	{
+		
+	};
+
+	template <typename T>
+	struct Accessor
+	{
+		/*T* resource;
+		View<T> view;*/
+	};
+
 	struct RenderTargetDescriptor
 	{
-		Handle<Texture> texture;//Maybe I should have some type for render targets, that also contains image view and appropriate image layout.
-		LoadOperation load;
-		StoreOperation store;
-		ResolveMode resolveMode;
-		ColorClear clearValue;
+		ImageView* renderTargetImageAccessor{};
+		LoadOperation load{};
+		StoreOperation store{};
+		ResolveMode resolveMode{};
+		ColorClear clearValue{};
 	};
 
 
@@ -196,25 +216,11 @@ namespace toy::renderer
 		PipelineState state{};
 	};
 
-	struct UniformDeclaration {};
-	struct Sampler2DDeclaration {};
-	struct BindlessArrayDeclaration {};
 
-	struct Binding
+	struct SwapchainImage
 	{
-		u32 binding;
-		union
-		{
-			UniformDeclaration uniform;
-			Sampler2DDeclaration sampler2D;
-			BindlessArrayDeclaration bindlessArray;
-		};
-	};
-
-	struct BindGroup
-	{
-		u32 set;
-		std::vector<Binding> bindings;
+		std::unique_ptr<ImageResource> image;
+		std::unique_ptr<ImageView> view;
 	};
 
 	class RenderInterface
@@ -227,6 +233,10 @@ namespace toy::renderer
 		virtual Handle<Buffer> createBuffer(const BufferDescriptor& descriptor) = 0;
 		virtual std::unique_ptr<CommandList> acquireCommandList(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
 
+		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout);
+		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor);
+		[[nodiscard]] BindGroupLayout allocateBindGroupLayout(const BindGroupDescriptor& descriptor);
+
 		//this function should be thread save????
 		//Do I need make multi threaded resource creation? It can depend on Frame Graph resource management.
 		virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
@@ -236,7 +246,17 @@ namespace toy::renderer
 		virtual void waitForSwapchain();*/
 
 		//draft for pipeline creation
-		virtual Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroup>& bindGroups = {}) = 0;
+		virtual Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups = {}) = 0;
+
+
+		virtual [[nodiscard]] SwapchainImage/*Accessor<ImageResource>*/ acquireNextSwapchainImage() = 0;
+
+		virtual void submitCommandList(const std::unique_ptr<CommandList> commandList) = 0;
+
+		virtual void present() = 0;
+	private:
+		[[nodiscard]] virtual BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) = 0;
+		std::unordered_map<u64, BindGroupLayout> bindGroupLayoutCache_;
 	};
 
 
@@ -254,12 +274,51 @@ namespace toy::renderer
 
 
 	
+	enum class Layout
+	{
+		Undefined,
+		Present,
+		ColorRenderTarget,
+		DepthStencilRenderTarget,
+		TransferSrc,
+		TransferDst,
+		ShaderRead,
+		ShaderReadWrite
+	};
+
+	enum class ShaderStageUsage
+	{
+		vertex,
+		fragment,
+		task
+	};
+
+	enum class ResourcePipelineStageUsageFlagBits : FlagBits
+	{
+		none = 0 << 0,
+		vertex = 1 << 0,
+		fragment = 1 << 1,
+		compute = 1 << 2,
+	};
+
+	using ResourcePipelineStageUsageFlags = Flags<ResourcePipelineStageUsageFlagBits>;
 
 
+	struct ImageBarrierDescriptor
+	{
+		Layout srcLayout;
+		Layout dstLayout;
+		ResourcePipelineStageUsageFlags srcStage{ResourcePipelineStageUsageFlagBits::none};
+		ResourcePipelineStageUsageFlags dstStage{ ResourcePipelineStageUsageFlagBits::none };
+		ImageResource* image;
+		//???
+	};
+	struct MemoryBarrierDescriptor{};
+	struct BufferBarrierDescriptor{};
 
 
+	using BarrierDescriptor = std::variant<ImageBarrierDescriptor, BufferBarrierDescriptor, MemoryBarrierDescriptor>;
 
-	struct BarrierDescriptor {};
 	struct SplitBarrier
 	{
 		/*
@@ -269,20 +328,50 @@ namespace toy::renderer
 
 	struct RenderingDescriptor
 	{
-		std::vector<RenderTargetDescriptor> colorRenderTargets;
+		std::vector<RenderTargetDescriptor> colorRenderTargets{};
 		RenderTargetDescriptor depthRenderTarget{};
 		RenderTargetDescriptor stencilRenderTarget{};
+	};
+
+	struct RenderArea
+	{
+		i32 x;
+		i32 y;
+		u32 width;
+		u32 height;
 	};
 
 	class CommandList
 	{
 	public:
+		CommandList(const CommandList& other) = delete;
+		CommandList(CommandList&& other) noexcept = default;
+		CommandList& operator=(const CommandList& other) = default;
+		CommandList& operator=(CommandList&& other) noexcept = default;
+
+		explicit CommandList(QueueType queueType);
 		virtual ~CommandList() = default;
-		virtual void barrier(const std::initializer_list<BarrierDescriptor>& descriptions) = 0;
-		virtual Handle<SplitBarrier> beginSplitBarrier(const BarrierDescriptor& description) = 0;
-		virtual void endSplitBarrier(Handle<SplitBarrier> barrier) = 0;
-		virtual void beginRendering(RenderingDescriptor description) = 0;
-		virtual void endRendering() = 0;
+
+		void barrier(const std::initializer_list<BarrierDescriptor>& descriptors);
+		/*Handle<SplitBarrier> beginSplitBarrier(const BarrierDescriptor& descriptor);
+		void endSplitBarrier(Handle<SplitBarrier> barrier);*/
+
+		void beginRendering(const RenderingDescriptor& descriptor);
+		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
+		void endRendering();
+	protected:
+
+		virtual void barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors) = 0;
+
+		virtual void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area) = 0;
+		virtual void endRenderingInternal() = 0;
+
+		QueueType ownedQueueType_{};
+
+	private:
+#ifdef RENDERER_VALIDATION
+		DECLARE_VALIDATOR(validation::CommandListValidator);
+#endif
 	};
 }
 

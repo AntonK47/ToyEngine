@@ -27,6 +27,17 @@ namespace toy::renderer::api::vulkan
 	class VulkanRenderInterface;
 
 
+	struct VulkanImage final: ImageResource
+	{
+		vk::Image image;
+	};
+
+	struct VulkanImageView final: ImageView
+	{
+		vk::ImageView vulkanImageView;
+	};
+
+
 	struct PerFrameCommandPoolData
 	{
 		vk::CommandPool commandPool;
@@ -41,7 +52,7 @@ namespace toy::renderer::api::vulkan
 
 	struct UploadBufferRing;
 
-	class VulkanRenderInterface : public RenderInterface
+	class VulkanRenderInterface final: public RenderInterface
 	{
 	public:
 
@@ -92,6 +103,9 @@ namespace toy::renderer::api::vulkan
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
 		DeviceQueue presentQueue_;
+		vk::Semaphore readyToPresentSemaphore_;
+		vk::Semaphore readyToRenderSemaphore_;
+		u32 currentImageIndex_{};
 
 		BufferPool bufferPool_;
 		VmaAllocator allocator_{};
@@ -119,5 +133,7 @@ namespace toy::renderer::api::vulkan
 
 		const u32 swapchainImagesCount_ = 3;
 		std::vector<vk::ImageView> swapchainImageViews_;
+		std::vector<vk::Image> swapchainImages_;
+		std::vector<vk::Fence> swapchainImageAfterPresentFences_;
 	};
 }

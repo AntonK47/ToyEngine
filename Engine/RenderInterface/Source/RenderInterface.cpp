@@ -30,4 +30,31 @@ namespace toy::renderer
 
 		return groupLayout;
 	}
+
+	CommandList::CommandList(const QueueType queueType): ownedQueueType_(queueType)
+	{  }
+
+	void CommandList::barrier(const std::initializer_list<BarrierDescriptor>& descriptors)
+	{
+		VALIDATE(validateBarrier(descriptors));
+		barrierInternal(descriptors);
+	}
+
+	void CommandList::beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area)
+	{
+		VALIDATE(validateBeginRendering(descriptor, area));
+		beginRenderingInternal(descriptor, area);
+	}
+
+	void CommandList::endRendering()
+	{
+		VALIDATE(validateEndRendering());
+		endRenderingInternal();
+	}
+
+	void CommandList::beginRendering(const RenderingDescriptor& descriptor)
+	{
+		//VALIDATE(beginRenderingValidation(descriptor));
+		//beginRendering(descriptor, descriptor.)
+	}
 }
