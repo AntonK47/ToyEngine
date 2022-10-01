@@ -24,8 +24,8 @@ target_link_libraries(${MODULE_NAME}
 	PRIVATE
 		Core
 		#GLSL
-		SPIRV
-		glslang
+		glslang::SPIRV
+		glslang::glslang
 		
 )
 

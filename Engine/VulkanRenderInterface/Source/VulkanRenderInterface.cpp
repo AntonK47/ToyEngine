@@ -6,24 +6,49 @@
 #include <vector>
 #include <VulkanCommandList.h>
 
+#include <vulkan/vulkan_profiles.hpp>
+
 using namespace toy::renderer;
 using namespace api::vulkan;
 namespace
 {
 #define MAP_FLAG_BIT(srcFlag, srcFlagBit, dstFlag, dstFlagBit) if (srcFlag.containBit(srcFlagBit)) { dstFlag |= dstFlagBit; }
 
-    
+    vk::DescriptorType mapDescriptorType(BindingType type)
+    {
+	    switch (type)
+	    {
+	    case BindingType::Texture1D:
+            
+	    case BindingType::Texture2D:
+            
+	    case BindingType::Texture3D:
+            
+	    case BindingType::Texture2DArray:
+            return vk::DescriptorType::eSampledImage;
+	    case BindingType::UniformBuffer:
+            return vk::DescriptorType::eUniformBuffer;
+	    case BindingType::StorageBuffer:
+            return vk::DescriptorType::eStorageBuffer;
+
+	    case BindingType::AccelerationStructure:
+            return vk::DescriptorType::eAccelerationStructureKHR;
+
+	    case BindingType::Sampler:
+            return vk::DescriptorType::eSampler;
+	    }
+    }
 
     PerThreadCommandPoolData createPerThreadCommandPoolData(vk::Device device,
-        vk::CommandBufferLevel level,
-        u32 maxDeferredFrames,
-        u32 graphicsIndex,
-        u32 asyncComputeIndex,
-        u32 transferIndex,
-        u32 graphicsCommandListPerFrame = 0,
-        u32 asyncComputeCommandListPerFrame = 0,
-        u32 transferCommandListPerFrame = 0
-        )
+                                                            vk::CommandBufferLevel level,
+                                                            u32 maxDeferredFrames,
+                                                            u32 graphicsIndex,
+                                                            u32 asyncComputeIndex,
+                                                            u32 transferIndex,
+                                                            u32 graphicsCommandListPerFrame = 0,
+                                                            u32 asyncComputeCommandListPerFrame = 0,
+                                                            u32 transferCommandListPerFrame = 0
+    )
     {
         auto graphicsPerFrame = std::vector<PerFrameCommandPoolData>(maxDeferredFrames);
         auto asyncComputePerFrame = std::vector <PerFrameCommandPoolData>(maxDeferredFrames);
@@ -38,7 +63,7 @@ namespace
                     .queueFamilyIndex = graphicsIndex
                 };
 
-                graphicsPerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo);
+                graphicsPerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo).value;
 
                 const auto allocateInfo = vk::CommandBufferAllocateInfo
                 {
@@ -46,7 +71,7 @@ namespace
                     .level = level,
                     .commandBufferCount = graphicsCommandListPerFrame
                 };
-                graphicsPerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo);
+                graphicsPerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo).value;
 	        }
             if (asyncComputeCommandListPerFrame != 0)
             {
@@ -56,7 +81,7 @@ namespace
                     .queueFamilyIndex = asyncComputeIndex
                 };
 
-                asyncComputePerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo);
+                asyncComputePerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo).value;
 
                 const auto allocateInfo = vk::CommandBufferAllocateInfo
                 {
@@ -64,7 +89,7 @@ namespace
                     .level = level,
                     .commandBufferCount = asyncComputeCommandListPerFrame
                 };
-                asyncComputePerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo);
+                asyncComputePerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo).value;
             }
             if (transferCommandListPerFrame != 0)
             {
@@ -74,7 +99,7 @@ namespace
                     .queueFamilyIndex = transferIndex
                 };
 
-                transferPerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo);
+                transferPerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo).value;
 
                 const auto allocateInfo = vk::CommandBufferAllocateInfo
                 {
@@ -82,7 +107,7 @@ namespace
                     .level = level,
                     .commandBufferCount = transferCommandListPerFrame
                 };
-                transferPerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo);
+                transferPerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo).value;
             }
         }
 
@@ -155,6 +180,7 @@ namespace
         }
 
         std::cout << defaultColorSequence;
+        std::cout << std::endl;
 
         return vk::Bool32{ true };
     }
@@ -228,7 +254,25 @@ namespace
             },
             vk::PhysicalDeviceVulkan12Features
             {
-                .shaderBufferInt64Atomics = vk::Bool32{true},
+            	.shaderBufferInt64Atomics = vk::Bool32{true},
+
+                .shaderUniformBufferArrayNonUniformIndexing = vk::Bool32{true},
+                .shaderSampledImageArrayNonUniformIndexing = vk::Bool32{true},
+                .shaderStorageBufferArrayNonUniformIndexing = vk::Bool32{true},
+                .shaderStorageImageArrayNonUniformIndexing = vk::Bool32{ true },
+                .shaderInputAttachmentArrayNonUniformIndexing = vk::Bool32{ true },
+                .shaderUniformTexelBufferArrayNonUniformIndexing = vk::Bool32{ true },
+                .shaderStorageTexelBufferArrayNonUniformIndexing = vk::Bool32{ true },
+                .descriptorBindingUniformBufferUpdateAfterBind = vk::Bool32{ true },
+                .descriptorBindingSampledImageUpdateAfterBind = vk::Bool32{ true },
+                .descriptorBindingStorageImageUpdateAfterBind = vk::Bool32{ true },
+                .descriptorBindingStorageBufferUpdateAfterBind = vk::Bool32{ true },
+                .descriptorBindingUniformTexelBufferUpdateAfterBind = vk::Bool32{ true },
+                .descriptorBindingStorageTexelBufferUpdateAfterBind = vk::Bool32{ true },
+                .descriptorBindingUpdateUnusedWhilePending = vk::Bool32{ true },
+                .descriptorBindingPartiallyBound = vk::Bool32{ true },
+                .descriptorBindingVariableDescriptorCount = vk::Bool32{true},
+
                 .scalarBlockLayout = vk::Bool32{true},
                 .timelineSemaphore = vk::Bool32{ true }
             },
@@ -250,7 +294,7 @@ namespace
             .pEnabledFeatures = nullptr
         };
 
-        const auto device = adapter.createDevice(deviceCreateInfo);
+        const auto device = adapter.createDevice(deviceCreateInfo).value;
 
         for (auto& queue : queues)
         {
@@ -269,7 +313,7 @@ namespace
 
     vk::PhysicalDevice selectAdapter(vk::Instance instance, const Features& requestedFeatures)
     {
-        return instance.enumeratePhysicalDevices().front();
+        return instance.enumeratePhysicalDevices().value.front();
     }
 }
 
@@ -329,7 +373,15 @@ std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandList(QueueType
     assert(std::this_thread::get_id() == renderThreadId_);
 
     const auto commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers.front();
-    return std::make_unique<VulkanCommandList>(commandBuffer, vk::CommandBufferLevel::ePrimary);
+
+    const auto beginInfo = vk::CommandBufferBeginInfo
+    {
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+    };
+
+    commandBuffer.begin(beginInfo);
+
+    return std::make_unique<VulkanCommandList>(commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);
 }
 
 void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
@@ -367,7 +419,27 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
     auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
-    instance_ = vk::createInstance(instanceInfo);
+
+
+    auto isSupported = vk::Bool32{};
+    auto profileProperties = VpProfileProperties
+	{
+        .profileName = VP_LUNARG_DESKTOP_PORTABILITY_2021_NAME,
+        .specVersion = VP_LUNARG_DESKTOP_PORTABILITY_2021_SPEC_VERSION
+	};
+    vpGetInstanceProfileSupport(nullptr, &profileProperties, &isSupported);
+
+    assert(isSupported);
+
+    const auto instanceCreateInfo = VpInstanceCreateInfo
+    {
+        .pCreateInfo = reinterpret_cast<const VkInstanceCreateInfo*>(&instanceInfo),
+        .pProfile = &profileProperties
+    };
+    
+    vpCreateInstance(&instanceCreateInfo, nullptr, reinterpret_cast<VkInstance*>(&instance_));
+
+    /*instance_ = vk::createInstance(instanceInfo).value;*/
     VULKAN_HPP_DEFAULT_DISPATCHER.init(instance_);
 
     const auto requestedFeatures = Features{};
@@ -412,9 +484,9 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
         .hinstance = descriptor.handler.hinstance,
         .hwnd = descriptor.handler.hwnd
     };
-    surface_ = instance_.createWin32SurfaceKHR(surfaceCreateInfo);
+    surface_ = instance_.createWin32SurfaceKHR(surfaceCreateInfo).value;
 
-    const auto surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_);
+    const auto surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_).value;
     auto supportedCompositeAlpha =
         surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eOpaque
         ? vk::CompositeAlphaFlagBitsKHR::eOpaque
@@ -424,7 +496,7 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
         ? vk::CompositeAlphaFlagBitsKHR::ePostMultiplied
         : vk::CompositeAlphaFlagBitsKHR::eInherit;
 
-    auto formats = adapter_.getSurfaceFormatsKHR(surface_);
+    auto formats = adapter_.getSurfaceFormatsKHR(surface_).value;
     const auto supportedFormat = formats.front();
 
     const auto extent = descriptor.windowExtentGetter();
@@ -448,16 +520,17 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
         .oldSwapchain = nullptr
     };
 
-    swapchain_ = device_.createSwapchainKHR(swapchainCreateInfo);
+    swapchain_ = device_.createSwapchainKHR(swapchainCreateInfo).value;
 
+    swapchainImageAfterPresentFences_.resize(swapchainImagesCount_);
     swapchainImageViews_.resize(swapchainImagesCount_);
 
-    auto swapchainImages = device_.getSwapchainImagesKHR(swapchain_);
+    swapchainImages_ = device_.getSwapchainImagesKHR(swapchain_).value;
     for (u32 i{}; i < swapchainImagesCount_; i++)
     {
         const auto imageViewCreateInfo = vk::ImageViewCreateInfo
         {
-        	.image = swapchainImages[i],
+        	.image = swapchainImages_[i],
             .viewType = vk::ImageViewType::e2D,
             .format = supportedFormat.format,
             .subresourceRange = vk::ImageSubresourceRange
@@ -465,9 +538,15 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
                 vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
             }
         };
-    	swapchainImageViews_[i] = device_.createImageView(imageViewCreateInfo);
+    	swapchainImageViews_[i] = device_.createImageView(imageViewCreateInfo).value;
+
+        swapchainImageAfterPresentFences_[i] = device_.createFence(vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled}).value;
     }
 
+    
+    readyToPresentSemaphore_ = device_.createSemaphore(vk::SemaphoreCreateInfo{}).value;
+
+    readyToRenderSemaphore_ = device_.createSemaphore(vk::SemaphoreCreateInfo{}).value;
 
 
     renderThreadId_ = std::this_thread::get_id();
@@ -489,6 +568,14 @@ void VulkanRenderInterface::deinitialize()
 
 void VulkanRenderInterface::nextFrame()
 {
+    currentFrame_++;
+
+    const auto nextFramesFence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
+
+
+    const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
+    device_.resetCommandPool(pool);
 }
 
 Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescriptor)
@@ -497,7 +584,160 @@ Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescr
 }
 
 Handle<Pipeline> VulkanRenderInterface::createPipeline(
-	const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroup>& bindGroups)
+	const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups)
 {
 	return {};
+}
+
+BindGroupLayout VulkanRenderInterface::allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
+{
+    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{};
+    auto bindingFlags = std::vector<vk::DescriptorBindingFlags>{};
+    bindings.resize(descriptor.bindings.size());
+    bindingFlags.resize(descriptor.bindings.size());
+    for(u32 i{}; i < bindings.size(); i++)
+    {
+        bindings[i].binding = descriptor.bindings[i].binding;
+        bindingFlags[i] = vk::DescriptorBindingFlagBits::eUpdateAfterBind;
+        if(std::holds_alternative<SimpleDeclaration>(descriptor.bindings[i].descriptor))
+        {
+            const auto simpleBinding = std::get<SimpleDeclaration>(descriptor.bindings[i].descriptor);
+            bindings[i].descriptorType = mapDescriptorType(simpleBinding.type);
+            bindings[i].descriptorCount = 1;
+        }
+        if (std::holds_alternative<ArrayDeclaration>(descriptor.bindings[i].descriptor))
+        {
+            const auto arrayBinding = std::get<ArrayDeclaration>(descriptor.bindings[i].descriptor);
+            bindings[i].descriptorType = mapDescriptorType(arrayBinding.type);
+            bindings[i].descriptorCount = arrayBinding.elementsCount;
+        }
+        if (std::holds_alternative<BindlessDeclaration>(descriptor.bindings[i].descriptor))
+        {
+            //TODO: this binding should be the last one in the descriptor set
+            const auto bindlessBinding = std::get<BindlessDeclaration>(descriptor.bindings[i].descriptor);
+            bindings[i].descriptorType = mapDescriptorType(bindlessBinding.type);
+            bindings[i].descriptorCount = bindlessBinding.maxDescriptorCount;
+            bindingFlags[i] = vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+        }
+        
+    }
+
+    //TODO: check for bindless feature
+
+    const auto createInfo = vk::StructureChain
+    {
+        vk::DescriptorSetLayoutCreateInfo
+        {
+            .flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
+            .bindingCount = static_cast<u32>(bindings.size()),
+            .pBindings = bindings.data()
+        },
+        vk::DescriptorSetLayoutBindingFlagsCreateInfo
+        {
+            .bindingCount = static_cast<u32>(bindings.size()),
+            .pBindingFlags = bindingFlags.data()
+        }
+    };
+
+
+
+    auto layout = device_.createDescriptorSetLayout(createInfo.get());
+
+    return {};
+}
+
+SwapchainImage VulkanRenderInterface::acquireNextSwapchainImage()
+{
+    const auto acquireInfo = vk::AcquireNextImageInfoKHR
+    {
+        .swapchain = swapchain_,
+        .timeout = ~0u,
+        .semaphore = readyToRenderSemaphore_,
+        .fence = VK_NULL_HANDLE,
+        .deviceMask = 1u
+    };
+
+    const auto nextImage = device_.acquireNextImage2KHR(acquireInfo).value;
+
+    const auto imageView = swapchainImageViews_[nextImage];
+    const auto image = swapchainImages_[nextImage];
+
+    currentImageIndex_ = nextImage;
+
+    return SwapchainImage
+    {
+        .image = std::make_unique<VulkanImage>(VulkanImage{.image = image }),
+        .view = std::make_unique<VulkanImageView>(VulkanImageView{.vulkanImageView = imageView })
+    };
+}
+
+void VulkanRenderInterface::present()
+{
+    auto imageIndices = std::array{ currentImageIndex_ };
+    auto results = std::array{ vk::Result{} };
+
+    const auto presentInfo = vk::PresentInfoKHR
+    {
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &readyToPresentSemaphore_,
+        .swapchainCount = 1,
+        .pSwapchains = &swapchain_,
+        .pImageIndices = imageIndices.data(),
+        .pResults = results.data()
+    };
+
+    //TODO: should be a present queue
+    const auto result = queues_[QueueType::graphics].queue.presentKHR(presentInfo);
+    assert(result == vk::Result::eSuccess);
+
+    device_.waitIdle();
+}
+
+void VulkanRenderInterface::submitCommandList(const std::unique_ptr<CommandList> commandList)
+{
+    const auto& vulkanCommandList = dynamic_cast<VulkanCommandList&>(*commandList);
+
+    vulkanCommandList.cmd_.end();
+
+    const auto queue = queues_[vulkanCommandList.ownedQueueType_].queue;
+
+
+    const auto commandBuffers = std::array
+	{
+        vk::CommandBufferSubmitInfo
+        {
+            .commandBuffer = vulkanCommandList.cmd_,
+            .deviceMask = 1
+        }
+
+    };
+
+    const auto signalSemaphoreSubmitInfo = vk::SemaphoreSubmitInfo
+    {
+        .semaphore = readyToPresentSemaphore_,
+        .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .deviceIndex = 0
+    };
+
+    const auto waitSemaphoreSubmitInfo = vk::SemaphoreSubmitInfo
+    {
+        .semaphore = readyToRenderSemaphore_,
+        .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .deviceIndex = 0
+    };
+
+    const auto submitInfo = vk::SubmitInfo2
+    {
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &waitSemaphoreSubmitInfo,
+        .commandBufferInfoCount = static_cast<u32>(commandBuffers.size()),
+        .pCommandBufferInfos = commandBuffers.data(),
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signalSemaphoreSubmitInfo
+
+    };
+    const auto fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    device_.resetFences(1, &fence);
+    const auto result = queue.submit2(1, &submitInfo, fence);
+    //assert(result == vk::Result::eSuccess);
 }

@@ -6,7 +6,7 @@
       "name": "sdl2",
       "features": [ "vulkan" ]
     },
-    
+    "cityhash",
     "imgui",
     "gtest",
     "glm",

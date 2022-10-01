@@ -1,9 +1,5 @@
 #pragma once
-
 #include "VulkanRenderInterface.h"
-
-using namespace toy::renderer;
-
 
 namespace toy::renderer::api::vulkan
 {
@@ -12,35 +8,21 @@ namespace toy::renderer::api::vulkan
 	class VulkanCommandList final: public CommandList
 	{
 	public:
-		void barrier(const std::initializer_list<BarrierDescriptor>& descriptions) override
-		{
+		VulkanCommandList(const VulkanCommandList& other) = delete;
+		VulkanCommandList(VulkanCommandList&& other) noexcept = default;
+		VulkanCommandList& operator=(const VulkanCommandList& other) = default;
+		VulkanCommandList& operator=(VulkanCommandList&& other) noexcept = default;
 
-		}
-		Handle<SplitBarrier> beginSplitBarrier(const BarrierDescriptor& description) override
-		{
-			return Handle<SplitBarrier>{};
-		}
-		void endSplitBarrier(Handle<SplitBarrier> barrier) override
-		{
+		explicit VulkanCommandList(vk::CommandBuffer commandBuffer, vk::CommandBufferLevel level, QueueType ownedQueueType);
+		~VulkanCommandList() override;
 
-		}
-		~VulkanCommandList() override
-		{
+		void barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors) override;
 
-		}
+		void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area)override;
+		void endRenderingInternal() override;
 
-		VulkanCommandList(vk::CommandBuffer commandBuffer, vk::CommandBufferLevel level):cmd_(commandBuffer), level_(level)
-		{
-			
-		}
-
-		void beginRendering(RenderingDescriptor description) override;
-
-		void endRendering() override;
 	private:
 		friend VulkanRenderInterface;
-
-		
 
 		vk::CommandBuffer cmd_;
 		vk::CommandBufferLevel level_;

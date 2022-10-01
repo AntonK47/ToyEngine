@@ -59,11 +59,70 @@ int Application::run()
             }
         }
 
-        renderer.nextFrame();
-        auto commandList = renderer.acquireCommandList(toy::renderer::QueueType::graphics, toy::renderer::CommandListType::primary);
-        commandList->barrier({});
+        {
+        	renderer.nextFrame();
+            using namespace toy::renderer;
 
+            const auto swapchainImage = renderer.acquireNextSwapchainImage();
 
+            auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
+         
+
+            commandList->barrier({
+                ImageBarrierDescriptor
+                {
+                    .srcLayout = Layout::Undefined,
+                    .dstLayout = Layout::Present,
+                    .image = swapchainImage.image.get()
+                }
+                });
+            
+            commandList->barrier({ 
+                ImageBarrierDescriptor
+            	{
+            		.srcLayout = Layout::Present,
+                    .dstLayout = Layout::ColorRenderTarget,
+                    .image = swapchainImage.image.get()
+            	}
+            });
+
+            const auto renderingDescriptor = RenderingDescriptor
+            {
+                .colorRenderTargets = {
+                    RenderTargetDescriptor
+                    {
+                        .renderTargetImageAccessor = swapchainImage.view.get(),
+                        .load = LoadOperation::clear,
+                        .store = StoreOperation::store,
+                        .resolveMode = ResolveMode::none,
+                        .clearValue = ColorClear{ 0.5, 0.1f, 0.2f, 0.5f }
+                    }
+                }
+            };
+
+            constexpr auto area = RenderArea{ 100,200,300,400 };
+
+            commandList->beginRendering(renderingDescriptor, area);
+
+            {
+	            //commandList->draw(...)
+            }
+
+            commandList->endRendering();
+
+            commandList->barrier({ 
+                ImageBarrierDescriptor
+            	{
+            		.srcLayout = Layout::ColorRenderTarget,
+            		.dstLayout = Layout::Present,
+                    .image = swapchainImage.image.get()
+            	}
+            });
+
+            renderer.submitCommandList(std::move(commandList));
+            renderer.present();
+        }
+        
 
         //==========================================
         using namespace toy::renderer;
@@ -96,37 +155,49 @@ int Application::run()
                 }
             },
             {
-                BindGroup
-                {
-                    .set = 0, //rename to bind frequency to make opaque set assignment??
-                    .bindings =
-                    {
-                        {
-                            .binding = 0,
-                            .uniform = UniformDeclaration{}
-                        },
-                        {
-                            .binding = 1,
-                            .sampler2D = Sampler2DDeclaration{}
-                        }
-                    }
-                },
-                BindGroup
-                {
-                    .set = 1,
-                    .bindings =
-                    {
-                        {
-                            .binding = 0,
-                            .bindlessArray = BindlessArrayDeclaration{}//?????
-                        }
-                    }
-                }
+                
             });
-        //bind groups can be shared across multiple pipelines, so I can use BindGroup caching????????????????????????????
 
-        // => so I need BindGroupDescriptor =D
 
+
+
+
+        
+
+
+
+
+
+
+
+
+        const auto group1 = BindGroupDescriptor
+        {
+            .bindings =
+            {
+                {
+                    .binding = 0,
+                    .descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
+                },
+                {
+                    .binding = 1,
+                    .descriptor = SimpleDeclaration{ BindingType::Texture2D }
+                }
+            }
+        };
+        const auto group2 = BindGroupDescriptor
+        {
+            .bindings =
+            {
+                {
+                    .binding = 0,
+                    .descriptor = BindlessDeclaration{ BindingType::Texture2D }
+                }
+            }
+        };
+
+
+        const auto group1Layout = renderer.allocateBindGroupLayout(group1);
         using Matrix = std::array<float, 9>;
 
         struct ViewData
@@ -134,6 +205,23 @@ int Application::run()
             int i;
             Matrix m;
         };
+
+
+        
+
+        auto view = renderer.allocateBindGroup(group1);
+        
+        auto cmd = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
+        
+        //cmd->bindGroup(view);
+        //cmd->setTextureSrv(view, 1);
+        
+
+        //bind groups can be shared across multiple pipelines, so I can use BindGroup caching????????????????????????????
+
+        // => so I need BindGroupDescriptor =D
+
+        
 
         struct MemoryCheck
         {
@@ -145,6 +233,75 @@ int Application::run()
     }
 
     renderer.deinitialize();
+
+
+    {
+        enum class BindingType
+        {
+	        Texture2D,
+            StorageBuffer
+        };
+
+        struct Binding
+        {
+	        toy::core::u32 binding;
+            BindingType type;
+        };
+        struct BindingGroupDescriptor
+        {
+            std::vector<Binding> bindings;
+        };
+        const auto a = BindingGroupDescriptor
+        {
+            {
+	            {
+	                .binding = 0,
+	                .type = BindingType::Texture2D
+	            },
+	            {
+	                .binding = 1,
+	                .type = BindingType::StorageBuffer
+	            }
+            }
+        };
+
+
+
+
+        struct SrvTexture2D{};
+        struct SrvStorageBuffer{};
+
+        struct MyStruct
+        {
+            SrvTexture2D a;
+            SrvStorageBuffer b;
+        };
+
+
+
+        struct A
+        {
+            using BindingGroupType = int;
+            BindingGroupDescriptor bgd;
+            
+        };
+
+
+#define BINDING_GROUP_DESCRIPTOR_FIELD(binding, type) \
+	Binding{ binding, BindingType::type }
+
+#define FIELDS
+
+#define BINDING_GROUP_DESCRIPTOR_FIELDS_0(binding, type, ...)
+#define BINDING_GROUP_DESCRIPTOR_FIELDS_N(binding, type, ...) \
+	BINDING_GROUP_DESCRIPTOR_FIELD(binding, type), BINDING_GROUP_DESCRIPTOR_FIELDS(##__VA_ARGS__)
+ 
+#define BINDING_GROUP_DESCRIPTOR(...) BindingGroupDescriptor{ { BINDING_GROUP_DESCRIPTOR_FIELDS(##__VA_ARGS__) }}
+#define DECLARE_BINDING_GROUP(...) BINDING_GROUP_DESCRIPTOR(##__VA_ARGS__);
+
+      /*  auto d = DECLARE_BINDING_GROUP(0, Texture2D)
+    	auto dd = BINDING_GROUP_DESCRIPTOR_FIELDS_N(0, Texture2D, 1, StorageBuffer);*/
+    }
 
     return EXIT_SUCCESS;
 }

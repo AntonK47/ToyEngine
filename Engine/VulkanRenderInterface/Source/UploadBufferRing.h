@@ -1,7 +1,7 @@
 #pragma once
 #include <mutex>
 
-#include "vk.h"
+#include "Vulkan.h"
 #include <vk_mem_alloc.h>
 
 #include "Structs.h"

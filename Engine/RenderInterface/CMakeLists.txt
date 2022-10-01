@@ -1,16 +1,18 @@
 set(MODULE_NAME RenderInterface)
 set(MODULE_SOURCES 
-	Source/RenderInterface.cpp
-)
+	"Source/RenderInterface.cpp"
+	"Source/BindGroupAllocator.cpp"
+	"Source/CommandListValidator.h"
+	"Source/CommandListValidator.cpp")
 set(MODULE_HEADERS 
-	Source/RenderInterface.h
-)
+	"Source/RenderInterface.h"
+	"Source/BindGroupAllocator.h")
 
 add_library(${MODULE_NAME}
 	STATIC
 		${MODULE_SOURCES}
 		${MODULE_HEADERS}
-)
+  )
 
 
 target_include_directories(${MODULE_NAME} 
