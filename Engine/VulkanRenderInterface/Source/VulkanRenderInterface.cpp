@@ -560,6 +560,24 @@ void VulkanRenderInterface::deinitialize()
 {
     device_.waitIdle();
 
+
+    for(const auto& [queueType, perFramePools]: renderThreadCommandPoolData_.perQueueType)
+    {
+	    for(const auto& perFrame: perFramePools)
+	    {
+            device_.destroyCommandPool(perFrame.commandPool);
+	    }
+    }
+
+    device_.destroySemaphore(readyToPresentSemaphore_);
+    device_.destroySemaphore(readyToRenderSemaphore_);
+
+    for (auto i = u32{}; i < maxDeferredFrames_; i++)
+    {
+        device_.destroyImageView(swapchainImageViews_[i]);
+        device_.destroyFence(swapchainImageAfterPresentFences_[i]);
+    }
+
     //TODO: destroy swapchain image views
     device_.destroySwapchainKHR(swapchain_);
     instance_.destroy(surface_);
