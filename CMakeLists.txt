@@ -2,15 +2,17 @@ cmake_minimum_required(VERSION 3.23)
 project(ToyEngine)
 
 
-OPTION(BUILD_TOY_ENGINE_MODULE_TESTS "Build module tests." ON)
-OPTION(TOY_ENGINE_ENABLE_VULKAN_VALIDATION "Enable Vulkan validation layer." ON)
-OPTION(TOY_ENGINE_ENABLE_GPU_PROFILING "Enable GPU profiling." OFF)
-OPTION(TOY_ENGINE_VULKAN_BACKEND "Enable Vulkan backend." ON)
+option(BUILD_TOY_ENGINE_MODULE_TESTS "Build module tests." on)
+option(TOY_ENGINE_ENABLE_VULKAN_VALIDATION "Enable Vulkan validation layer." on)
+option(TOY_ENGINE_ENABLE_GPU_PROFILING "Enable GPU profiling." off)
+option(TOY_ENGINE_VULKAN_BACKEND "Enable Vulkan backend." on)
+option(TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION "Enable renderer abstraction interface validation" on)
 
 set(TOY_ADDITIONAL_DEFINES
     TOY_ENGINE_ENABLE_GPU_PROFILING
     TOY_ENGINE_ENABLE_VULKAN_VALIDATION
     TOY_ENGINE_VULKAN_BACKEND
+    TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
 ) 
 
 foreach(TOY_DEFINE_ENTRY ${TOY_ADDITIONAL_DEFINES})

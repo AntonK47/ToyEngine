@@ -6,7 +6,7 @@ set(MODULE_SOURCES
 set(MODULE_HEADERS 
 	Source/CommonTypes.h
 	Source/Hash.h
-)
+ "Source/Common.h")
 
 
 add_library(${MODULE_NAME}

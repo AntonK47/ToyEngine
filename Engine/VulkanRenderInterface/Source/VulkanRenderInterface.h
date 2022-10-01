@@ -1,9 +1,5 @@
 #pragma once
 
-#if defined(_WIN32)
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
-
 #include <map>
 #include "Vulkan.h"
 #include <vk_mem_alloc.h>
@@ -78,26 +74,19 @@ namespace toy::renderer::api::vulkan
 		}
 
 	public:
-		Handle<renderer::Buffer> createBuffer(const BufferDescriptor& descriptor) override
-		{
-			return Handle<renderer::Buffer>{};
-		}
 		std::unique_ptr<CommandList> acquireCommandList(QueueType queueType, CommandListType commandListType) override;
 		
 
 		void initialize(RendererDescriptor descriptor) override;
 		void deinitialize() override;
 		void nextFrame() override;
-		Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) override;
-		Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription,
-			const std::vector<BindGroupDescriptor>& bindGroups) override;
+
 	private:
 		[[nodiscard]] BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) override;
 	public:
 		[[nodiscard]] SwapchainImage acquireNextSwapchainImage() override;
 		void present() override;
 		void submitCommandList(const std::unique_ptr<CommandList> commandList) override;
-
 
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;

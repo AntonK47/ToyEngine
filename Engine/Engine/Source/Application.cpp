@@ -1,22 +1,6 @@
 #include "Application.h"
-
-#if defined(__ANDROID__)
-#define VK_USE_PLATFORM_ANDROID_KHR
-#elif defined(__linux__)
-#define VK_USE_PLATFORM_XLIB_KHR
-#elif defined(_WIN32)
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
-
-#define NOMINMAX
-
-#include <iostream>
-#include <glm/glm.hpp>
-#include <SDL2/SDL.h>
 #include "VulkanRenderInterface.h"
 #include "SDLWindow.h"
-#include <fstream>
-
 
 
 int Application::run()
@@ -40,16 +24,7 @@ int Application::run()
     {
         window.pollEvents();
         const auto events = window.getEvents();
-        const auto io = window.getIO();
-
-        if (io.keyboardState.zero == toy::io::ButtonState::pressed)
-        {
-            std::cout << "zero button has been pressed!" << std::endl;
-        }
-        if (io.keyboardState.nine == toy::io::ButtonState::pressed)
-        {
-            std::cout << "9!" << std::endl;
-        }
+        [[maybe_unused]] const auto io = window.getIO();
 
         for (const auto event : events)
         {
@@ -125,117 +100,108 @@ int Application::run()
         
 
         //==========================================
-        using namespace toy::renderer;
-        //This function should also be multi threaded.
+		/*{
+			using namespace toy::renderer;
+			//This function should also be multi threaded.
 
-        const auto vertexShader = ShaderModule
-        {
-        };
+			const auto vertexShader = ShaderModule
+			{
+			};
 
-        const auto fragmentShader = ShaderModule
-        {
-        };
+			const auto fragmentShader = ShaderModule
+			{
+			};
 
-        auto someCoolProgram = renderer.createPipeline(
-            GraphicsPipelineDescriptor
-            {
-                ShaderModule{},
-                ShaderModule{},
-                RenderTargetsDescription
-                {
-                    .colorRenderTargets = std::initializer_list
-                    {
-                        ColorRenderTargetDescriptor{}
-                    },
-                    .depthRenderTarget = DepthRenderTargetDescriptor{},
-                    .stencilRenderTarget = StencilRenderTargetDescriptor{}
-                },
-                {
-                    .depthTestEnabled = true
-                }
-            },
-            {
-                
-            });
+			auto someCoolProgram = renderer.createPipeline(
+				GraphicsPipelineDescriptor
+				{
+					ShaderModule{},
+					ShaderModule{},
+					RenderTargetsDescription
+					{
+						.colorRenderTargets = std::initializer_list
+						{
+							ColorRenderTargetDescriptor{}
+						},
+						.depthRenderTarget = DepthRenderTargetDescriptor{},
+						.stencilRenderTarget = StencilRenderTargetDescriptor{}
+					},
+					{
+						.depthTestEnabled = true
+					}
+				},
+			{
 
-
-
+			});
 
 
-        
+			const auto group1 = BindGroupDescriptor
+			{
+				.bindings =
+				{
+					{
+						.binding = 0,
+						.descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
+					},
+					{
+						.binding = 1,
+						.descriptor = SimpleDeclaration{ BindingType::Texture2D }
+					}
+				}
+			};
+			const auto group2 = BindGroupDescriptor
+			{
+				.bindings =
+				{
+					{
+						.binding = 0,
+						.descriptor = BindlessDeclaration{ BindingType::Texture2D }
+					}
+				}
+			};
+
+
+			const auto group1Layout = renderer.allocateBindGroupLayout(group1);
+			using Matrix = std::array<float, 9>;
+
+			struct ViewData
+			{
+				int i;
+				Matrix m;
+			};
 
 
 
 
+			auto view = renderer.allocateBindGroup(group1);
+
+			auto cmd = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
+
+			//cmd->bindGroup(view);
+			//cmd->setTextureSrv(view, 1);
+
+
+			//bind groups can be shared across multiple pipelines, so I can use BindGroup caching????????????????????????????
+
+			// => so I need BindGroupDescriptor =D
 
 
 
+			struct MemoryCheck
+			{
+				ViewData view;
+			} bindGroup0Memory;
 
-        const auto group1 = BindGroupDescriptor
-        {
-            .bindings =
-            {
-                {
-                    .binding = 0,
-                    .descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
-                },
-                {
-                    .binding = 1,
-                    .descriptor = SimpleDeclaration{ BindingType::Texture2D }
-                }
-            }
-        };
-        const auto group2 = BindGroupDescriptor
-        {
-            .bindings =
-            {
-                {
-                    .binding = 0,
-                    .descriptor = BindlessDeclaration{ BindingType::Texture2D }
-                }
-            }
-        };
+			bindGroup0Memory.view = ViewData{ 1, {} };
 
-
-        const auto group1Layout = renderer.allocateBindGroupLayout(group1);
-        using Matrix = std::array<float, 9>;
-
-        struct ViewData
-        {
-            int i;
-            Matrix m;
-        };
-
-
-        
-
-        auto view = renderer.allocateBindGroup(group1);
-        
-        auto cmd = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
-        
-        //cmd->bindGroup(view);
-        //cmd->setTextureSrv(view, 1);
-        
-
-        //bind groups can be shared across multiple pipelines, so I can use BindGroup caching????????????????????????????
-
-        // => so I need BindGroupDescriptor =D
-
-        
-
-        struct MemoryCheck
-        {
-            ViewData view;
-        } bindGroup0Memory;
-
-        bindGroup0Memory.view = ViewData{ 1, {} };
+		}*/
 
     }
 
     renderer.deinitialize();
 
 
-    {
+    /*{
         enum class BindingType
         {
 	        Texture2D,
@@ -299,9 +265,9 @@ int Application::run()
 #define BINDING_GROUP_DESCRIPTOR(...) BindingGroupDescriptor{ { BINDING_GROUP_DESCRIPTOR_FIELDS(##__VA_ARGS__) }}
 #define DECLARE_BINDING_GROUP(...) BINDING_GROUP_DESCRIPTOR(##__VA_ARGS__);
 
-      /*  auto d = DECLARE_BINDING_GROUP(0, Texture2D)
-    	auto dd = BINDING_GROUP_DESCRIPTOR_FIELDS_N(0, Texture2D, 1, StorageBuffer);*/
-    }
+		//auto d = DECLARE_BINDING_GROUP(0, Texture2D)
+		//auto dd = BINDING_GROUP_DESCRIPTOR_FIELDS_N(0, Texture2D, 1, StorageBuffer);
+    }*/
 
     return EXIT_SUCCESS;
 }

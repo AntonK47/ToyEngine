@@ -1,8 +1,36 @@
 #pragma once
 #include <cstdint>
 
+
 namespace toy::core
 {
+	using FlagBits = uint32_t;
+
+	template<typename FlagBits>
+	struct Flags
+	{
+		explicit Flags(const FlagBits& bit)
+		{
+			*this |= (bit);
+		}
+
+		Flags& operator |=(const FlagBits& bit)
+		{
+			flags |= static_cast<uint32_t>(bit);
+			return *this;
+		}
+
+		[[nodiscard]] bool containBit(const FlagBits& bit) const
+		{
+			return static_cast<bool>(flags & static_cast<uint32_t>(bit));
+		}
+
+	private:
+		uint32_t flags{};
+	};
+
+
+
 	using u64 = uint64_t;
 	using u32 = uint32_t;
 	using u16 = uint16_t;

@@ -1,5 +1,6 @@
 #include "VulkanRenderInterface.h"
 
+
 #include <Windows.h>
 #include <iostream>
 #include <map>
@@ -578,16 +579,16 @@ void VulkanRenderInterface::nextFrame()
     device_.resetCommandPool(pool);
 }
 
-Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescriptor)
-{
-	return {};
-}
-
-Handle<Pipeline> VulkanRenderInterface::createPipeline(
-	const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups)
-{
-	return {};
-}
+//Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescriptor)
+//{
+//	return {};
+//}
+//
+//Handle<Pipeline> VulkanRenderInterface::createPipeline(
+//	const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups)
+//{
+//	return {};
+//}
 
 BindGroupLayout VulkanRenderInterface::allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
 {
