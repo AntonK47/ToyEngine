@@ -7,6 +7,8 @@
 #include <Windows.h>
 #include <vulkan/vulkan_profiles.hpp>
 
+#include "g3log/g3log.hpp"
+const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
 using namespace toy::renderer;
 using namespace api::vulkan;
 namespace
@@ -164,22 +166,17 @@ namespace
         //TODO: logging of a verbose and info messages should be moved to an another logger, maybe in a file logger.
         switch (static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity)) {
 
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:  // NOLINT(bugprone-branch-clone)
-                //std::cout << defaultColorSequence << "[Verbose]: " << pCallbackData->pMessage << std::endl;
-            return vk::Bool32{ false };
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:  
+            LOG(WARNING) << pCallbackData->pMessage;
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
-            //std::cout << infoColorSequence << "[Info]: " << pCallbackData->pMessage << std::endl;
-            return vk::Bool32{ false };
+            LOG(INFO) << pCallbackData->pMessage;
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
-            std::cout << warningColorSequence << "[Warning]: " << pCallbackData->pMessage << std::endl;
-            return vk::Bool32{ false };
+            LOG(WARNING) << pCallbackData->pMessage;
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
-            std::cout << errorColorSequence << "[Error]: " << pCallbackData->pMessage << std::endl;
+            LOG(VULKAN_VALIDATION_ERROR) << pCallbackData->pMessage;
             break;
         }
-
-        std::cout << defaultColorSequence;
-        std::cout << std::endl;
+        
 
         return vk::Bool32{ true };
     }
@@ -327,14 +324,7 @@ RenderThread::RenderThread()
 VulkanRenderInterface::~VulkanRenderInterface()
 {
   
-    for (u32 i{}; i < timelineSemaphorePerFrame_.size(); i++)
-    {
-        device_.destroySemaphore(timelineSemaphorePerFrame_[i]);
-    }
-
-    bufferPool_.clear();
-    vmaDestroyAllocator(allocator_);
-    device_.destroy();
+    
 }
 
 std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(QueueType queueType,
@@ -552,6 +542,14 @@ void VulkanRenderInterface::deinitializeInternal()
     //TODO: destroy swapchain image views
     device_.destroySwapchainKHR(swapchain_);
     instance_.destroy(surface_);
+    for (u32 i{}; i < timelineSemaphorePerFrame_.size(); i++)
+    {
+        device_.destroySemaphore(timelineSemaphorePerFrame_[i]);
+    }
+
+    bufferPool_.clear();
+    vmaDestroyAllocator(allocator_);
+    device_.destroy();
 }
 
 void VulkanRenderInterface::nextFrameInternal()

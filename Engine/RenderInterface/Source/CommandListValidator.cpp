@@ -1,5 +1,6 @@
 #include "CommandListValidator.h"
 #include "RenderInterface.h"
+#include <Logger.h>
 
 using namespace toy::renderer::validation;
 
@@ -8,7 +9,7 @@ bool CommandListValidator::validateBeginRendering(const RenderingDescriptor& des
 {
 	if (renderingHasStarted_)
 	{
-		//LOG("BeginRendering has been already called!");
+		LOG(VALIDATION_FAILED) << "BeginRendering has been already called!";
 		return false;
 	}
 	renderingHasStarted_ = true;
@@ -19,7 +20,7 @@ bool CommandListValidator::validateEndRendering()
 {
 	if (!renderingHasStarted_)
 	{
-		//LOG("BeginRendering should be called, before calling this function!");
+		LOG(VALIDATION_FAILED) << "BeginRendering should be called, before calling this function!";
 		return false;
 	}
 	renderingHasStarted_ = false;
