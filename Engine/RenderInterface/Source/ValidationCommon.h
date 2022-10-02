@@ -2,7 +2,7 @@
 #include <assert.h>
 namespace toy::renderer::validation
 {
-#define LOG(message)
+//#define LOG(message)
 #define TOY_ASSERT(expression) assert(expression)
 #define TOY_ASSERT_BREAK(expression) if(!(expression)) __debugbreak()
 

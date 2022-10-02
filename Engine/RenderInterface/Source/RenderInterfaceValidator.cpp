@@ -4,7 +4,7 @@ bool toy::renderer::validation::RenderInterfaceValidator::validateInitialize(con
 {
 	if(hasInitialized_)
 	{
-		LOG("This module is allredy initialized! Initialization function was called multiple times!");
+		//LOG("This module is allredy initialized! Initialization function was called multiple times!");
 
 		return false;
 	}
@@ -17,7 +17,7 @@ bool toy::renderer::validation::RenderInterfaceValidator::validateDeinitialize()
 {
 	if(!hasInitialized_)
 	{
-		LOG("This module has to be initialized first!");
+		//LOG("This module has to be initialized first!");
 		return false;
 	}
 	hasInitialized_ = false;

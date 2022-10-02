@@ -26,6 +26,15 @@ endforeach()
  find_package(GTest CONFIG REQUIRED)
  find_package(cityhash CONFIG REQUIRED)
 
+ include(FetchContent)
+FetchContent_Declare(
+  g3log
+  GIT_REPOSITORY https://github.com/KjellKod/g3log.git
+)
+set(G3_SHARED_RUNTIME OFF)
+set(G3_SHARED_LIB OFF)
+FetchContent_MakeAvailable(g3log)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(Engine)
