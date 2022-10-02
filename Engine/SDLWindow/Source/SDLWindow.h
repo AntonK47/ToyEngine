@@ -6,14 +6,16 @@
 
 namespace toy::window
 {
+    
     class SDLWindow final : public Window
     {
     public:
-        SDLWindow(core::u32 width, core::u32 height);
 
         void pollEvents() override;
 
         void resize(core::u32 width, core::u32 height) override;
+        void initializeInternal(const WindowDescriptor& descriptor) override;
+        void deinitializeInternal() override;
 
     private:
 
@@ -30,7 +32,7 @@ namespace toy::window
             return currentPolledEvents_;
         }
 
-        ~SDLWindow() override;
+        ~SDLWindow() override {}
 
     private:
         SDL_Window* window_;

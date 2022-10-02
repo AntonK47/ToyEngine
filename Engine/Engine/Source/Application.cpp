@@ -1,21 +1,36 @@
 #include "Application.h"
+
+#include <Logger.h>
+
 #include "VulkanRenderInterface.h"
 #include "SDLWindow.h"
+
+using namespace toy::renderer;
+using namespace toy::window;
+
 
 
 int Application::run()
 {
-    auto window = toy::window::SDLWindow{ 1280, 720 };
-    auto renderer = toy::renderer::api::vulkan::VulkanRenderInterface{};
+    logger::initialize();
+    auto window = SDLWindow{};
+    auto renderer = api::vulkan::VulkanRenderInterface{};
+    
 
-    const auto rendererDescriptor = toy::renderer::RendererDescriptor
+    window.initialize(toy::window::WindowDescriptor{ 1280, 720 });
+
+    const auto rendererDescriptor = RendererDescriptor
     {
         .version = 1,
         .instanceName = std::string{"ToyRenderer"},
         .handler = window.getWindowHandler(),
         .meta = window.getRendererMeta(),
-        .windowExtentGetter = [&window]() { return toy::renderer::Extent{ window.width(), window.height()}; }
+        .windowExtentGetter = [&window]()
+        {
+	        return Extent{ window.width(), window.height()};
+        }
     };
+
 
     renderer.initialize(rendererDescriptor);
 
@@ -28,7 +43,7 @@ int Application::run()
 
         for (const auto event : events)
         {
-            if (event == toy::window::Event::quit)
+            if (event == Event::quit)
             {
                 stillRunning = false;
             }
@@ -36,7 +51,6 @@ int Application::run()
 
         {
         	renderer.nextFrame();
-            using namespace toy::renderer;
 
             const auto swapchainImage = renderer.acquireNextSwapchainImage();
 
@@ -199,8 +213,8 @@ int Application::run()
     }
 
     renderer.deinitialize();
-
-
+    window.deinitialize();
+    logger::deinitialize();
     /*{
         enum class BindingType
         {

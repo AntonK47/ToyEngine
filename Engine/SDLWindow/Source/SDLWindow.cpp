@@ -6,7 +6,7 @@
 using namespace toy::window;
 using namespace toy::core;
 
-SDLWindow::SDLWindow(const u32 width, const u32 height) : Window(width, height)
+void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 {
     {
         auto result = SDL_Init(SDL_INIT_VIDEO);
@@ -68,7 +68,7 @@ void SDLWindow::resetPolledEventsAndIo()
     windowIo_.mouseState.reset();
 }
 
-SDLWindow::~SDLWindow()
+void SDLWindow::deinitializeInternal()
 {
     SDL_DestroyWindow(window_);
     SDL_Quit();

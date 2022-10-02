@@ -27,6 +27,12 @@ namespace toy::window
         quit
     };
 
+    struct WindowDescriptor
+    {
+        toy::core::u32 width;
+        toy::core::u32 height;
+    };
+
     class Window
     {
     public:
@@ -50,13 +56,30 @@ namespace toy::window
         [[nodiscard]] core::u32 width() const { return width_; }
         [[nodiscard]] core::u32 height() const { return height_; }
 
+
+        void initialize(const WindowDescriptor& descriptor);
+        void deinitialize();
+
     protected:
-        Window(const core::u32 width, const core::u32 height) : width_(width), height_(height)
-        {}
+        virtual void initializeInternal(const WindowDescriptor& descriptor) = 0;
+        virtual void deinitializeInternal() = 0;
 
         WindowHandler handler_{};
         BackendRendererMeta meta_{};
         core::u32 width_;
         core::u32 height_;
     };
+
+    inline void Window::initialize(const WindowDescriptor& descriptor)
+    {
+        width_ = descriptor.width;
+        height_ = descriptor.height;
+
+        initializeInternal(descriptor);
+    }
+
+    inline void Window::deinitialize()
+    {
+        deinitializeInternal();
+    }
 }
