@@ -27,6 +27,5 @@ namespace toy::renderer::validation
 
 	private:
 		bool renderingHasStarted_{ false };
-		//TODO: Logger???
 	};
 }

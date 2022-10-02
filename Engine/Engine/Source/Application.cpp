@@ -8,8 +8,6 @@
 using namespace toy::renderer;
 using namespace toy::window;
 
-
-
 int Application::run()
 {
     logger::initialize();
@@ -17,7 +15,7 @@ int Application::run()
     auto renderer = api::vulkan::VulkanRenderInterface{};
     
 
-    window.initialize(toy::window::WindowDescriptor{ 1280, 720 });
+    window.initialize(WindowDescriptor{ 1280, 720 });
 
     const auto rendererDescriptor = RendererDescriptor
     {
@@ -39,7 +37,7 @@ int Application::run()
     {
         window.pollEvents();
         const auto events = window.getEvents();
-        [[maybe_unused]] const auto io = window.getIO();
+        [[maybe_unused]] const auto io = window.getIo();
 
         for (const auto event : events)
         {

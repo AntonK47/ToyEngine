@@ -539,7 +539,6 @@ void VulkanRenderInterface::deinitializeInternal()
         device_.destroyFence(swapchainImageAfterPresentFences_[i]);
     }
 
-    //TODO: destroy swapchain image views
     device_.destroySwapchainKHR(swapchain_);
     instance_.destroy(surface_);
     for (u32 i{}; i < timelineSemaphorePerFrame_.size(); i++)

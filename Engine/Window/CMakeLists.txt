@@ -5,7 +5,8 @@ set(MODULE_HEADERS
 
 )
 set(MODULE_SOURCES
-	Source/IOStateReset.cpp)
+	Source/IOStateReset.cpp 
+	"Source/Window.cpp")
 
 add_library(${MODULE_NAME} 
 	STATIC

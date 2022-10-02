@@ -29,8 +29,8 @@ namespace toy::window
 
     struct WindowDescriptor
     {
-        toy::core::u32 width;
-        toy::core::u32 height;
+        core::u32 width;
+        core::u32 height;
     };
 
     class Window
@@ -38,10 +38,10 @@ namespace toy::window
     public:
         virtual ~Window() = default;
 
-        virtual void pollEvents() = 0;
-        [[nodiscard]] virtual std::vector<Event> getEvents() = 0;
-        [[nodiscard]] virtual io::WindowIo getIO() = 0;
-        virtual void resize(core::u32 width, core::u32 height) = 0;
+        void pollEvents();
+        [[nodiscard]] std::vector<Event> getEvents();
+        [[nodiscard]] io::WindowIo getIo();
+        void resize(core::u32 width, core::u32 height);
 
         [[nodiscard]] WindowHandler getWindowHandler() const
         {
@@ -64,22 +64,14 @@ namespace toy::window
         virtual void initializeInternal(const WindowDescriptor& descriptor) = 0;
         virtual void deinitializeInternal() = 0;
 
+        virtual void pollEventsInternal() = 0;
+        virtual [[nodiscard]] std::vector<Event> getEventsInternal() = 0;
+        virtual [[nodiscard]] io::WindowIo getIoInternal() = 0;
+        virtual void resizeInternal(core::u32 width, core::u32 height) = 0;
+
         WindowHandler handler_{};
         BackendRendererMeta meta_{};
-        core::u32 width_;
-        core::u32 height_;
+        core::u32 width_{};
+        core::u32 height_{};
     };
-
-    inline void Window::initialize(const WindowDescriptor& descriptor)
-    {
-        width_ = descriptor.width;
-        height_ = descriptor.height;
-
-        initializeInternal(descriptor);
-    }
-
-    inline void Window::deinitialize()
-    {
-        deinitializeInternal();
-    }
 }

@@ -1,4 +1,5 @@
 #include "SDLWindow.h"
+#include "SDL_events.h"
 
 using namespace toy::window;
 
@@ -8,7 +9,7 @@ if(event.key.keysym.sym == (sdlKey))\
 	windowIo_.keyboardState.var = io::ButtonState::pressed;\
 }
 
-void SDLWindow::pollEvents()
+void SDLWindow::pollEventsInternal()
 {
     resetPolledEventsAndIo();
     SDL_Event event;
