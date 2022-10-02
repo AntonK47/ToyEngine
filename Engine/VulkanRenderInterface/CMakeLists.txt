@@ -11,7 +11,8 @@ set(MODULE_SOURCES
 	Source/VulkanRenderInterface.cpp
 	Source/Vulkan.cpp
 	Source/UploadBufferRing.cpp
- "Source/VulkanCommandList.cpp" "Source/VulkanBindGroupAllocator.cpp")
+ "Source/VulkanCommandList.cpp" 
+ "Source/VulkanBindGroupAllocator.cpp")
 
 add_library(${MODULE_NAME} 
 	STATIC

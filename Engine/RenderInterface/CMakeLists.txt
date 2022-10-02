@@ -4,11 +4,15 @@ set(MODULE_SOURCES
 	"Source/BindGroupAllocator.cpp"
 	"Source/CommandListValidator.h"
 	"Source/CommandListValidator.cpp"
-	"Source/CommandList.cpp")
+	"Source/CommandList.cpp" 
+	"Source/RenderInterfaceValidator.h"
+	"Source/RenderInterfaceValidator.cpp" 
+	"Source/ValidationCommon.h")
 set(MODULE_HEADERS 
 	"Source/RenderInterface.h"
 	"Source/BindGroupAllocator.h"
-	"Source/CommandList.h" "Source/Resource.h")
+	"Source/CommandList.h" 
+	"Source/Resource.h")
 
 add_library(${MODULE_NAME}
 	STATIC

@@ -1,31 +1,19 @@
 #pragma once
-#include <assert.h>
+
 #include <initializer_list>
 #include <variant>
 
-#define LOG(message)
-#define TOY_ASSERT(expression) assert(expression)
-#define TOY_ASSERT_BREAK(expression) if(!(expression)) __debugbreak()
+#include "ValidationCommon.h"
 
-#ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
-#define DECLARE_VALIDATOR(type) type validatorObject_{}
-#define VALIDATE(expression) TOY_ASSERT_BREAK(validatorObject_.##expression)
-#else
-#define VALIDATE(expression)
-#define DECLARE_VALIDATOR(type)
-#endif
 
-namespace toy
+namespace toy::renderer
 {
-	namespace renderer
-	{
-		struct ImageBarrierDescriptor;
-		struct BufferBarrierDescriptor;
-		struct MemoryBarrierDescriptor;
-		struct RenderArea;
-		struct RenderingDescriptor;
-		using BarrierDescriptor = std::variant<ImageBarrierDescriptor, BufferBarrierDescriptor, MemoryBarrierDescriptor>;
-	}
+	struct ImageBarrierDescriptor;
+	struct BufferBarrierDescriptor;
+	struct MemoryBarrierDescriptor;
+	struct RenderArea;
+	struct RenderingDescriptor;
+	using BarrierDescriptor = std::variant<ImageBarrierDescriptor, BufferBarrierDescriptor, MemoryBarrierDescriptor>;
 }
 
 namespace toy::renderer::validation

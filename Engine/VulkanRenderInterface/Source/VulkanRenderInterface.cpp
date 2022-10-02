@@ -324,35 +324,6 @@ RenderThread::RenderThread()
 
 }
 
-VulkanRenderInterface::VulkanRenderInterface()
-{
-    /*
-     *  1.external vulkan extensions should be abstract
-     *      it some kind of interact with window system, like SDL2
-     *  2.fix dynamic vulkan dispatcher
-     *  3.make proper adapter selection
-     *  4.make proper device creation
-     *  5 error handling
-     */
-    
-
-    /*const auto semaphoreCreateInfo = vk::StructureChain
-    {
-        vk::SemaphoreCreateInfo{},
-        vk::SemaphoreTypeCreateInfo
-        {
-            .semaphoreType = vk::SemaphoreType::eTimeline,
-            .initialValue = 0
-        }
-    };
-    
-    timelineSemaphorePerFrame_.resize(maxDeferredFrames_);
-    for(u32 i{}; i < timelineSemaphorePerFrame_.size(); i++)
-    {
-	    timelineSemaphorePerFrame_[i] = device_.createSemaphore(semaphoreCreateInfo.get<vk::SemaphoreCreateInfo>());
-    }*/
-}
-
 VulkanRenderInterface::~VulkanRenderInterface()
 {
   
@@ -366,7 +337,7 @@ VulkanRenderInterface::~VulkanRenderInterface()
     device_.destroy();
 }
 
-std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandList(QueueType queueType,
+std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(QueueType queueType,
 	CommandListType commandListType)
 {
     assert(std::this_thread::get_id() == renderThreadId_);
@@ -383,7 +354,7 @@ std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandList(QueueType
     return std::make_unique<VulkanCommandList>(commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);
 }
 
-void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
+void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
 {
     auto extensions = std::vector<const char*>{};
     
@@ -556,7 +527,7 @@ void VulkanRenderInterface::initialize(RendererDescriptor descriptor)
 }
 
 
-void VulkanRenderInterface::deinitialize()
+void VulkanRenderInterface::deinitializeInternal()
 {
     device_.waitIdle();
 
@@ -583,7 +554,7 @@ void VulkanRenderInterface::deinitialize()
     instance_.destroy(surface_);
 }
 
-void VulkanRenderInterface::nextFrame()
+void VulkanRenderInterface::nextFrameInternal()
 {
     currentFrame_++;
 
@@ -663,7 +634,7 @@ BindGroupLayout VulkanRenderInterface::allocateBindGroupLayoutInternal(const Bin
     return {};
 }
 
-SwapchainImage VulkanRenderInterface::acquireNextSwapchainImage()
+SwapchainImage VulkanRenderInterface::acquireNextSwapchainImageInternal()
 {
     const auto acquireInfo = vk::AcquireNextImageInfoKHR
     {
@@ -688,7 +659,7 @@ SwapchainImage VulkanRenderInterface::acquireNextSwapchainImage()
     };
 }
 
-void VulkanRenderInterface::present()
+void VulkanRenderInterface::presentInternal()
 {
     auto imageIndices = std::array{ currentImageIndex_ };
     auto results = std::array{ vk::Result{} };
@@ -710,7 +681,7 @@ void VulkanRenderInterface::present()
     device_.waitIdle();
 }
 
-void VulkanRenderInterface::submitCommandList(const std::unique_ptr<CommandList> commandList)
+void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<CommandList> commandList)
 {
     const auto& vulkanCommandList = dynamic_cast<VulkanCommandList&>(*commandList);
 

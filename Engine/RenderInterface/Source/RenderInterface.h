@@ -7,6 +7,7 @@
 #include "BindGroupAllocator.h"
 #include "CommandList.h"
 #include "Resource.h"
+#include "RenderInterfaceValidator.h"
 
 namespace toy::renderer
 {
@@ -134,12 +135,27 @@ namespace toy::renderer
 	class RenderInterface
 	{
 	public:
-		virtual void initialize(RendererDescriptor descriptor) = 0;
-		virtual void deinitialize() = 0;
+		RenderInterface(const RenderInterface& other) = delete;
+		RenderInterface(RenderInterface&& other) noexcept = default;
 
+		RenderInterface& operator=(const RenderInterface& other) = default;
+		RenderInterface& operator=(RenderInterface&& other) noexcept = default;
+
+		RenderInterface() = default;
 		virtual ~RenderInterface() = default;
-		/*virtual Handle<Buffer> createBuffer(const BufferDescriptor& descriptor) = 0;*/
-		virtual std::unique_ptr<CommandList> acquireCommandList(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
+
+		void initialize(const RendererDescriptor& descriptor);
+		void deinitialize();
+
+
+		[[nodiscard]] std::unique_ptr<CommandList> acquireCommandList(QueueType queueType, CommandListType commandListType = CommandListType::primary);
+		void submitCommandList(std::unique_ptr<CommandList> commandList);
+		
+		void nextFrame();
+
+		[[nodiscard]] SwapchainImage acquireNextSwapchainImage();
+		void present();
+
 
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout);
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor);
@@ -148,23 +164,28 @@ namespace toy::renderer
 		//this function should be thread save????
 		//Do I need make multi threaded resource creation? It can depend on Frame Graph resource management.
 		//virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
-		//=================
-		virtual void nextFrame() = 0;
-		/*virtual void present();
-		virtual void waitForSwapchain();*/
 
 		//draft for pipeline creation
 		/*virtual Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups = {}) = 0;*/
 
+		/*virtual Handle<Buffer> createBuffer(const BufferDescriptor& descriptor) = 0;*/
+		//=================
+	protected:
+		virtual void initializeInternal(const RendererDescriptor& descriptor) = 0;
+		virtual void deinitializeInternal() = 0;
 
-		virtual [[nodiscard]] SwapchainImage/*Accessor<ImageResource>*/ acquireNextSwapchainImage() = 0;
+		virtual [[nodiscard]] SwapchainImage acquireNextSwapchainImageInternal() = 0;
 
-		virtual void submitCommandList(const std::unique_ptr<CommandList> commandList) = 0;
+		virtual std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
+		virtual void submitCommandListInternal(std::unique_ptr<CommandList> commandList) = 0;
 
-		virtual void present() = 0;
+		virtual void nextFrameInternal() = 0;
+		virtual void presentInternal() = 0;
 	private:
 		[[nodiscard]] virtual BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) = 0;
 		std::unordered_map<u64, BindGroupLayout> bindGroupLayoutCache_;
+
+		DECLARE_VALIDATOR(validation::RenderInterfaceValidator);
 	};
 
 	struct PipelineDescriptor
