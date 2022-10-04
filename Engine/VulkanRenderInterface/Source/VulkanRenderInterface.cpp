@@ -45,7 +45,7 @@ namespace
 
     vk::Format mapFormat(Format format)
     {
-        return vk::Format::eR8G8B8A8Srgb;
+        return vk::Format::eB8G8R8A8Unorm;
     }
 
     vk::DescriptorType mapDescriptorType(BindingType type)
@@ -763,129 +763,129 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
 std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const GraphicsPipelineDescriptor& descriptor, const std::vector<BindGroupDescriptor>& bindGroups)
 {
-    //auto cacheData = std::vector<u8>{};
-    //constexpr auto cacheSize = 1024;
-    //cacheData.resize(cacheSize);
+    auto cacheData = std::vector<u8>{};
+    constexpr auto cacheSize = 1024;
+    cacheData.resize(cacheSize);
 
-    //const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
-    //{
-    //    .flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized,
-    //    .initialDataSize = cacheSize,
-    //    .pInitialData = cacheData.data()
+    const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
+    {
+        //.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized,
+        .initialDataSize = cacheSize,
+        .pInitialData = cacheData.data()
 
-    //};
-    //const auto cache = device_.createPipelineCache(cacheCreateInfo).value;
+    };
+    const auto cache = device_.createPipelineCache(cacheCreateInfo).value;
 
 
 
-    //const auto colorRenderTargets = static_cast<u32>(descriptor.renderTargetDescriptor.colorRenderTargets.size());
-    //auto colorRenderTargetFormats = std::vector<vk::Format>{};
-    //colorRenderTargetFormats.resize(colorRenderTargets);
-    //for (auto i = u32{}; i < colorRenderTargets; i++)
-    //{
-    //    colorRenderTargetFormats[i] = mapFormat(descriptor.renderTargetDescriptor.colorRenderTargets[i].format);
-    //}
+    const auto colorRenderTargets = static_cast<u32>(descriptor.renderTargetDescriptor.colorRenderTargets.size());
+    auto colorRenderTargetFormats = std::vector<vk::Format>{};
+    colorRenderTargetFormats.resize(colorRenderTargets);
+    for (auto i = u32{}; i < colorRenderTargets; i++)
+    {
+        colorRenderTargetFormats[i] = mapFormat(descriptor.renderTargetDescriptor.colorRenderTargets[i].format);
+    }
 
-    //const auto hasDepthRenderTarget = descriptor.renderTargetDescriptor.depthRenderTarget.has_value();
-    //const auto hasStencilRenderTarget = descriptor.renderTargetDescriptor.stencilRenderTarget.has_value();
+    const auto hasDepthRenderTarget = descriptor.renderTargetDescriptor.depthRenderTarget.has_value();
+    const auto hasStencilRenderTarget = descriptor.renderTargetDescriptor.stencilRenderTarget.has_value();
 
-    //const auto stages = std::array
-    //{
-    //    vk::PipelineShaderStageCreateInfo
-    //    {
-    //        .stage = vk::ShaderStageFlagBits::eVertex,
-    //        //.module = vertShaderModule,
-    //        .pName = "main"
-    //    },
-    //    vk::PipelineShaderStageCreateInfo
-    //    {
-    //        .stage = vk::ShaderStageFlagBits::eFragment,
-    //        //.module = fragShaderModule,
-    //        .pName = "main"
-    //    }
-    //};
+    const auto stages = std::array
+    {
+        vk::PipelineShaderStageCreateInfo
+        {
+            .stage = vk::ShaderStageFlagBits::eVertex,
+            .module = static_cast<VulkanShaderModule*>(descriptor.vertexShader)->module,
+            .pName = "main"
+        },
+        vk::PipelineShaderStageCreateInfo
+        {
+            .stage = vk::ShaderStageFlagBits::eFragment,
+            .module = static_cast<VulkanShaderModule*>(descriptor.fragmentShader)->module,
+            .pName = "main"
+        }
+    };
 
-    //const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
-    //{
-    //};
-    //const auto pipelineLayout = device_.createPipelineLayout(layoutCreateInfo);
+    const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
+    {
+        .setLayoutCount = 0,
+        .pushConstantRangeCount = 0
+    };
+    const auto pipelineLayout = device_.createPipelineLayout(layoutCreateInfo).value;
 
-    //const auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
-    //const auto inputAssemblyState = vk::PipelineInputAssemblyStateCreateInfo
-    //{
-    //    .topology = vk::PrimitiveTopology::eTriangleList
-    //};
-    //auto viewportState = vk::PipelineViewportStateCreateInfo
-    //{
-    //    .viewportCount = 1,
-    //    .scissorCount = 1,
-    //};
-    //const auto rasterizationState = vk::PipelineRasterizationStateCreateInfo
-    //{
-    //    .polygonMode = vk::PolygonMode::eFill,
-    //    .cullMode = vk::CullModeFlagBits::eBack,
-    //    .frontFace = vk::FrontFace::eCounterClockwise,
-    //    .lineWidth = 1.0f
-    //};
-    //auto multisampleState = vk::PipelineMultisampleStateCreateInfo
-    //{
-    //    .rasterizationSamples = vk::SampleCountFlagBits::e1
-    //};
-    //auto colorAttachments = std::array
-    //{
-    //    vk::PipelineColorBlendAttachmentState
-    //    {
-    //        .colorWriteMask = vk::ColorComponentFlagBits::eA | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
-    //    }
-    //};
+    const auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
+    const auto inputAssemblyState = vk::PipelineInputAssemblyStateCreateInfo
+    {
+        .topology = vk::PrimitiveTopology::eTriangleList
+    };
+    auto viewportState = vk::PipelineViewportStateCreateInfo
+    {
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
+    const auto rasterizationState = vk::PipelineRasterizationStateCreateInfo
+    {
+        .polygonMode = vk::PolygonMode::eFill,
+        .cullMode = vk::CullModeFlagBits::eBack,
+        .frontFace = vk::FrontFace::eCounterClockwise,
+        .lineWidth = 1.0f
+    };
+    auto multisampleState = vk::PipelineMultisampleStateCreateInfo
+    {
+        .rasterizationSamples = vk::SampleCountFlagBits::e1
+    };
+    auto colorAttachments = std::array
+    {
+        vk::PipelineColorBlendAttachmentState
+        {
+            .colorWriteMask = vk::ColorComponentFlagBits::eA | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
+        }
+    };
 
-    //auto colorBlendState = vk::PipelineColorBlendStateCreateInfo
-    //{
-    //    .attachmentCount = static_cast<uint32_t>(colorAttachments.size()),
-    //    .pAttachments = colorAttachments.data()
-    //};
-    //auto dynamicStates = std::array
-    //{
-    //    vk::DynamicState::eScissor,
-    //    vk::DynamicState::eViewport
-    //};
-    //auto dynamicState = vk::PipelineDynamicStateCreateInfo
-    //{
-    //    .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
-    //    .pDynamicStates = dynamicStates.data()
-    //};
+    auto colorBlendState = vk::PipelineColorBlendStateCreateInfo
+    {
+        .attachmentCount = static_cast<uint32_t>(colorAttachments.size()),
+        .pAttachments = colorAttachments.data()
+    };
+    auto dynamicStates = std::array
+    {
+        vk::DynamicState::eScissor,
+        vk::DynamicState::eViewport
+    };
+    auto dynamicState = vk::PipelineDynamicStateCreateInfo
+    {
+        .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data()
+    };
 
-    //const auto pipelinesInfos = std::array
-    //{
-    //     vk::StructureChain
-    //    {
-    //        vk::GraphicsPipelineCreateInfo
-    //        {
-    //            .stageCount = static_cast<uint32_t>(stages.size()),
-    //            .pStages = stages.data(),
-    //            .pVertexInputState = &vertexInputState,
-    //            .pInputAssemblyState = &inputAssemblyState,
-    //            .pViewportState = &viewportState,
-    //            .pRasterizationState = &rasterizationState,
-    //            .pMultisampleState = &multisampleState,
-    //            .pColorBlendState = &colorBlendState,
-    //            .pDynamicState = &dynamicState,
-    //            //.layout = pipelineLayout,
-    //        },
-    //        vk::PipelineRenderingCreateInfo
-    //        {
-    //            .viewMask = 0,
-    //            .colorAttachmentCount = colorRenderTargets,
-    //            .pColorAttachmentFormats = colorRenderTargetFormats.data(),
-    //            .depthAttachmentFormat = hasDepthRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
-    //            .stencilAttachmentFormat = hasStencilRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.stencilRenderTarget.value().format) : vk::Format::eUndefined
-    //        }
-    //    }.get()
-    //};
+    const auto pipelinesInfo = 
+         vk::StructureChain
+        {
+            vk::GraphicsPipelineCreateInfo
+            {
+                .stageCount = static_cast<uint32_t>(stages.size()),
+                .pStages = stages.data(),
+                .pVertexInputState = &vertexInputState,
+                .pInputAssemblyState = &inputAssemblyState,
+                .pViewportState = &viewportState,
+                .pRasterizationState = &rasterizationState,
+                .pMultisampleState = &multisampleState,
+                .pColorBlendState = &colorBlendState,
+                .pDynamicState = &dynamicState,
+                .layout = pipelineLayout,
+            },
+            vk::PipelineRenderingCreateInfo
+            {
+                .viewMask = 0,
+                .colorAttachmentCount = colorRenderTargets,
+                .pColorAttachmentFormats = colorRenderTargetFormats.data(),
+                .depthAttachmentFormat = hasDepthRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
+                .stencilAttachmentFormat = hasStencilRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.stencilRenderTarget.value().format) : vk::Format::eUndefined
+            }
+        };
 
-    //const auto pipelines = device_.createGraphicsPipelines(cache, pipelinesInfos).value;
+    const auto pipeline = device_.createGraphicsPipeline(cache, pipelinesInfo.get()).value;
 
-    return std::make_unique<Pipeline>();
+    return std::make_unique<VulkanPipeline>(VulkanPipeline{ .pipeline = pipeline });
 }
 
 std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderStage stage,

@@ -54,10 +54,11 @@ int Application::run()
 
     renderer.initialize(rendererDescriptor);
 
+    auto pipeline = std::unique_ptr<Pipeline>{};
     //resource loading
     {
         const auto vertexShaderGlslCode = loadShaderFile("Resources/FullscreenQuadWithoutUniforms.vert");
-        const auto fragmentShaderGlslCode = loadShaderFile("Resources/Lit.frag");
+        const auto fragmentShaderGlslCode = loadShaderFile("Resources/HyperbolicPoincareWeave.frag");
 
         const auto vertexShaderInfo = GlslRuntimeCompiler::ShaderInfo
         {
@@ -94,7 +95,7 @@ int Application::run()
         const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, fragmentShaderSpirvCode });
 
 
-        const auto pipeline = renderer.createPipeline(
+        pipeline = renderer.createPipeline(
             GraphicsPipelineDescriptor
             {
                 .vertexShader = vertexShaderModule.get(),
@@ -173,12 +174,14 @@ int Application::run()
                 }
             };
 
-            constexpr auto area = RenderArea{ 100,200,300,400 };
+            constexpr auto area = RenderArea{ 0,0,1280,720 };
 
             commandList->beginRendering(renderingDescriptor, area);
 
             {
-	            //commandList->draw(...)
+                auto ref = Ref(pipeline.get());
+                commandList->bindPipeline(ref);
+                commandList->draw(3, 1, 0, 0);
             }
 
             commandList->endRendering();

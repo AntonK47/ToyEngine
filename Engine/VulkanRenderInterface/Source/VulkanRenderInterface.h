@@ -14,17 +14,17 @@ namespace toy::renderer::api::vulkan
 {
 	class VulkanRenderInterface;
 
-	struct VulkanImage final: ImageResource
+	struct VulkanImage final : ImageResource
 	{
 		vk::Image image;
 	};
 
-	struct VulkanImageView final: ImageView
+	struct VulkanImageView final : ImageView
 	{
 		vk::ImageView vulkanImageView;
 	};
 
-	struct VulkanShaderModule final: ShaderModule
+	struct VulkanShaderModule final : ShaderModule
 	{
 		vk::ShaderModule module;
 	};
@@ -41,22 +41,33 @@ namespace toy::renderer::api::vulkan
 		std::map<QueueType, std::vector<PerFrameCommandPoolData>> perQueueType;
 	};
 
+
+	struct VulkanPipeline final : Pipeline
+	{
+		vk::Pipeline pipeline;
+	};
+
 	struct UploadBufferRing;
 
-	class VulkanRenderInterface final: public RenderInterface
+	class VulkanRenderInterface final : public RenderInterface
 	{
 	public:
 		VulkanRenderInterface(const VulkanRenderInterface& other) = delete;
 		VulkanRenderInterface(VulkanRenderInterface&& other) noexcept = default;
-		VulkanRenderInterface& operator=(const VulkanRenderInterface& other) = default;
-		VulkanRenderInterface& operator=(VulkanRenderInterface&& other) noexcept = default;
+		VulkanRenderInterface& operator=(const VulkanRenderInterface& other)
+		= default;
+		VulkanRenderInterface& operator=(VulkanRenderInterface&& other) noexcept
+		= default;
 
 		explicit VulkanRenderInterface() = default;
 		~VulkanRenderInterface() override;
 
-		
+
 		void upload();
-		void upload(const Handle<Buffer>& dstBuffer, uint64_t dstOffset, void* data, uint64_t size);
+		void upload(const Handle<Buffer>& dstBuffer,
+		            uint64_t dstOffset,
+		            void* data,
+		            uint64_t size);
 
 		//UploadBufferRing& getUploadBufferRing() { return uploadBuffer_; }
 
@@ -71,24 +82,33 @@ namespace toy::renderer::api::vulkan
 			}
 			return bufferPool_.insert(resource);
 		}
-		std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType) override;
-		
+
+		std::unique_ptr<CommandList> acquireCommandListInternal(
+			QueueType queueType,
+			CommandListType commandListType) override;
+
 
 		void initializeInternal(const RendererDescriptor& descriptor) override;
 		void deinitializeInternal() override;
 		void nextFrameInternal() override;
 
-		[[nodiscard]] BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) override;
+		[[nodiscard]] BindGroupLayout allocateBindGroupLayoutInternal(
+			const BindGroupDescriptor& descriptor) override;
 
 	public:
-		[[nodiscard]] SwapchainImage acquireNextSwapchainImageInternal() override;
+		[[nodiscard]] SwapchainImage
+		acquireNextSwapchainImageInternal() override;
 		void presentInternal() override;
-		void submitCommandListInternal(const std::unique_ptr<CommandList> commandList) override;
+		void submitCommandListInternal(
+			const std::unique_ptr<CommandList> commandList) override;
+
 	protected:
 		[[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
 			const std::vector<BindGroupDescriptor>& bindGroups) override;
-		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(ShaderStage stage,
+
+		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(
+			ShaderStage stage,
 			const ShaderCode& code) override;
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
@@ -107,14 +127,13 @@ namespace toy::renderer::api::vulkan
 
 		//UploadBufferRing uploadBuffer_{};
 
-		static constexpr u32 maxCommandListsPerFrame_{ 10 };
-		static constexpr u32 maxDeferredFrames_{ 3 };
+		static constexpr u32 maxCommandListsPerFrame_{10};
+		static constexpr u32 maxDeferredFrames_{3};
 
 
-		u32 currentFrame_;
+		u32 currentFrame_{};
 		std::thread::id renderThreadId_;
 		PerThreadCommandPoolData renderThreadCommandPoolData_{};
-		
 
 
 		std::vector<vk::Semaphore> timelineSemaphorePerFrame_{};

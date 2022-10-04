@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <type_traits>
+#include <concepts>
 
 #include "CommandListValidator.h"
 #include "Common.h"
@@ -10,6 +12,23 @@ namespace toy::renderer
 {
 	struct ImageResource;
 	enum class QueueType;
+	struct Pipeline {};
+	struct Pipeline3 : Pipeline{};
+	template <typename T>
+	class Ref
+	{
+	public:
+		Ref(T* object) : object_{object}
+		{}
+
+		template <typename R>
+		[[nodiscard]] const R& Query() const
+		{
+			return *static_cast<const R*>(object_);
+		}
+	private:
+		T* object_{};
+	};
 
 	enum class Layout
 	{
@@ -137,11 +156,13 @@ namespace toy::renderer
 		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
 		void endRendering();
 
+		void bindPipeline(const Ref<Pipeline>& pipeline);
 
 		void draw(core::u32 vertexCount,
 			core::u32  instanceCount,
 			core::u32  firstVertex,
 			core::u32  firstInstance);
+
 	protected:
 
 		virtual void barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors) = 0;
@@ -153,6 +174,8 @@ namespace toy::renderer
 			core::u32  instanceCount,
 			core::u32  firstVertex,
 			core::u32  firstInstance) = 0;
+
+		virtual void bindPipelineInternal(const Ref<Pipeline>& pipeline) = 0;
 
 		QueueType ownedQueueType_{};
 

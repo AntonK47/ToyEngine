@@ -215,7 +215,17 @@ void api::vulkan::VulkanCommandList::endRenderingInternal()
 
 void api::vulkan::VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
 {
+	const auto scissor = vk::Rect2D{ {0,0},{1280, 720} };
+
+	const auto viewport = vk::Viewport{ 0.0,0.0,1280.0,720.0,0.0,1.0 };
+	cmd_.setScissor(0, 1, &scissor);
+	cmd_.setViewport(0, 1, &viewport);
 	cmd_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void api::vulkan::VulkanCommandList::bindPipelineInternal(const Ref<Pipeline>& pipeline)
+{
+	cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.Query<VulkanPipeline>().pipeline);
 }
 
 api::vulkan::VulkanCommandList::VulkanCommandList(vk::CommandBuffer commandBuffer,

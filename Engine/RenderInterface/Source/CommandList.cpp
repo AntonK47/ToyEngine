@@ -26,6 +26,11 @@ namespace toy::renderer
 		endRenderingInternal();
 	}
 
+	void CommandList::bindPipeline(const Ref<Pipeline>& pipeline)
+	{
+		bindPipelineInternal(pipeline);
+	}
+
 	void CommandList::draw(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
 	{
 		drawInternal(vertexCount, instanceCount, firstVertex, firstInstance);
@@ -35,7 +40,6 @@ namespace toy::renderer
 	{
 		//VALIDATE(beginRenderingValidation(descriptor));
 		//beginRendering(descriptor, descriptor.)
-
 	}
 
 }
