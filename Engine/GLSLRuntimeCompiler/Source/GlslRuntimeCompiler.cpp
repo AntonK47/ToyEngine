@@ -1,9 +1,10 @@
 #include "GlslRuntimeCompiler.h"
 #include <iostream>
 #include <sstream>
+#include <glslang/Include/glslang_c_interface.h>
 using namespace toy::renderer::compiler;
 
-
+#undef LOG
 #define LOG(severity, msg) std::cout << "[" << severity << "]: " << msg << std::endl
 
 namespace 
@@ -76,7 +77,7 @@ CompilationResult GlslRuntimeCompiler::preprocessGlslShader(const ShaderInfo& in
 
 
 CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, ShaderByteCode& byteCode)
-{
+{/*
 	glslang::InitializeProcess();
 	auto spirvStage = mapShaderStage(info.shaderStage);
 	auto shader = glslang::TShader{ spirvStage };
@@ -85,7 +86,7 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	shader.setStrings(&cstringChaderCode, 1);
 	shader.setEnvInput(glslang::EShSource::EShSourceGlsl, spirvStage,
 		glslang::EShClient::EShClientVulkan,
-		glslang::EShTargetClientVersion::EShTargetVulkan_1_3);
+		100);
 	
 	const auto preamble = buildShaderPreamble(info.compilationDefines);
 	shader.setPreamble(preamble.c_str());
@@ -125,6 +126,7 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 		spvOptions.disableOptimizer = false;
 		spvOptions.optimizeSize = true;//TODO: Need more research!
 	}
+	spvOptions.validate = true;
 
 	auto spirvLogger = spv::SpvBuildLogger{};
 	glslang::GlslangToSpv(*shader.getIntermediate(), byteCode, &spirvLogger, &spvOptions);
@@ -135,6 +137,69 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 		LOG("info", messages);
 	}
 	glslang::FinalizeProcess();
+*/
+	glslang_initialize_process();
+	const auto stage = static_cast<glslang_stage_t>(mapShaderStage(info.shaderStage));
+	const glslang_input_t input = {
+		.language = GLSLANG_SOURCE_GLSL,
+		.stage = stage,
+		.client = GLSLANG_CLIENT_VULKAN,
+		.client_version = GLSLANG_TARGET_VULKAN_1_3,
+		.target_language = GLSLANG_TARGET_SPV,
+		.target_language_version = GLSLANG_TARGET_SPV_1_6,
+		.code = info.shaderCode.data(),
+		.default_version = 460,
+		.default_profile = GLSLANG_NO_PROFILE,
+		.force_default_version_and_profile = false,
+		.forward_compatible = false,
+		.messages = GLSLANG_MSG_DEFAULT_BIT,
+		.resource = reinterpret_cast<const glslang_resource_t*>(&defaultTBuiltInResource_),
+	};
 
+	glslang_shader_t* shader = glslang_shader_create(&input);
+
+	if (!glslang_shader_preprocess(shader, &input)) {
+		printf("GLSL preprocessing failed %s\n", "aa.txt");
+		printf("%s\n", glslang_shader_get_info_log(shader));
+		printf("%s\n", glslang_shader_get_info_debug_log(shader));
+		printf("%s\n", input.code);
+		glslang_shader_delete(shader);
+		return CompilationResult::failed;
+	}
+
+	if (!glslang_shader_parse(shader, &input)) {
+		printf("GLSL parsing failed %s\n", "aa.txt");
+		printf("%s\n", glslang_shader_get_info_log(shader));
+		printf("%s\n", glslang_shader_get_info_debug_log(shader));
+		printf("%s\n", glslang_shader_get_preprocessed_code(shader));
+		glslang_shader_delete(shader);
+		return CompilationResult::failed;
+	}
+
+	glslang_program_t* program = glslang_program_create();
+	glslang_program_add_shader(program, shader);
+
+	if (!glslang_program_link(program, GLSLANG_MSG_SPV_RULES_BIT | GLSLANG_MSG_VULKAN_RULES_BIT)) {
+		printf("GLSL linking failed %s\n", "aa.txt");
+		printf("%s\n", glslang_program_get_info_log(program));
+		printf("%s\n", glslang_program_get_info_debug_log(program));
+		glslang_program_delete(program);
+		glslang_shader_delete(shader);
+		return CompilationResult::failed;
+	}
+
+	glslang_program_SPIRV_generate(program, stage);
+
+	byteCode.resize(glslang_program_SPIRV_get_size(program));
+	glslang_program_SPIRV_get(program, byteCode.data());
+
+	const char* spirv_messages = glslang_program_SPIRV_get_messages(program);
+	if (spirv_messages)
+		printf("(%s) %s\b", "aa.txt", spirv_messages);
+
+	glslang_program_delete(program);
+	glslang_shader_delete(shader);
+
+	glslang_finalize_process();
 	return CompilationResult::success;
 }
