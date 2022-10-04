@@ -5,8 +5,30 @@
 #include "VulkanRenderInterface.h"
 #include "SDLWindow.h"
 
+#include <GlslRuntimeCompiler.h>
+#include <fstream>
+
 using namespace toy::renderer;
 using namespace toy::window;
+using namespace compiler;
+
+namespace 
+{
+	std::string loadShaderFile(const std::string& filePath)
+	{
+        auto fileStream = std::ifstream{ filePath, std::ios::ate };
+        assert(fileStream.is_open());
+
+        const auto length = static_cast<uint32_t>(fileStream.tellg());
+        fileStream.seekg(0);
+
+        auto code = std::vector<char>{};
+        code.resize(length);
+
+        fileStream.read(code.data(), length);
+        return std::string{ code.data(), length };
+	}
+}
 
 int Application::run()
 {
@@ -31,6 +53,70 @@ int Application::run()
 
 
     renderer.initialize(rendererDescriptor);
+
+    //resource loading
+    {
+        const auto vertexShaderGlslCode = loadShaderFile("Resources/FullscreenQuadWithoutUniforms.vert");
+        const auto fragmentShaderGlslCode = loadShaderFile("Resources/Lit.frag");
+
+        const auto vertexShaderInfo = GlslRuntimeCompiler::ShaderInfo
+        {
+            .entryPoint = "main",
+            .compilationDefines = {},
+            .shaderStage = compiler::ShaderStage::vertex,
+            .shaderCode = vertexShaderGlslCode,
+            .enableDebugCompilation = false
+        };
+
+        const auto fragmentShaderInfo = GlslRuntimeCompiler::ShaderInfo
+        {
+            .entryPoint = "main",
+            .compilationDefines = {},
+            .shaderStage = compiler::ShaderStage::fragment,
+            .shaderCode = fragmentShaderGlslCode,
+            .enableDebugCompilation = false
+        };
+
+        auto vertexShaderSpirvCode = ShaderByteCode{};
+        auto fragmentShaderSpirvCode = ShaderByteCode{};
+
+        auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, vertexShaderSpirvCode);
+        assert(result == CompilationResult::success);
+
+        result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, fragmentShaderSpirvCode);
+        assert(result == CompilationResult::success);
+
+
+        
+
+        const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, vertexShaderSpirvCode });
+
+        const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, fragmentShaderSpirvCode });
+
+
+        const auto pipeline = renderer.createPipeline(
+            GraphicsPipelineDescriptor
+            {
+                .vertexShader = vertexShaderModule.get(),
+                .fragmentShader = fragmentShaderModule.get(),
+                .renderTargetDescriptor = RenderTargetsDescriptor
+                {
+                    .colorRenderTargets = std::initializer_list
+                    {
+                        ColorRenderTargetDescriptor{ Format::RGBA8 }
+                    }
+                },
+                .state = PipelineState
+                {
+                    .depthTestEnabled = true
+                }
+            },
+            {
+
+            });
+    }
+
+
 
     bool stillRunning = true;
     while (stillRunning)
