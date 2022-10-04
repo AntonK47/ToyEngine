@@ -52,9 +52,10 @@ namespace
 
 void toy::core::logger::initialize()
 {
+	//TODO: create the "Log" folder first.
 	worker = g3::LogWorker::createLogWorker();
 	auto consoleLoggerSinkHandle = worker->addSink(std::make_unique<ConsoleLoggerSink>(), &ConsoleLoggerSink::ReceiveLogMessage);
-	auto FileLoggerSinkHandler = worker->addSink(std::make_unique<g3::FileSink>("log", "./"), &g3::FileSink::fileWrite);
+	auto FileLoggerSinkHandler = worker->addSink(std::make_unique<g3::FileSink>("Log", "./Logs/"), &g3::FileSink::fileWrite);
 
 #ifdef G3_DYNAMIC_LOGGING
 
