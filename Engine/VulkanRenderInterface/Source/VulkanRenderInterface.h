@@ -24,6 +24,10 @@ namespace toy::renderer::api::vulkan
 		vk::ImageView vulkanImageView;
 	};
 
+	struct VulkanShaderModule final: ShaderModule
+	{
+		vk::ShaderModule module;
+	};
 
 	struct PerFrameCommandPoolData
 	{
@@ -67,8 +71,6 @@ namespace toy::renderer::api::vulkan
 			}
 			return bufferPool_.insert(resource);
 		}
-
-	public:
 		std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType) override;
 		
 
@@ -76,13 +78,18 @@ namespace toy::renderer::api::vulkan
 		void deinitializeInternal() override;
 		void nextFrameInternal() override;
 
-	private:
 		[[nodiscard]] BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) override;
+
 	public:
 		[[nodiscard]] SwapchainImage acquireNextSwapchainImageInternal() override;
 		void presentInternal() override;
 		void submitCommandListInternal(const std::unique_ptr<CommandList> commandList) override;
-
+	protected:
+		[[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(
+			const GraphicsPipelineDescriptor& descriptor,
+			const std::vector<BindGroupDescriptor>& bindGroups) override;
+		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(ShaderStage stage,
+			const ShaderCode& code) override;
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 

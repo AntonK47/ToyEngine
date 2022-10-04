@@ -20,7 +20,9 @@ namespace toy::renderer::api::vulkan
 
 		void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area)override;
 		void endRenderingInternal() override;
-
+	protected:
+		void drawInternal(u32 vertexCount, u32 instanceCount, u32 firstVertex,
+		                  u32 firstInstance) override;
 	private:
 		friend VulkanRenderInterface;
 

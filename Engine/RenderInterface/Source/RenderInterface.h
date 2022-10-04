@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <Window.h>
+#include <optional>
 
 #include "BindGroupAllocator.h"
 #include "CommandList.h"
@@ -82,14 +83,38 @@ namespace toy::renderer
 	struct RenderTarget {};
 	struct Texture {};
 
+	//TODO: move to shared struct definitions
+	enum class ShaderStage
+	{
+		vertex,
+		fragment,
+		geometry,
+		tessellationControl,
+		tessellationEvaluation,
+		task,
+		mesh,
+		anyHit,
+		closestHit,
+		miss,
+		rayGeneration,
+		intersection,
+	};
 	
+	using ShaderByteCode = std::vector<u32>;
 
-	
+	enum class ShaderLanguage
+	{
+		Spirv1_6
+	};
 
-	
+	struct ShaderCode
+	{
+		ShaderLanguage language;
+		ShaderByteCode code;
+	};
 
 
-	struct Pipeline {};
+	//struct Pipeline {};
 	struct ShaderModule {};
 
 	enum class Format
@@ -99,17 +124,26 @@ namespace toy::renderer
 		R11G11B10
 	};
 
+	using DepthFormat = Format;
+	using StencilFormat = Format;
+
 	struct ColorRenderTargetDescriptor
 	{
 		Format format;
 	};
-	struct DepthRenderTargetDescriptor {};
-	struct StencilRenderTargetDescriptor {};
-	struct RenderTargetsDescription
+	struct DepthRenderTargetDescriptor
+	{
+		DepthFormat format;
+	};
+	struct StencilRenderTargetDescriptor
+	{
+		StencilFormat format;
+	};
+	struct RenderTargetsDescriptor
 	{
 		std::vector<ColorRenderTargetDescriptor> colorRenderTargets;
-		DepthRenderTargetDescriptor depthRenderTarget;
-		StencilRenderTargetDescriptor stencilRenderTarget;
+		std::optional<DepthRenderTargetDescriptor> depthRenderTarget;
+		std::optional<StencilRenderTargetDescriptor> stencilRenderTarget;
 	};
 
 	struct PipelineState
@@ -119,9 +153,9 @@ namespace toy::renderer
 
 	struct GraphicsPipelineDescriptor
 	{
-		ShaderModule vertexShader;
-		ShaderModule fragmentShader;
-		RenderTargetsDescription renderTargetDescription;
+		ShaderModule* vertexShader;
+		ShaderModule* fragmentShader;
+		RenderTargetsDescriptor renderTargetDescriptor;
 		PipelineState state{};
 	};
 
@@ -166,7 +200,9 @@ namespace toy::renderer
 		//virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
 
 		//draft for pipeline creation
-		/*virtual Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups = {}) = 0;*/
+		[[nodiscard]] std::unique_ptr<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescriptor, const std::vector<BindGroupDescriptor>& bindGroups = {});
+
+		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModule(ShaderStage stage, const ShaderCode& code);
 
 		/*virtual Handle<Buffer> createBuffer(const BufferDescriptor& descriptor) = 0;*/
 		//=================
@@ -176,8 +212,12 @@ namespace toy::renderer
 
 		virtual [[nodiscard]] SwapchainImage acquireNextSwapchainImageInternal() = 0;
 
-		virtual std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
-		virtual void submitCommandListInternal(std::unique_ptr<CommandList> commandList) = 0;
+		virtual [[nodiscard]] std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
+		virtual [[nodiscard]] void submitCommandListInternal(std::unique_ptr<CommandList> commandList) = 0;
+
+		virtual [[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(const GraphicsPipelineDescriptor& descriptor, const std::vector<BindGroupDescriptor>& bindGroups) = 0;
+
+		virtual [[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(ShaderStage stage, const ShaderCode& code) = 0;
 
 		virtual void nextFrameInternal() = 0;
 		virtual void presentInternal() = 0;

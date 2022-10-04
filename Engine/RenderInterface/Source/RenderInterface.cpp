@@ -72,30 +72,15 @@ namespace toy::renderer
 		return groupLayout;
 	}
 
-	CommandList::CommandList(const QueueType queueType): ownedQueueType_(queueType)
-	{  }
-
-	void CommandList::barrier(const std::initializer_list<BarrierDescriptor>& descriptors)
+	std::unique_ptr<Pipeline> RenderInterface::createPipeline(
+		const GraphicsPipelineDescriptor& descriptor,
+		const std::vector<BindGroupDescriptor>& bindGroups)
 	{
-		VALIDATE(validateBarrier(descriptors));
-		barrierInternal(descriptors);
+		return createPipelineInternal(descriptor, bindGroups);
 	}
 
-	void CommandList::beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area)
+	std::unique_ptr<ShaderModule> RenderInterface::createShaderModule(ShaderStage stage, const ShaderCode& code)
 	{
-		VALIDATE(validateBeginRendering(descriptor, area));
-		beginRenderingInternal(descriptor, area);
-	}
-
-	void CommandList::endRendering()
-	{
-		VALIDATE(validateEndRendering());
-		endRenderingInternal();
-	}
-
-	void CommandList::beginRendering(const RenderingDescriptor& descriptor)
-	{
-		//VALIDATE(beginRenderingValidation(descriptor));
-		//beginRendering(descriptor, descriptor.)
+		return createShaderModuleInternal(stage, code);
 	}
 }

@@ -6,6 +6,7 @@
 #include <VulkanCommandList.h>
 #include <Windows.h>
 #include <vulkan/vulkan_profiles.hpp>
+#include <fstream>
 
 #include "g3log/g3log.hpp"
 const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
@@ -14,6 +15,38 @@ using namespace api::vulkan;
 namespace
 {
 #define MAP_FLAG_BIT(srcFlag, srcFlagBit, dstFlag, dstFlagBit) if (srcFlag.containBit(srcFlagBit)) { dstFlag |= dstFlagBit; }
+
+
+    vk::ShaderModule loadShader(const vk::Device device, const std::string& path)
+    {
+        auto length = uint32_t{};
+        auto buffer = static_cast<char*>(nullptr);
+        {
+            using namespace std::string_literals;
+            const auto filePath = path;
+            auto fileStream = std::ifstream{ filePath, std::ios::binary | std::ios::ate };
+            assert(fileStream.is_open());
+            length = static_cast<uint32_t>(fileStream.tellg());
+            fileStream.seekg(0);
+
+            buffer = new char[length];
+            fileStream.read(buffer, length);
+            fileStream.close();
+        }
+
+        const auto moduleCreateInfo = vk::ShaderModuleCreateInfo
+        {
+            .codeSize = static_cast<size_t>(length),
+            .pCode = reinterpret_cast<const uint32_t*>(buffer)
+        };
+
+        return device.createShaderModule(moduleCreateInfo).value;
+    }
+
+    vk::Format mapFormat(Format format)
+    {
+        return vk::Format::eR8G8B8A8Srgb;
+    }
 
     vk::DescriptorType mapDescriptorType(BindingType type)
     {
@@ -725,4 +758,148 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
     device_.resetFences(1, &fence);
     const auto result = queue.submit2(1, &submitInfo, fence);
     //assert(result == vk::Result::eSuccess);
+}
+
+std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
+	const GraphicsPipelineDescriptor& descriptor, const std::vector<BindGroupDescriptor>& bindGroups)
+{
+    //auto cacheData = std::vector<u8>{};
+    //constexpr auto cacheSize = 1024;
+    //cacheData.resize(cacheSize);
+
+    //const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
+    //{
+    //    .flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized,
+    //    .initialDataSize = cacheSize,
+    //    .pInitialData = cacheData.data()
+
+    //};
+    //const auto cache = device_.createPipelineCache(cacheCreateInfo).value;
+
+
+
+    //const auto colorRenderTargets = static_cast<u32>(descriptor.renderTargetDescriptor.colorRenderTargets.size());
+    //auto colorRenderTargetFormats = std::vector<vk::Format>{};
+    //colorRenderTargetFormats.resize(colorRenderTargets);
+    //for (auto i = u32{}; i < colorRenderTargets; i++)
+    //{
+    //    colorRenderTargetFormats[i] = mapFormat(descriptor.renderTargetDescriptor.colorRenderTargets[i].format);
+    //}
+
+    //const auto hasDepthRenderTarget = descriptor.renderTargetDescriptor.depthRenderTarget.has_value();
+    //const auto hasStencilRenderTarget = descriptor.renderTargetDescriptor.stencilRenderTarget.has_value();
+
+    //const auto stages = std::array
+    //{
+    //    vk::PipelineShaderStageCreateInfo
+    //    {
+    //        .stage = vk::ShaderStageFlagBits::eVertex,
+    //        //.module = vertShaderModule,
+    //        .pName = "main"
+    //    },
+    //    vk::PipelineShaderStageCreateInfo
+    //    {
+    //        .stage = vk::ShaderStageFlagBits::eFragment,
+    //        //.module = fragShaderModule,
+    //        .pName = "main"
+    //    }
+    //};
+
+    //const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
+    //{
+    //};
+    //const auto pipelineLayout = device_.createPipelineLayout(layoutCreateInfo);
+
+    //const auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
+    //const auto inputAssemblyState = vk::PipelineInputAssemblyStateCreateInfo
+    //{
+    //    .topology = vk::PrimitiveTopology::eTriangleList
+    //};
+    //auto viewportState = vk::PipelineViewportStateCreateInfo
+    //{
+    //    .viewportCount = 1,
+    //    .scissorCount = 1,
+    //};
+    //const auto rasterizationState = vk::PipelineRasterizationStateCreateInfo
+    //{
+    //    .polygonMode = vk::PolygonMode::eFill,
+    //    .cullMode = vk::CullModeFlagBits::eBack,
+    //    .frontFace = vk::FrontFace::eCounterClockwise,
+    //    .lineWidth = 1.0f
+    //};
+    //auto multisampleState = vk::PipelineMultisampleStateCreateInfo
+    //{
+    //    .rasterizationSamples = vk::SampleCountFlagBits::e1
+    //};
+    //auto colorAttachments = std::array
+    //{
+    //    vk::PipelineColorBlendAttachmentState
+    //    {
+    //        .colorWriteMask = vk::ColorComponentFlagBits::eA | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
+    //    }
+    //};
+
+    //auto colorBlendState = vk::PipelineColorBlendStateCreateInfo
+    //{
+    //    .attachmentCount = static_cast<uint32_t>(colorAttachments.size()),
+    //    .pAttachments = colorAttachments.data()
+    //};
+    //auto dynamicStates = std::array
+    //{
+    //    vk::DynamicState::eScissor,
+    //    vk::DynamicState::eViewport
+    //};
+    //auto dynamicState = vk::PipelineDynamicStateCreateInfo
+    //{
+    //    .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+    //    .pDynamicStates = dynamicStates.data()
+    //};
+
+    //const auto pipelinesInfos = std::array
+    //{
+    //     vk::StructureChain
+    //    {
+    //        vk::GraphicsPipelineCreateInfo
+    //        {
+    //            .stageCount = static_cast<uint32_t>(stages.size()),
+    //            .pStages = stages.data(),
+    //            .pVertexInputState = &vertexInputState,
+    //            .pInputAssemblyState = &inputAssemblyState,
+    //            .pViewportState = &viewportState,
+    //            .pRasterizationState = &rasterizationState,
+    //            .pMultisampleState = &multisampleState,
+    //            .pColorBlendState = &colorBlendState,
+    //            .pDynamicState = &dynamicState,
+    //            //.layout = pipelineLayout,
+    //        },
+    //        vk::PipelineRenderingCreateInfo
+    //        {
+    //            .viewMask = 0,
+    //            .colorAttachmentCount = colorRenderTargets,
+    //            .pColorAttachmentFormats = colorRenderTargetFormats.data(),
+    //            .depthAttachmentFormat = hasDepthRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
+    //            .stencilAttachmentFormat = hasStencilRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.stencilRenderTarget.value().format) : vk::Format::eUndefined
+    //        }
+    //    }.get()
+    //};
+
+    //const auto pipelines = device_.createGraphicsPipelines(cache, pipelinesInfos).value;
+
+    return std::make_unique<Pipeline>();
+}
+
+std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderStage stage,
+	const ShaderCode& code)
+{
+    const auto moduleCreateInfo = vk::ShaderModuleCreateInfo
+    {
+        .codeSize = code.code.size()*4,
+        .pCode = code.code.data()
+    };
+    const auto result = device_.createShaderModule(moduleCreateInfo);
+
+
+    LOG_IF(FATAL, result.result != vk::Result::eSuccess) << "Shader module creation failed!";
+
+    return std::make_unique<VulkanShaderModule>(VulkanShaderModule{.module = result.value});
 }

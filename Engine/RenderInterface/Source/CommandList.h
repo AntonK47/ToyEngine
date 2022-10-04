@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <memory>
 
 #include "CommandListValidator.h"
 #include "Common.h"
@@ -135,12 +136,23 @@ namespace toy::renderer
 		void beginRendering(const RenderingDescriptor& descriptor);
 		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
 		void endRendering();
+
+
+		void draw(core::u32 vertexCount,
+			core::u32  instanceCount,
+			core::u32  firstVertex,
+			core::u32  firstInstance);
 	protected:
 
 		virtual void barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors) = 0;
 
 		virtual void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area) = 0;
 		virtual void endRenderingInternal() = 0;
+
+		virtual void drawInternal(core::u32 vertexCount,
+			core::u32  instanceCount,
+			core::u32  firstVertex,
+			core::u32  firstInstance) = 0;
 
 		QueueType ownedQueueType_{};
 

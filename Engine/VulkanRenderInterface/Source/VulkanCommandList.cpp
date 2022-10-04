@@ -44,96 +44,6 @@ namespace
 	{
 		return false;
 	}
-
-	vk::ShaderModule createShaderModule(const vk::Device device)
-	{
-		const auto moduleCreateInfo = vk::ShaderModuleCreateInfo
-		{
-
-		};
-		return device.createShaderModule(moduleCreateInfo).value;
-	}
-
-	vk::Pipeline createGraphicsPipeline(const vk::Device device)
-	{
-		auto vertexModule = vk::ShaderModule{};
-		auto fragmentModule = vk::ShaderModule{};
-
-		const auto stages = std::array
-		{
-			vk::PipelineShaderStageCreateInfo
-			{
-				.stage = vk::ShaderStageFlagBits::eVertex,
-				.module = vertexModule,
-				.pName = "main",
-				.pSpecializationInfo = nullptr
-			},
-			vk::PipelineShaderStageCreateInfo
-			{
-				.stage = vk::ShaderStageFlagBits::eFragment,
-				.module = fragmentModule,
-				.pName = "main",
-				.pSpecializationInfo = nullptr
-			}
-		};
-
-		const auto inputAssemblyState = vk::PipelineInputAssemblyStateCreateInfo
-		{
-			.topology = vk::PrimitiveTopology::eTriangleList
-		};
-
-		const auto rasterizationState = vk::PipelineRasterizationStateCreateInfo
-		{
-
-		};
-
-		const auto dynamicStates = std::array
-		{
-			vk::DynamicState::eDepthTestEnable
-		};
-
-		const auto dynamicState = vk::PipelineDynamicStateCreateInfo
-		{
-			.dynamicStateCount = dynamicStates.size(),
-			.pDynamicStates = dynamicStates.data()
-		};
-
-
-		const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
-		{
-
-		};
-
-		const auto pipelineLayout = device.createPipelineLayout(layoutCreateInfo).value;
-
-		const auto pipelineCreateInfo = vk::StructureChain
-		{
-			vk::GraphicsPipelineCreateInfo
-			{
-				.stageCount = stages.size(),
-				.pStages = stages.data(),
-				.pVertexInputState = nullptr,
-				.pInputAssemblyState = &inputAssemblyState,
-				.pTessellationState = nullptr,
-				.pViewportState = nullptr,
-				.pRasterizationState = &rasterizationState,
-				.pMultisampleState = nullptr,
-				.pDepthStencilState = nullptr,
-				.pColorBlendState = nullptr,
-				.pDynamicState = &dynamicState,
-				.layout = pipelineLayout,
-			},
-			vk::PipelineRenderingCreateInfo
-			{
-
-			}
-
-		};
-
-		auto pipelineCache = vk::PipelineCache{};
-
-		return device.createGraphicsPipeline(pipelineCache, pipelineCreateInfo.get()).value;
-	}
 }
 
 api::vulkan::VulkanCommandList::~VulkanCommandList()
@@ -303,6 +213,11 @@ void api::vulkan::VulkanCommandList::endRenderingInternal()
 	cmd_.endRendering();
 }
 
-toy::renderer::api::vulkan::VulkanCommandList::VulkanCommandList(vk::CommandBuffer commandBuffer,
-	vk::CommandBufferLevel level, QueueType ownedQueueType): CommandList(ownedQueueType), cmd_(commandBuffer), level_(level)
+void api::vulkan::VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
+{
+	cmd_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+api::vulkan::VulkanCommandList::VulkanCommandList(vk::CommandBuffer commandBuffer,
+                                                  vk::CommandBufferLevel level, QueueType ownedQueueType): CommandList(ownedQueueType), cmd_(commandBuffer), level_(level)
 {}
