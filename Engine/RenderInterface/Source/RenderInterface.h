@@ -151,10 +151,12 @@ namespace toy::renderer
 		bool depthTestEnabled;
 	};
 
+	using ShaderModuleRef = Ref<ShaderModule>;
+
 	struct GraphicsPipelineDescriptor
 	{
-		ShaderModule* vertexShader;
-		ShaderModule* fragmentShader;
+		ShaderModuleRef vertexShader;
+		ShaderModuleRef fragmentShader;
 		RenderTargetsDescriptor renderTargetDescriptor;
 		PipelineState state{};
 	};
@@ -189,7 +191,6 @@ namespace toy::renderer
 
 		[[nodiscard]] SwapchainImage acquireNextSwapchainImage();
 		void present();
-
 
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout);
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor);

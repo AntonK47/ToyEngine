@@ -1,28 +1,24 @@
 #pragma once
 #include <vector>
-#include <memory>
-#include <type_traits>
-#include <concepts>
 
 #include "CommandListValidator.h"
-#include "Common.h"
 #include "Resource.h"
+#include "RenderInterfaceCommonTypes.h"
 
 namespace toy::renderer
 {
 	struct ImageResource;
 	enum class QueueType;
 	struct Pipeline {};
-	struct Pipeline3 : Pipeline{};
 	template <typename T>
 	class Ref
 	{
 	public:
-		Ref(T* object) : object_{object}
+		explicit Ref(T* object) : object_{object}
 		{}
 
 		template <typename R>
-		[[nodiscard]] const R& Query() const
+		[[nodiscard]] const R& query() const
 		{
 			return *static_cast<const R*>(object_);
 		}
@@ -129,13 +125,7 @@ namespace toy::renderer
 		RenderTargetDescriptor stencilRenderTarget{};
 	};
 
-	struct RenderArea
-	{
-		core::i32 x;
-		core::i32 y;
-		core::u32 width;
-		core::u32 height;
-	};
+	
 
 	class CommandList
 	{
@@ -157,7 +147,8 @@ namespace toy::renderer
 		void endRendering();
 
 		void bindPipeline(const Ref<Pipeline>& pipeline);
-
+		void setScissor(const Scissor& scissor);
+		void setViewport(const Viewport& viewport);
 		void draw(core::u32 vertexCount,
 			core::u32  instanceCount,
 			core::u32  firstVertex,
@@ -177,9 +168,13 @@ namespace toy::renderer
 
 		virtual void bindPipelineInternal(const Ref<Pipeline>& pipeline) = 0;
 
+		virtual void setScissorInternal(const Scissor& scissor) = 0;
+		virtual void setViewportInternal(const Viewport& viewport) = 0;
+
 		QueueType ownedQueueType_{};
 
 	private:
-		DECLARE_VALIDATOR(validation::CommandListValidator);
+		toy::renderer::validation::CommandListValidator validatorObject_;
+		//DECLARE_VALIDATOR(validation::CommandListValidator);
 	};
 }

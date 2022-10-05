@@ -55,6 +55,7 @@ int Application::run()
     renderer.initialize(rendererDescriptor);
 
     auto pipeline = std::unique_ptr<Pipeline>{};
+    
     //resource loading
     {
         const auto vertexShaderGlslCode = loadShaderFile("Resources/FullscreenQuadWithoutUniforms.vert");
@@ -98,8 +99,8 @@ int Application::run()
         pipeline = renderer.createPipeline(
             GraphicsPipelineDescriptor
             {
-                .vertexShader = vertexShaderModule.get(),
-                .fragmentShader = fragmentShaderModule.get(),
+                .vertexShader = Ref(vertexShaderModule.get()),
+                .fragmentShader = Ref(fragmentShaderModule.get()),
                 .renderTargetDescriptor = RenderTargetsDescriptor
                 {
                     .colorRenderTargets = std::initializer_list
@@ -116,7 +117,7 @@ int Application::run()
 
             });
     }
-
+    const auto myTestPipeline = Ref(pipeline.get());
 
 
     bool stillRunning = true;
@@ -139,6 +140,7 @@ int Application::run()
 
             const auto swapchainImage = renderer.acquireNextSwapchainImage();
 
+            //TODO: maybe I should use ref instead of unique_ptr?
             auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
          
 
@@ -174,13 +176,18 @@ int Application::run()
                 }
             };
 
-            constexpr auto area = RenderArea{ 0,0,1280,720 };
+            constexpr auto area = toy::RenderArea{ 0,0,1280,720 };
 
             commandList->beginRendering(renderingDescriptor, area);
 
             {
-                auto ref = Ref(pipeline.get());
-                commandList->bindPipeline(ref);
+                constexpr auto scissor = toy::Scissor{ 0,0,1280, 720};
+
+                constexpr auto viewport = toy::Viewport{ 0.0,0.0,1280.0,720.0 };
+                
+                commandList->bindPipeline(myTestPipeline);
+                commandList->setScissor(scissor);
+                commandList->setViewport(viewport);
                 commandList->draw(3, 1, 0, 0);
             }
 

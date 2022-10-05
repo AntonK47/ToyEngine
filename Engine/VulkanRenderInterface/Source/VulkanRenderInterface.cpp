@@ -794,13 +794,13 @@ std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
         vk::PipelineShaderStageCreateInfo
         {
             .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = static_cast<VulkanShaderModule*>(descriptor.vertexShader)->module,
+            .module = descriptor.vertexShader.query<VulkanShaderModule>().module,
             .pName = "main"
         },
         vk::PipelineShaderStageCreateInfo
         {
             .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = static_cast<VulkanShaderModule*>(descriptor.fragmentShader)->module,
+            .module = descriptor.fragmentShader.query<VulkanShaderModule>().module,
             .pName = "main"
         }
     };

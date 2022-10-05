@@ -215,17 +215,29 @@ void api::vulkan::VulkanCommandList::endRenderingInternal()
 
 void api::vulkan::VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
 {
-	const auto scissor = vk::Rect2D{ {0,0},{1280, 720} };
-
-	const auto viewport = vk::Viewport{ 0.0,0.0,1280.0,720.0,0.0,1.0 };
-	cmd_.setScissor(0, 1, &scissor);
-	cmd_.setViewport(0, 1, &viewport);
 	cmd_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
 void api::vulkan::VulkanCommandList::bindPipelineInternal(const Ref<Pipeline>& pipeline)
 {
-	cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.Query<VulkanPipeline>().pipeline);
+	cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.query<VulkanPipeline>().pipeline);
+}
+
+void api::vulkan::VulkanCommandList::setScissorInternal(const Scissor& scissor)
+{
+	const auto vulkanScissor = vk::Rect2D{ {scissor.x,scissor.y},{scissor.width, scissor.height}};
+	
+	cmd_.setScissor(0, 1, &vulkanScissor);
+}
+
+void api::vulkan::VulkanCommandList::setViewportInternal(
+	const Viewport& viewport)
+{
+	const auto vulkanViewport = vk::Viewport{ viewport.x,viewport.y,viewport.width,viewport.height,0.0,1.0 };
+
+	//TODO:: Whats about depth value?
+
+	cmd_.setViewport(0, 1, &vulkanViewport);
 }
 
 api::vulkan::VulkanCommandList::VulkanCommandList(vk::CommandBuffer commandBuffer,
