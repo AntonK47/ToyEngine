@@ -8,6 +8,7 @@
 #include <vulkan/vulkan_profiles.hpp>
 #include <fstream>
 
+#include "Hash.h"
 #include "g3log/g3log.hpp"
 const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
 using namespace toy::renderer;
@@ -16,6 +17,45 @@ namespace
 {
 #define MAP_FLAG_BIT(srcFlag, srcFlagBit, dstFlag, dstFlagBit) if (srcFlag.containBit(srcFlagBit)) { dstFlag |= dstFlagBit; }
 
+    vk::BufferUsageFlags vulkanMapAccessUsageFlag(const Flags<AccessUsage>& usage)
+    {
+        auto vulkanUsage = vk::BufferUsageFlags{};
+
+        if(usage.containBit(AccessUsage::accelerationStructure))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR;
+        }
+        if (usage.containBit(AccessUsage::vertex))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eVertexBuffer;
+        }
+        if (usage.containBit(AccessUsage::index))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eIndexBuffer;
+        }
+        if (usage.containBit(AccessUsage::indirect))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eIndirectBuffer;
+        }
+        if (usage.containBit(AccessUsage::uniform))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eUniformBuffer;
+        }
+        if (usage.containBit(AccessUsage::storage))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eStorageBuffer;
+        }
+        if (usage.containBit(AccessUsage::transferDst))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eTransferDst;
+        }
+        if (usage.containBit(AccessUsage::transferSrc))
+        {
+            vulkanUsage |= vk::BufferUsageFlagBits::eTransferSrc;
+        }
+
+        return vulkanUsage;
+    }
 
     vk::ShaderModule loadShader(const vk::Device device, const std::string& path)
     {
@@ -344,6 +384,66 @@ namespace
     {
         return instance.enumeratePhysicalDevices().value.front();
     }
+
+
+    vk::DescriptorSetLayout createGroupLayout(const vk::Device device, const BindGroupDescriptor& descriptor)
+    {
+        auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{};
+        auto bindingFlags = std::vector<vk::DescriptorBindingFlags>{};
+        bindings.resize(descriptor.bindings.size());
+        bindingFlags.resize(descriptor.bindings.size());
+        for (u32 i{}; i < bindings.size(); i++)
+        {
+            bindings[i].binding = descriptor.bindings[i].binding;
+            bindingFlags[i] = vk::DescriptorBindingFlagBits::eUpdateAfterBind;
+            bindings[i].stageFlags = vk::ShaderStageFlagBits::eAll; //TODO:: it's wrong
+            if (std::holds_alternative<SimpleDeclaration>(descriptor.bindings[i].descriptor))
+            {
+                const auto simpleBinding = std::get<SimpleDeclaration>(descriptor.bindings[i].descriptor);
+                bindings[i].descriptorType = mapDescriptorType(simpleBinding.type);
+                bindings[i].descriptorCount = 1;
+            }
+            if (std::holds_alternative<ArrayDeclaration>(descriptor.bindings[i].descriptor))
+            {
+                const auto arrayBinding = std::get<ArrayDeclaration>(descriptor.bindings[i].descriptor);
+                bindings[i].descriptorType = mapDescriptorType(arrayBinding.type);
+                bindings[i].descriptorCount = arrayBinding.elementsCount;
+            }
+            if (std::holds_alternative<BindlessDeclaration>(descriptor.bindings[i].descriptor))
+            {
+                //TODO: this binding should be the last one in the descriptor set
+                const auto bindlessBinding = std::get<BindlessDeclaration>(descriptor.bindings[i].descriptor);
+                bindings[i].descriptorType = mapDescriptorType(bindlessBinding.type);
+                bindings[i].descriptorCount = bindlessBinding.maxDescriptorCount;
+                bindingFlags[i] = vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+            }
+
+        }
+
+        //TODO: check for bindless feature
+
+        const auto createInfo = vk::StructureChain
+        {
+            vk::DescriptorSetLayoutCreateInfo
+            {
+                .flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
+                .bindingCount = static_cast<u32>(bindings.size()),
+                .pBindings = bindings.data()
+            },
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo
+            {
+                .bindingCount = static_cast<u32>(bindings.size()),
+                .pBindingFlags = bindingFlags.data()
+            }
+        };
+
+
+
+        return device.createDescriptorSetLayout(createInfo.get()).value;
+    }
+
+
+
 }
 
 
@@ -374,7 +474,7 @@ std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(Q
 
     commandBuffer.begin(beginInfo);
 
-    return std::make_unique<VulkanCommandList>(commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);
+    return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);
 }
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
@@ -508,7 +608,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
         .pQueueFamilyIndices = &queues_[QueueType::graphics].familyIndex,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = supportedCompositeAlpha,
-        .presentMode = vk::PresentModeKHR::eFifo,
+        .presentMode = vk::PresentModeKHR::eFifo,//TODO: this limits to 60fps
         .clipped = vk::Bool32{true},
         .oldSwapchain = nullptr
     };
@@ -579,17 +679,20 @@ void VulkanRenderInterface::deinitializeInternal()
         device_.destroySemaphore(timelineSemaphorePerFrame_[i]);
     }
 
-    bufferPool_.clear();
     vmaDestroyAllocator(allocator_);
     device_.destroy();
 }
 
 void VulkanRenderInterface::nextFrameInternal()
 {
+    bindGroupCache_.nextFrame();
+    bindGroupStorage_.reset();
     currentFrame_++;
 
     const auto nextFramesFence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
     device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
+
+    resetDescriptorPoolsUntilFrame(currentFrame_-maxDeferredFrames_);
 
 
     const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
@@ -607,61 +710,103 @@ void VulkanRenderInterface::nextFrameInternal()
 //	return {};
 //}
 
-BindGroupLayout VulkanRenderInterface::allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
+
+
+
+Handle<BindGroupLayout> VulkanRenderInterface::allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
 {
-    auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{};
-    auto bindingFlags = std::vector<vk::DescriptorBindingFlags>{};
-    bindings.resize(descriptor.bindings.size());
-    bindingFlags.resize(descriptor.bindings.size());
-    for(u32 i{}; i < bindings.size(); i++)
+    const auto hash = Hasher::hash32(descriptor);
+    if (bindGroupLayoutCache_.contains(hash))
     {
-        bindings[i].binding = descriptor.bindings[i].binding;
-        bindingFlags[i] = vk::DescriptorBindingFlagBits::eUpdateAfterBind;
-        if(std::holds_alternative<SimpleDeclaration>(descriptor.bindings[i].descriptor))
-        {
-            const auto simpleBinding = std::get<SimpleDeclaration>(descriptor.bindings[i].descriptor);
-            bindings[i].descriptorType = mapDescriptorType(simpleBinding.type);
-            bindings[i].descriptorCount = 1;
-        }
-        if (std::holds_alternative<ArrayDeclaration>(descriptor.bindings[i].descriptor))
-        {
-            const auto arrayBinding = std::get<ArrayDeclaration>(descriptor.bindings[i].descriptor);
-            bindings[i].descriptorType = mapDescriptorType(arrayBinding.type);
-            bindings[i].descriptorCount = arrayBinding.elementsCount;
-        }
-        if (std::holds_alternative<BindlessDeclaration>(descriptor.bindings[i].descriptor))
-        {
-            //TODO: this binding should be the last one in the descriptor set
-            const auto bindlessBinding = std::get<BindlessDeclaration>(descriptor.bindings[i].descriptor);
-            bindings[i].descriptorType = mapDescriptorType(bindlessBinding.type);
-            bindings[i].descriptorCount = bindlessBinding.maxDescriptorCount;
-            bindingFlags[i] = vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
-        }
-        
+        return Handle<BindGroupLayout>{hash};
     }
+    bindGroupLayoutCache_[hash] = createGroupLayout(device_, descriptor);
 
-    //TODO: check for bindless feature
+    return Handle<BindGroupLayout>{hash};
+}
 
-    const auto createInfo = vk::StructureChain
+Handle<BindGroup> VulkanRenderInterface::allocateBindGroupInternal(
+	const Handle<BindGroupLayout>& bindGroupLayout)
+{
+
+    return allocateBindGroupInternal(bindGroupLayout, 1).front();
+}
+
+std::vector<Handle<BindGroup>> VulkanRenderInterface::
+allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
+	const u32 bindGroupCount)
+{
+    const auto currentPools = currentFrame_ % swapchainImagesCount_;
+
+    auto bindGroups = std::vector<Handle<BindGroup>>{};
+    bindGroups.resize(bindGroupCount);
+    auto poolIndex = u32{};
+    auto cantAllocateDescriptorSet = true;
+    while (cantAllocateDescriptorSet)
     {
-        vk::DescriptorSetLayoutCreateInfo
+        if (poolIndex >= descriptorPoolsPerFrame_[currentPools].size())
         {
-            .flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
-            .bindingCount = static_cast<u32>(bindings.size()),
-            .pBindings = bindings.data()
-        },
-        vk::DescriptorSetLayoutBindingFlagsCreateInfo
-        {
-            .bindingCount = static_cast<u32>(bindings.size()),
-            .pBindingFlags = bindingFlags.data()
+            const auto poolSizes = std::array
+            {
+                vk::DescriptorPoolSize
+                {
+                    .type = vk::DescriptorType::eUniformBuffer,
+                    .descriptorCount = 1
+                }
+            };
+
+            const auto poolCreateInfo = vk::DescriptorPoolCreateInfo
+            {
+                .flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
+                .maxSets = 1000,
+                .poolSizeCount = poolSizes.size(),
+                .pPoolSizes = poolSizes.data()
+            };
+            const auto result = device_.createDescriptorPool(poolCreateInfo);
+            assert(result.result == vk::Result::eSuccess);
+
+            descriptorPoolsPerFrame_[currentPools].push_back(result.value);
         }
-    };
+        else
+        {
+            const auto pool = descriptorPoolsPerFrame_[currentPools][poolIndex];
 
+            auto setLayouts = std::vector<vk::DescriptorSetLayout>{};
+            setLayouts.resize(bindGroupCount);
+            std::fill(setLayouts.begin(), setLayouts.end(), bindGroupLayoutCache_[bindGroupLayout.index]);
 
+            const auto allocateInfo = vk::DescriptorSetAllocateInfo
+            {
+                .descriptorPool = pool,
+                .descriptorSetCount = bindGroupCount,
+                .pSetLayouts = setLayouts.data()
+            };
+            const auto result = device_.allocateDescriptorSets(allocateInfo);
 
-    auto layout = device_.createDescriptorSetLayout(createInfo.get());
-
-    return {};
+            switch (result.result)
+            {
+            case vk::Result::eSuccess:
+                for(auto i = u32{}; i < bindGroupCount; i++)
+                {
+                    
+                    bindGroups[i] = bindGroupStorage_.add(
+                        VulkanBindGroup
+                        {
+	                    .descriptorSet = result.value[i]
+                    });
+                }
+                
+                cantAllocateDescriptorSet = false;
+                break;
+            case vk::Result::eErrorOutOfPoolMemory:
+                poolIndex++;
+                break;
+            default:
+                assert(false); //TODO: fatal error
+            }
+        }
+    }
+    return bindGroups;
 }
 
 SwapchainImage VulkanRenderInterface::acquireNextSwapchainImageInternal()
@@ -757,11 +902,11 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
     const auto fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
     device_.resetFences(1, &fence);
     const auto result = queue.submit2(1, &submitInfo, fence);
-    //assert(result == vk::Result::eSuccess);
+    assert(result == vk::Result::eSuccess);
 }
 
 std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
-	const GraphicsPipelineDescriptor& descriptor, const std::vector<BindGroupDescriptor>& bindGroups)
+	const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups)
 {
     auto cacheData = std::vector<u8>{};
     constexpr auto cacheSize = 1024;
@@ -805,9 +950,20 @@ std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
         }
     };
 
+    const auto setCount = static_cast<u32>(bindGroups.size());
+
+    auto setLayouts = std::vector<vk::DescriptorSetLayout>{};
+    setLayouts.resize(setCount);
+
+    for (auto i = u32{}; i < setCount; i++)
+    {
+        setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index];
+    }
+
     const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
     {
-        .setLayoutCount = 0,
+        .setLayoutCount = setCount,
+        .pSetLayouts = setLayouts.data(),
         .pushConstantRangeCount = 0
     };
     const auto pipelineLayout = device_.createPipelineLayout(layoutCreateInfo).value;
@@ -885,7 +1041,7 @@ std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
 
     const auto pipeline = device_.createGraphicsPipeline(cache, pipelinesInfo.get()).value;
 
-    return std::make_unique<VulkanPipeline>(VulkanPipeline{ .pipeline = pipeline });
+    return std::make_unique<VulkanPipeline>(VulkanPipeline{ .pipeline = pipeline, .layout = pipelineLayout, .bindPoint = vk::PipelineBindPoint::eGraphics });
 }
 
 std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderStage stage,
@@ -902,4 +1058,143 @@ std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(
     LOG_IF(FATAL, result.result != vk::Result::eSuccess) << "Shader module creation failed!";
 
     return std::make_unique<VulkanShaderModule>(VulkanShaderModule{.module = result.value});
+}
+
+void VulkanRenderInterface::resetDescriptorPoolsUntilFrame(const u32 frame)
+{
+    for(auto i = currentFrame_; i> frame; i--)
+    {
+        const auto& pools = descriptorPoolsPerFrame_[i % maxDeferredFrames_];
+
+        for(const auto& pool: pools)
+        {
+            device_.resetDescriptorPool(pool);
+            //TODO: performance optimization: decide how many pools should be deleted for the next frame
+        }
+    }
+}
+
+Handle<Buffer> VulkanRenderInterface::createBufferInternal(
+	const BufferDescriptor& descriptor)
+{
+    
+    const auto usage = vulkanMapAccessUsageFlag(descriptor.accessUsage);
+
+    auto queues = std::vector<u32>{};
+    queues.reserve(3);
+
+    if(descriptor.queuesSharing.containBit(QueuesSharing::graphics))
+    {
+        queues.push_back(queues_[QueueType::graphics].familyIndex);
+    }
+    if (descriptor.queuesSharing.containBit(QueuesSharing::asyncCompute))
+    {
+        queues.push_back(queues_[QueueType::asyncCompute].familyIndex);
+    }
+    if (descriptor.queuesSharing.containBit(QueuesSharing::transfer))
+    {
+        queues.push_back(queues_[QueueType::transfer].familyIndex);
+    }
+
+    auto bufferCreateInfo = vk::BufferCreateInfo
+    {
+        .size = descriptor.size,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive
+    };
+
+    if(queues.size() > 1)
+    {
+        bufferCreateInfo.sharingMode = vk::SharingMode::eConcurrent;
+        bufferCreateInfo.queueFamilyIndexCount = static_cast<u32>(queues.size());
+        bufferCreateInfo.pQueueFamilyIndices = queues.data();
+    }
+
+
+
+    //TODO: consider to use allocated pools
+    const auto allocationCreateInfo = VmaAllocationCreateInfo
+    {
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, //TODO: it should depend on access pattern
+        .usage = descriptor.memoryUsage == MemoryUsage::gpuOnly? VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE : descriptor.memoryUsage == MemoryUsage::cpuOnly ? VMA_MEMORY_USAGE_AUTO_PREFER_HOST : VMA_MEMORY_USAGE_AUTO
+    };
+
+    auto buffer = vk::Buffer{};
+    auto allocation = VmaAllocation{};
+
+
+    const auto result = static_cast<vk::Result>(vmaCreateBuffer(allocator_,
+	    reinterpret_cast<VkBufferCreateInfo*>(&
+		    bufferCreateInfo),
+	    &allocationCreateInfo,
+	    reinterpret_cast<VkBuffer*>(&buffer),
+	    &allocation,
+	    nullptr));
+
+    assert(result == vk::Result::eSuccess);
+
+    const auto handle = bufferStorage_.add(VulkanBuffer{ buffer, allocation }, descriptor);
+
+	return handle;
+}
+
+void VulkanRenderInterface::updateBindGroupInternal(
+	const Handle<BindGroup>& bindGroup,
+	const std::initializer_list<BindingDataMapping>& mappings)
+{
+    auto vulkanBindGroup = bindGroupStorage_.get(bindGroup);
+
+    const auto mappingsVector = std::vector<BindingDataMapping>{ mappings };
+
+
+    auto descriptorWrites = std::vector<vk::WriteDescriptorSet>{};
+    descriptorWrites.reserve(mappings.size());
+
+    auto descriptorInfos = std::vector<std::variant<vk::DescriptorBufferInfo, vk::DescriptorImageInfo>>{};
+    descriptorInfos.resize(mappingsVector.size());
+
+    for(auto i = u32{}; i < mappingsVector.size(); i++)
+    {
+        const auto& binding = mappingsVector[i];
+        assert(std::holds_alternative<CBV>(binding.view));
+        const auto bufferView = std::get<CBV>(binding.view);
+        const auto vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
+
+        const auto descriptorBufferInfo = vk::DescriptorBufferInfo
+        {
+            .buffer = vulkanBuffer.buffer,
+            .offset = bufferView.bufferView.offset,
+            .range = bufferView.bufferView.size
+        };
+
+        descriptorInfos[i] = descriptorBufferInfo;
+    }
+
+    for (auto i = u32{}; i < mappingsVector.size(); i++)
+	{
+        const auto& binding = mappingsVector[i];
+        //TODO:: TEMP
+        assert(std::holds_alternative<CBV>(binding.view));
+
+        const auto write = vk::WriteDescriptorSet
+        {
+            .dstSet = vulkanBindGroup.descriptorSet,
+            .dstBinding = binding.binding,
+            .dstArrayElement = binding.arrayElement,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer, //because of CBV type, TODO: derive it properly!
+            .pBufferInfo = &std::get<vk::DescriptorBufferInfo>(descriptorInfos[i])
+        };
+
+        descriptorWrites.push_back(write);
+	}
+
+    device_.updateDescriptorSets(static_cast<u32>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+}
+
+void VulkanRenderInterface::mapInternal(Handle<Buffer> buffer, void** data)
+{
+    const auto vulkanBuffer = bufferStorage_.get(buffer);
+    vmaMapMemory(allocator_, vulkanBuffer.allocation, data);
 }

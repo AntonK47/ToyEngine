@@ -220,7 +220,8 @@ void api::vulkan::VulkanCommandList::drawInternal(const u32 vertexCount, const u
 
 void api::vulkan::VulkanCommandList::bindPipelineInternal(const Ref<Pipeline>& pipeline)
 {
-	cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.query<VulkanPipeline>().pipeline);
+	currentPipeline_ = const_cast<VulkanPipeline*>(&pipeline.query<VulkanPipeline>());
+	cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, currentPipeline_->pipeline);
 }
 
 void api::vulkan::VulkanCommandList::setScissorInternal(const Scissor& scissor)
@@ -240,6 +241,23 @@ void api::vulkan::VulkanCommandList::setViewportInternal(
 	cmd_.setViewport(0, 1, &vulkanViewport);
 }
 
-api::vulkan::VulkanCommandList::VulkanCommandList(vk::CommandBuffer commandBuffer,
-                                                  vk::CommandBufferLevel level, QueueType ownedQueueType): CommandList(ownedQueueType), cmd_(commandBuffer), level_(level)
-{}
+void api::vulkan::VulkanCommandList::bindGroupInternal(u32 set,
+	const Handle<BindGroup>& handle)
+{
+	const auto vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
+	const auto vulkanPipeline = *currentPipeline_;
+
+
+	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, 0, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
+}
+
+api::vulkan::VulkanCommandList::VulkanCommandList(
+	VulkanRenderInterface& parent,
+	vk::CommandBuffer commandBuffer,
+	vk::CommandBufferLevel level, QueueType ownedQueueType):
+	renderInterface_(&parent),
+	CommandList(ownedQueueType),
+	cmd_(commandBuffer),
+	level_(level)
+{
+}

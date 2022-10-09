@@ -46,6 +46,17 @@ namespace toy::renderer
 		presentInternal();
 	}
 
+	Handle<Buffer> RenderInterface::createBuffer(
+		const BufferDescriptor& descriptor)
+	{
+		return createBufferInternal(descriptor);
+	}
+
+	void RenderInterface::map(const Handle<Buffer> buffer, void** data)
+	{
+		mapInternal(buffer, data);
+	}
+
 	BindGroup RenderInterface::allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout)
 	{
 		return {};
@@ -56,25 +67,30 @@ namespace toy::renderer
 		return {};
 	}
 
-	BindGroupLayout RenderInterface::allocateBindGroupLayout(const BindGroupDescriptor& descriptor)
+	
+
+	Handle<BindGroupLayout> RenderInterface::allocateBindGroupLayout(const BindGroupDescriptor& descriptor)
 	{
+		return allocateBindGroupLayoutInternal(descriptor);
+	}
 
-		const auto hash = Hasher::hash(descriptor);
+	Handle<BindGroup> RenderInterface::allocateBindGroup(
+		const Handle<BindGroupLayout>& bindGroupLayout)
+	{
+		return allocateBindGroupInternal(bindGroupLayout);
+	}
 
-		if(bindGroupLayoutCache_.contains(hash))
-		{
-			return bindGroupLayoutCache_[hash];
-		}
+	std::vector<Handle<BindGroup>> RenderInterface::allocateBindGroup(
+		const Handle<BindGroupLayout>& bindGroupLayout,
+		const u32 bindGroupCount)
+	{
+		return allocateBindGroupInternal(bindGroupLayout, bindGroupCount);
 
-		const auto groupLayout = allocateBindGroupLayoutInternal(descriptor);
-		bindGroupLayoutCache_[hash] = groupLayout;
-
-		return groupLayout;
 	}
 
 	std::unique_ptr<Pipeline> RenderInterface::createPipeline(
 		const GraphicsPipelineDescriptor& descriptor,
-		const std::vector<BindGroupDescriptor>& bindGroups)
+		const std::vector<SetBindGroupMapping>& bindGroups)
 	{
 		return createPipelineInternal(descriptor, bindGroups);
 	}
@@ -82,5 +98,11 @@ namespace toy::renderer
 	std::unique_ptr<ShaderModule> RenderInterface::createShaderModule(ShaderStage stage, const ShaderCode& code)
 	{
 		return createShaderModuleInternal(stage, code);
+	}
+
+	void RenderInterface::updateBindGroup(const Handle<BindGroup>& bindGroup,
+		const std::initializer_list<BindingDataMapping>& mappings)
+	{
+		updateBindGroupInternal(bindGroup, mappings);
 	}
 }

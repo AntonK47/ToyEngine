@@ -59,6 +59,9 @@ void SDLWindow::pollEventsInternal()
             KEYDOWN_ASSIGNMENT(seven, SDLK_7)
             KEYDOWN_ASSIGNMENT(eight, SDLK_8)
             KEYDOWN_ASSIGNMENT(nine, SDLK_9)
+        case SDL_MOUSEMOTION:
+            windowIo_.mouseState.position.x = event.motion.x;
+            windowIo_.mouseState.position.y = event.motion.y;
             break;
         default:
             break;

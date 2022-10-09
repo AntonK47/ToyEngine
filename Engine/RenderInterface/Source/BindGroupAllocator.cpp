@@ -31,7 +31,7 @@ std::unique_ptr<BindGroup> BindGroupAllocator::allocateBindGroup(const BindGroup
 
 BindGroupLayout* BindGroupAllocator::allocateBindGroupLayout(const BindGroupDescriptor& descriptor)
 {
-	const auto hash = core::Hasher::hash(descriptor);
+	const auto hash = core::Hasher::hash64(descriptor);
 
 	if (!bindGroupLayoutCache_.contains(hash))
 	{

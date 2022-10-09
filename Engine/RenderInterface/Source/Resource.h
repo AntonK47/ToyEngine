@@ -2,6 +2,12 @@
 
 namespace toy::renderer
 {
+	template <typename T>
+	struct Handle
+	{
+		core::u32 index{};
+	};
+
 	struct Resource
 	{};
 

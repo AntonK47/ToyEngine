@@ -20,7 +20,7 @@ namespace toy::renderer::api::vulkan
 
 	struct VulkanBindGroup : BindGroup
 	{
-		
+		vk::DescriptorSet descriptorSet;
 	};
 
 	class VulkanBindingGroupAllocator final : public BindGroupAllocator

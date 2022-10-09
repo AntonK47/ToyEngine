@@ -12,7 +12,8 @@ set(MODULE_HEADERS
 	"Source/RenderInterface.h"
 	"Source/BindGroupAllocator.h"
 	"Source/CommandList.h" 
-	"Source/Resource.h" "Source/RenderInterfaceCommonTypes.h")
+	"Source/Resource.h"
+	"Source/RenderInterfaceCommonTypes.h")
 
 add_library(${MODULE_NAME}
 	STATIC

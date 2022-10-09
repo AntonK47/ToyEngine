@@ -14,7 +14,8 @@ namespace toy::renderer::api::vulkan
 		VulkanCommandList& operator=(VulkanCommandList&& other) noexcept
 		= default;
 
-		explicit VulkanCommandList(vk::CommandBuffer commandBuffer,
+		explicit VulkanCommandList(VulkanRenderInterface& parent,
+									vk::CommandBuffer commandBuffer,
 		                           vk::CommandBufferLevel level,
 		                           QueueType ownedQueueType);
 		~VulkanCommandList() override;
@@ -34,9 +35,13 @@ namespace toy::renderer::api::vulkan
 		void bindPipelineInternal(const Ref<Pipeline>& pipeline) override;
 		void setScissorInternal(const Scissor& scissor) override;
 		void setViewportInternal(const Viewport& viewport) override;
+
+		void bindGroupInternal(u32 set, const Handle<BindGroup>& handle) override;
 	private:
 		friend VulkanRenderInterface;
 
+		VulkanPipeline* currentPipeline_{};
+		VulkanRenderInterface* renderInterface_;
 		vk::CommandBuffer cmd_;
 		vk::CommandBufferLevel level_;
 		u32 index_{};

@@ -6,7 +6,11 @@ using namespace toy::core;
 
 namespace toy::renderer
 {
-		
+	void CommandList::bindGroup(const u32 set, const Handle<BindGroup>& handle)
+	{
+		bindGroupInternal(set, handle);
+	}
+
 	CommandList::CommandList(const QueueType queueType) : ownedQueueType_(queueType)
 	{  }
 

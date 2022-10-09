@@ -9,8 +9,9 @@ void MouseState::reset()
     rightButton = ButtonState::unpressed;
 
     wheel = 0.0f;
-    position.x = 0;
-    position.y = 0;
+    //TODO: mouse position shouldn't reset, it should stay at a preview values
+    //position.x = 0;
+    //position.y = 0;
 }
 
 void KeyboardState::reset()

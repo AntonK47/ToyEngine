@@ -9,7 +9,7 @@ namespace toy::core
 	template<typename FlagBits>
 	struct Flags
 	{
-		explicit Flags(const FlagBits& bit)
+		Flags(const FlagBits& bit)
 		{
 			*this |= (bit);
 		}
@@ -17,6 +17,12 @@ namespace toy::core
 		Flags& operator |=(const FlagBits& bit)
 		{
 			flags |= static_cast<uint32_t>(bit);
+			return *this;
+		}
+
+		Flags& operator =(const FlagBits& bit)
+		{
+			flags = static_cast<uint32_t>(bit);
 			return *this;
 		}
 

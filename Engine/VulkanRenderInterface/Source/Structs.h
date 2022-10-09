@@ -33,31 +33,31 @@ namespace toy::renderer::api::vulkan
 		std::function<void(void)> deleter;
 	};
 
-	template <typename T>
-	struct Pool
-	{
-		Handle<T> insert(const T& item)
-		{
-			const auto index = static_cast<uint32_t>(pool.size());
-			auto handler = Handle<T>{};
-			handler.index = index;
-			pool.push_back(item);
-			return handler;
-		}
+	//template <typename T>
+	//struct Pool
+	//{
+	//	Handle<T> insert(const T& item)
+	//	{
+	//		const auto index = static_cast<uint32_t>(pool.size());
+	//		auto handler = Handle<T>{};
+	//		handler.index = index;
+	//		pool.push_back(item);
+	//		return handler;
+	//	}
 
-		inline void clear()
-		{
-			for(auto& item : pool)
-			{
-				//item.deleter();
-			}
-			pool.clear();
-		}
-	private:
-		std::vector<T> pool{};
-	};
+	//	inline void clear()
+	//	{
+	//		for(auto& item : pool)
+	//		{
+	//			//item.deleter();
+	//		}
+	//		pool.clear();
+	//	}
+	//private:
+	//	std::vector<T> pool{};
+	//};
 
-	using BufferPool = Pool<Buffer>;
+	//using BufferPool = Pool<Buffer>;
 
 	struct DeviceQueue
 	{

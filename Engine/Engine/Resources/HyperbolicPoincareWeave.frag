@@ -1,8 +1,11 @@
 #version 460
 
-#define iMouse vec2(0.0,0.0)
-#define iTime 0.0f
-#define iResolution vec3(1280.0f, 720.0f, 1.0f)
+layout(set = 0, binding = 0) uniform perFrame
+{
+    vec2 iResolution;
+    vec2 iMouse;
+    float iTime;
+};
 
 layout(location = 0) out vec4 outputColor;
 layout(location = 0) in vec2 uv;

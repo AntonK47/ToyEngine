@@ -2,11 +2,14 @@
 #include <vector>
 
 #include "CommandListValidator.h"
+//#include "RenderInterface.h"
+
 #include "Resource.h"
 #include "RenderInterfaceCommonTypes.h"
 
 namespace toy::renderer
 {
+	struct BindGroup;
 	struct ImageResource;
 	enum class QueueType;
 	struct Pipeline {};
@@ -134,6 +137,7 @@ namespace toy::renderer
 		CommandList(CommandList&& other) noexcept = default;
 		CommandList& operator=(const CommandList& other) = default;
 		CommandList& operator=(CommandList&& other) noexcept = default;
+		void bindGroup(core::u32 set, const Handle<BindGroup>& handle);
 
 		explicit CommandList(QueueType queueType);
 		virtual ~CommandList() = default;
@@ -155,6 +159,8 @@ namespace toy::renderer
 			core::u32  firstInstance);
 
 	protected:
+
+		virtual void bindGroupInternal(core::u32 set, const Handle<BindGroup>& handle) = 0;
 
 		virtual void barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors) = 0;
 

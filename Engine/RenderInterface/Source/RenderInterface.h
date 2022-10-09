@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "BindGroupAllocator.h"
+//#include "CommandList.h"
 #include "CommandList.h"
 #include "Resource.h"
 #include "RenderInterfaceValidator.h"
@@ -28,11 +29,7 @@ namespace toy::renderer
 		transfer
 	};
 
-	template <typename T>
-	struct Handle
-	{
-		uint32_t index{};
-	};
+	
 
 
 	enum class AccessUsage : FlagBits
@@ -41,28 +38,38 @@ namespace toy::renderer
 		uniform = 1 << 0,
 		index = 1 << 1,
 		vertex = 1 << 2,
-		storage = 1 << 3
+		storage = 1 << 3,
+		indirect = 1 << 4,
+		accelerationStructure = 1 << 5,
+		transferSrc = 1 << 6,
+		transferDst = 1 << 7
 	};
-	
 
-	enum class UsageContext
+	enum class QueuesSharing : FlagBits
+	{
+		graphics = 0 << 0,
+		asyncCompute = 1 << 0,
+		transfer = 1 << 1,
+	};
+
+	enum class MemoryUsage
 	{
 		gpuOnly,
+		cpuOnly,
 		cpuRead,
 		cpuWrite
 	};
+	
 
-
-	struct BufferDescriptor
+	/*struct BufferDescriptor
 	{
 		uint32_t size{};
 		Flags<AccessUsage> accessUsage;
 		Flags<UsageContext> usageContext;
-	};
+	};*/
 
 	struct Buffer
 	{
-		uint64_t size;
 	};
 
 	struct Extent
@@ -162,10 +169,49 @@ namespace toy::renderer
 	};
 
 
+	struct SetBindGroupMapping
+	{
+		u32 set;
+		Handle<BindGroupLayout> bindGroupLayout;
+	};
+
 	struct SwapchainImage
 	{
 		std::unique_ptr<ImageResource> image;
 		std::unique_ptr<ImageView> view;
+	};
+
+	struct BufferView
+	{
+		Handle<Buffer> buffer;
+		u32 offset;
+		u32 size;
+	};
+
+	struct CBV
+	{
+		BufferView bufferView;
+	};
+
+	struct UAV
+	{
+		BufferView bufferView;
+	};
+
+	struct BindingDataMapping
+	{
+		u32 binding;
+		std::variant<CBV, UAV> view;
+		u32 arrayElement{};
+	};
+
+
+	struct BufferDescriptor
+	{
+		u32 size{};
+		Flags<AccessUsage> accessUsage;
+		MemoryUsage memoryUsage{MemoryUsage::gpuOnly};
+		Flags<QueuesSharing> queuesSharing{QueuesSharing::graphics};
 	};
 
 	class RenderInterface
@@ -192,20 +238,37 @@ namespace toy::renderer
 		[[nodiscard]] SwapchainImage acquireNextSwapchainImage();
 		void present();
 
+
+		[[nodiscard]] Handle<Buffer> createBuffer(const BufferDescriptor& descriptor);
+
+		void map(Handle<Buffer> buffer, void** data);
+
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout);
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor);
-		[[nodiscard]] BindGroupLayout allocateBindGroupLayout(const BindGroupDescriptor& descriptor);
+		[[nodiscard]] Handle<BindGroupLayout> allocateBindGroupLayout(const BindGroupDescriptor& descriptor);
+		[[nodiscard]] Handle<BindGroup> allocateBindGroup(const Handle<BindGroupLayout>& bindGroupLayout);
+
+		[[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroup(
+			const Handle<BindGroupLayout>& bindGroupLayout, u32 bindGroupCount);
 
 		//this function should be thread save????
 		//Do I need make multi threaded resource creation? It can depend on Frame Graph resource management.
 		//virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
 
 		//draft for pipeline creation
-		[[nodiscard]] std::unique_ptr<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescriptor, const std::vector<BindGroupDescriptor>& bindGroups = {});
+		[[nodiscard]] std::unique_ptr<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescriptor, const std::vector<SetBindGroupMapping>& bindGroups = {});
 
 		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModule(ShaderStage stage, const ShaderCode& code);
 
-		/*virtual Handle<Buffer> createBuffer(const BufferDescriptor& descriptor) = 0;*/
+
+
+		
+
+		//TODO This function should be thread safe
+		void updateBindGroup(const Handle<BindGroup>& bindGroup, const std::initializer_list<BindingDataMapping>& mappings);
+
+		virtual void updateBindGroupInternal(const Handle<BindGroup>& bindGroup, const std::initializer_list<BindingDataMapping>& mappings)= 0;
+
 		//=================
 	protected:
 		virtual void initializeInternal(const RendererDescriptor& descriptor) = 0;
@@ -216,15 +279,26 @@ namespace toy::renderer
 		virtual [[nodiscard]] std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
 		virtual [[nodiscard]] void submitCommandListInternal(std::unique_ptr<CommandList> commandList) = 0;
 
-		virtual [[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(const GraphicsPipelineDescriptor& descriptor, const std::vector<BindGroupDescriptor>& bindGroups) = 0;
+		virtual [[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups) = 0;
 
 		virtual [[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(ShaderStage stage, const ShaderCode& code) = 0;
 
 		virtual void nextFrameInternal() = 0;
 		virtual void presentInternal() = 0;
-	private:
-		[[nodiscard]] virtual BindGroupLayout allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) = 0;
-		std::unordered_map<u64, BindGroupLayout> bindGroupLayoutCache_;
+
+		
+		virtual void mapInternal(Handle<Buffer> buffer, void** data) = 0;
+
+		virtual [[nodiscard]] Handle<BindGroupLayout> allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) = 0;
+		virtual [[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroupInternal(
+			const Handle<BindGroupLayout>& bindGroupLayout, u32 bindGroupCount) = 0;
+		virtual [[nodiscard]] Handle<BindGroup> allocateBindGroupInternal(
+			const Handle<BindGroupLayout>& bindGroupLayout) = 0;
+
+
+
+		virtual [[nodiscard]] Handle<Buffer> createBufferInternal(const BufferDescriptor& descriptor) = 0;
+
 
 		DECLARE_VALIDATOR(validation::RenderInterfaceValidator);
 	};
@@ -244,83 +318,7 @@ namespace toy::renderer
 
 namespace ideas::renderer
 {
-	struct BindGroup {};
-
-
-	template <typename T>
-	struct Handle
-	{
-		T* type;
-		T* operator->()
-		{
-			return type;
-		}
-	};
-
-	struct Viewport {};
-	struct Scissor {};
-
-	struct RenderInterface
-	{
-		struct ShaderProgram {};
-
-		struct CommandList
-		{
-			void beginRendering() {}
-			void endRendering() {}
-
-			void bindProgram(Handle<ShaderProgram> program)
-			{}
-
-			void setViewport(Viewport& viewport) {}
-			void setScissor(Scissor& scissor) {}
-
-			void bindBindGroup(BindGroup& group) {}
-
-			void draw(uint32_t vertexCount,
-				uint32_t instanceCount,
-				uint32_t firstVertex,
-				uint32_t firstInstance) {}
-		};
-
-		struct PipelineLayout {};
-		struct BindGroupLayout {};
-		struct RayTracingShaderModules {};
-		struct ComputeShaderModules {};
-		struct GraphicsShaderModules {};
-		struct AccelerationStructure {};
-
-		Handle<ShaderProgram> createShaderProgram(PipelineLayout& layout, RayTracingShaderModules& modules)
-		{
-			return Handle<ShaderProgram>();
-		}
-
-		Handle<ShaderProgram> createShaderProgram(PipelineLayout& layout, ComputeShaderModules& modules)
-		{
-			return Handle<ShaderProgram>();
-		}
-
-		Handle<ShaderProgram> createShaderProgram(PipelineLayout& layout, GraphicsShaderModules& modules)
-		{
-			return Handle<ShaderProgram>();
-		}
-
-		Handle<BindGroup> createBindGroup(BindGroupLayout)
-		{
-			return Handle<BindGroup>();
-		}
-
-		Handle<CommandList> acquireCommandList()
-		{
-			return Handle<CommandList>();
-		}
-
-		Handle<AccelerationStructure> createAccelerationStructure()
-		{
-			return Handle<AccelerationStructure>();
-		}
-
-	};
+	
 
 	struct FrameResource {};
 

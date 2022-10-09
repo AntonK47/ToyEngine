@@ -1,12 +1,9 @@
 #include "Application.h"
-
-#include <Logger.h>
-
-#include "VulkanRenderInterface.h"
-#include "SDLWindow.h"
-
-#include <GlslRuntimeCompiler.h>
 #include <fstream>
+#include <GlslRuntimeCompiler.h>
+#include <Logger.h>
+#include "SDLWindow.h"
+#include "VulkanRenderInterface.h"
 
 using namespace toy::renderer;
 using namespace toy::window;
@@ -54,7 +51,20 @@ int Application::run()
 
     renderer.initialize(rendererDescriptor);
 
+    const auto frameData = renderer.createBuffer(BufferDescriptor
+        {
+            .size = 1024,
+            .accessUsage = AccessUsage::uniform,
+            .memoryUsage = MemoryUsage::cpuOnly,
+        });
+
+    void* frameDataPtr = nullptr;
+    renderer.map(frameData, &frameDataPtr);
+
+    auto time = 0.0f;
+
     auto pipeline = std::unique_ptr<Pipeline>{};
+    auto bindGroupLayout = Handle<BindGroupLayout>{};
     
     //resource loading
     {
@@ -89,18 +99,29 @@ int Application::run()
         assert(result == CompilationResult::success);
 
 
-        
-
         const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, vertexShaderSpirvCode });
 
         const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, fragmentShaderSpirvCode });
 
 
+        const auto group1 = BindGroupDescriptor
+        {
+            .bindings =
+            {
+                {
+                    .binding = 0,
+                    .descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
+                }
+            }
+        };
+
+        bindGroupLayout = renderer.allocateBindGroupLayout(group1);
+
         pipeline = renderer.createPipeline(
             GraphicsPipelineDescriptor
             {
-                .vertexShader = Ref(vertexShaderModule.get()),
-                .fragmentShader = Ref(fragmentShaderModule.get()),
+                .vertexShader = ShaderModuleRef(vertexShaderModule.get()),
+                .fragmentShader = ShaderModuleRef(fragmentShaderModule.get()),
                 .renderTargetDescriptor = RenderTargetsDescriptor
                 {
                     .colorRenderTargets = std::initializer_list
@@ -114,7 +135,7 @@ int Application::run()
                 }
             },
             {
-
+                SetBindGroupMapping{0, bindGroupLayout}
             });
     }
     const auto myTestPipeline = Ref(pipeline.get());
@@ -124,10 +145,10 @@ int Application::run()
     while (stillRunning)
     {
         window.pollEvents();
-        const auto events = window.getEvents();
-        [[maybe_unused]] const auto io = window.getIo();
+        const auto& events = window.getEvents();
+        const auto& io = window.getIo();
 
-        for (const auto event : events)
+        for (const auto& event : events)
         {
             if (event == Event::quit)
             {
@@ -138,11 +159,39 @@ int Application::run()
         {
         	renderer.nextFrame();
 
-            const auto swapchainImage = renderer.acquireNextSwapchainImage();
+            Handle<BindGroup> bindGroup = renderer.allocateBindGroup(bindGroupLayout);
+
+            const auto offset = u32{};
+            struct FrameData
+            {
+                float resolution[2];
+                float mouse[2];
+                float time;
+            };
+
+            auto data = FrameData{};
+            data.resolution[0] = static_cast<float>(window.width());
+            data.resolution[1] = static_cast<float>(window.height());
+            data.mouse[0] = static_cast<float>(io.mouseState.position.x);
+            data.mouse[1] = static_cast<float>(io.mouseState.position.y);
+            data.time = time;
+
+            std::memcpy(frameDataPtr, &data, sizeof(FrameData));
+
+            const auto myConstantBufferView = BufferView{ frameData, offset, sizeof(float)};
+
+            renderer.updateBindGroup(bindGroup, {
+                {
+                    0,
+                    CBV{ myConstantBufferView }
+                }
+                });
+
+
+            const auto& swapchainImage = renderer.acquireNextSwapchainImage();
 
             //TODO: maybe I should use ref instead of unique_ptr?
             auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
-         
 
             commandList->barrier({
                 ImageBarrierDescriptor
@@ -182,13 +231,13 @@ int Application::run()
 
             {
                 constexpr auto scissor = toy::Scissor{ 0,0,1280, 720};
-
                 constexpr auto viewport = toy::Viewport{ 0.0,0.0,1280.0,720.0 };
-                
+
                 commandList->bindPipeline(myTestPipeline);
                 commandList->setScissor(scissor);
                 commandList->setViewport(viewport);
-                commandList->draw(3, 1, 0, 0);
+                commandList->bindGroup(0, bindGroup);
+        		commandList->draw(3, 1, 0, 0);
             }
 
             commandList->endRendering();
@@ -204,178 +253,15 @@ int Application::run()
 
             renderer.submitCommandList(std::move(commandList));
             renderer.present();
+
+            time += 0.01f;
         }
-        
-
-        //==========================================
-		/*{
-			using namespace toy::renderer;
-			//This function should also be multi threaded.
-
-			const auto vertexShader = ShaderModule
-			{
-			};
-
-			const auto fragmentShader = ShaderModule
-			{
-			};
-
-			auto someCoolProgram = renderer.createPipeline(
-				GraphicsPipelineDescriptor
-				{
-					ShaderModule{},
-					ShaderModule{},
-					RenderTargetsDescription
-					{
-						.colorRenderTargets = std::initializer_list
-						{
-							ColorRenderTargetDescriptor{}
-						},
-						.depthRenderTarget = DepthRenderTargetDescriptor{},
-						.stencilRenderTarget = StencilRenderTargetDescriptor{}
-					},
-					{
-						.depthTestEnabled = true
-					}
-				},
-			{
-
-			});
-
-
-			const auto group1 = BindGroupDescriptor
-			{
-				.bindings =
-				{
-					{
-						.binding = 0,
-						.descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
-					},
-					{
-						.binding = 1,
-						.descriptor = SimpleDeclaration{ BindingType::Texture2D }
-					}
-				}
-			};
-			const auto group2 = BindGroupDescriptor
-			{
-				.bindings =
-				{
-					{
-						.binding = 0,
-						.descriptor = BindlessDeclaration{ BindingType::Texture2D }
-					}
-				}
-			};
-
-
-			const auto group1Layout = renderer.allocateBindGroupLayout(group1);
-			using Matrix = std::array<float, 9>;
-
-			struct ViewData
-			{
-				int i;
-				Matrix m;
-			};
-
-
-
-
-			auto view = renderer.allocateBindGroup(group1);
-
-			auto cmd = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
-
-			//cmd->bindGroup(view);
-			//cmd->setTextureSrv(view, 1);
-
-
-			//bind groups can be shared across multiple pipelines, so I can use BindGroup caching????????????????????????????
-
-			// => so I need BindGroupDescriptor =D
-
-
-
-			struct MemoryCheck
-			{
-				ViewData view;
-			} bindGroup0Memory;
-
-			bindGroup0Memory.view = ViewData{ 1, {} };
-
-		}*/
-
     }
 
     renderer.deinitialize();
     window.deinitialize();
     logger::deinitialize();
-    /*{
-        enum class BindingType
-        {
-	        Texture2D,
-            StorageBuffer
-        };
-
-        struct Binding
-        {
-	        toy::core::u32 binding;
-            BindingType type;
-        };
-        struct BindingGroupDescriptor
-        {
-            std::vector<Binding> bindings;
-        };
-        const auto a = BindingGroupDescriptor
-        {
-            {
-	            {
-	                .binding = 0,
-	                .type = BindingType::Texture2D
-	            },
-	            {
-	                .binding = 1,
-	                .type = BindingType::StorageBuffer
-	            }
-            }
-        };
-
-
-
-
-        struct SrvTexture2D{};
-        struct SrvStorageBuffer{};
-
-        struct MyStruct
-        {
-            SrvTexture2D a;
-            SrvStorageBuffer b;
-        };
-
-
-
-        struct A
-        {
-            using BindingGroupType = int;
-            BindingGroupDescriptor bgd;
-            
-        };
-
-
-#define BINDING_GROUP_DESCRIPTOR_FIELD(binding, type) \
-	Binding{ binding, BindingType::type }
-
-#define FIELDS
-
-#define BINDING_GROUP_DESCRIPTOR_FIELDS_0(binding, type, ...)
-#define BINDING_GROUP_DESCRIPTOR_FIELDS_N(binding, type, ...) \
-	BINDING_GROUP_DESCRIPTOR_FIELD(binding, type), BINDING_GROUP_DESCRIPTOR_FIELDS(##__VA_ARGS__)
- 
-#define BINDING_GROUP_DESCRIPTOR(...) BindingGroupDescriptor{ { BINDING_GROUP_DESCRIPTOR_FIELDS(##__VA_ARGS__) }}
-#define DECLARE_BINDING_GROUP(...) BINDING_GROUP_DESCRIPTOR(##__VA_ARGS__);
-
-		//auto d = DECLARE_BINDING_GROUP(0, Texture2D)
-		//auto dd = BINDING_GROUP_DESCRIPTOR_FIELDS_N(0, Texture2D, 1, StorageBuffer);
-    }*/
+   
 
     return EXIT_SUCCESS;
 }
