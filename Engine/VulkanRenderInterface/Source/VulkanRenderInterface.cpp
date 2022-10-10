@@ -692,7 +692,7 @@ void VulkanRenderInterface::nextFrameInternal()
     const auto nextFramesFence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
     device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
 
-    resetDescriptorPoolsUntilFrame(currentFrame_-maxDeferredFrames_);
+    resetDescriptorPoolsUntilFrame((currentFrame_+maxDeferredFrames_ - 2)%maxDeferredFrames_);
 
 
     const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
@@ -852,8 +852,6 @@ void VulkanRenderInterface::presentInternal()
     //TODO: should be a present queue
     const auto result = queues_[QueueType::graphics].queue.presentKHR(presentInfo);
     assert(result == vk::Result::eSuccess);
-
-    device_.waitIdle();
 }
 
 void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<CommandList> commandList)
@@ -1062,7 +1060,7 @@ std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(
 
 void VulkanRenderInterface::resetDescriptorPoolsUntilFrame(const u32 frame)
 {
-    for(auto i = currentFrame_; i> frame; i--)
+    for(auto i = currentFrame_; i< frame; i++)
     {
         const auto& pools = descriptorPoolsPerFrame_[i % maxDeferredFrames_];
 
