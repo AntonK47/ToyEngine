@@ -646,6 +646,9 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 	renderThreadCommandPoolData_ = createPerThreadCommandPoolData(device_, vk::CommandBufferLevel::ePrimary, maxDeferredFrames_,
         queues_[QueueType::graphics].familyIndex, queues_[QueueType::asyncCompute].familyIndex, queues_[QueueType::transfer].familyIndex, 1, 1, 1);
 
+    graphicsPipelineCache_.initialize(PipelineCacheDescriptor{ device_, 1024 });
+    computePipelineCache_.initialize(PipelineCacheDescriptor{ device_, 1024 });
+
 }
 
 
@@ -653,6 +656,55 @@ void VulkanRenderInterface::deinitializeInternal()
 {
     const auto result = device_.waitIdle();
     TOY_ASSERT(result == vk::Result::eSuccess);
+
+    //TODO: resource cleanup should move to resource manager
+    {
+        for(const auto& [key, buffer] : bufferStorage_)
+        {
+            //TODO: This should be fixed, not every buffer is host accessible and in a mapped state
+
+            if(buffer.isMapped)
+            {
+                vmaUnmapMemory(allocator_, buffer.allocation);
+            }
+
+            vmaFreeMemory(allocator_, buffer.allocation);
+            device_.destroyBuffer(buffer.buffer);
+        }
+        bufferStorage_.reset();
+
+        for (const auto& [key, pipeline] : pipelineStorage_)
+        {
+            device_.destroyPipelineLayout(pipeline.layout);
+            device_.destroyPipeline(pipeline.pipeline);
+        }
+        pipelineStorage_.reset();
+
+        for (const auto& [key, shaderModule] : shaderModuleStorage_)
+        {
+            device_.destroyShaderModule(shaderModule.module);
+
+        }
+        shaderModuleStorage_.reset();
+
+        graphicsPipelineCache_.deinitialize();
+        computePipelineCache_.deinitialize();
+
+    }
+
+    for(const auto& [key, descriptorSetLayout] : bindGroupLayoutCache_)
+    {
+        device_.destroyDescriptorSetLayout(descriptorSetLayout);
+    }
+    
+    for(const auto& pools : descriptorPoolsPerFrame_)
+    {
+	    for(const auto& pool: pools)
+	    {
+            device_.resetDescriptorPool(pool);
+            device_.destroyDescriptorPool(pool);
+	    }
+    }
 
     for(const auto& [queueType, perFramePools]: renderThreadCommandPoolData_.perQueueType)
     {
@@ -893,20 +945,6 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups)
 {
-    auto cacheData = std::vector<u8>{};
-    constexpr auto cacheSize = 1024;
-    cacheData.resize(cacheSize);
-
-    const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
-    {
-        //.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized,
-        .initialDataSize = cacheSize,
-        .pInitialData = cacheData.data()
-
-    };
-    const auto cache = device_.createPipelineCache(cacheCreateInfo).value;
-
-
 
     const auto colorRenderTargets = static_cast<u32>(descriptor.renderTargetDescriptor.colorRenderTargets.size());
     auto colorRenderTargetFormats = std::vector<vk::Format>{};
@@ -951,7 +989,6 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         .pSetLayouts = setLayouts.data(),
         .pushConstantRangeCount = 0
     };
-    const auto pipelineLayout = device_.createPipelineLayout(layoutCreateInfo).value;
 
     const auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
     const auto inputAssemblyState = vk::PipelineInputAssemblyStateCreateInfo
@@ -1016,7 +1053,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
             .pMultisampleState = &multisampleState,
             .pColorBlendState = &colorBlendState,
             .pDynamicState = &dynamicState,
-            .layout = pipelineLayout,
+            .layout = pipelineLayoutResult.value,
         },
         vk::PipelineRenderingCreateInfo
         {
@@ -1029,7 +1066,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
     };
 
     const auto pipelineResult = device_.createGraphicsPipeline(
-        cache,
+        graphicsPipelineCache_.get(),
         pipelinesInfo.get());
     TOY_ASSERT(pipelineResult.result == vk::Result::eSuccess);
 
@@ -1111,7 +1148,7 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
     //TODO: consider to use allocated pools
     const auto allocationCreateInfo = VmaAllocationCreateInfo
     {
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, //TODO: it should depend on access pattern
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, //TODO: it should depend on access pattern
         .usage = descriptor.memoryUsage == MemoryUsage::gpuOnly? VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE : descriptor.memoryUsage == MemoryUsage::cpuOnly ? VMA_MEMORY_USAGE_AUTO_PREFER_HOST : VMA_MEMORY_USAGE_AUTO
     };
 
@@ -1189,29 +1226,19 @@ void VulkanRenderInterface::updateBindGroupInternal(
 
 }
 
-void VulkanRenderInterface::mapInternal(Handle<Buffer> buffer, void** data)
+void VulkanRenderInterface::mapInternal(const Handle<Buffer>& buffer, void** data)
 {
-    const auto& vulkanBuffer = bufferStorage_.get(buffer);
+    auto& vulkanBuffer = bufferStorage_.get(buffer);
+    vulkanBuffer.isMapped = true;
     vmaMapMemory(allocator_, vulkanBuffer.allocation, data);
 }
+
+
 
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const ComputePipelineDescriptor& descriptor,
 	const std::vector<SetBindGroupMapping>& bindGroups)
 {
-    auto cacheData = std::vector<u8>{};
-    constexpr auto cacheSize = 1024;
-    cacheData.resize(cacheSize);
-
-    const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
-    {
-        .initialDataSize = cacheSize,
-        .pInitialData = cacheData.data()
-
-    };
-    //TODO: needs some pipeline cache management system
-    const auto cache = device_.createPipelineCache(cacheCreateInfo).value;
-
     const auto stage = vk::PipelineShaderStageCreateInfo
     {
         .stage = vk::ShaderStageFlagBits::eCompute,
@@ -1245,7 +1272,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         .layout = pipelineLayoutResult.value
     };
 
-    const auto pipelineResult = device_.createComputePipeline(cache, pipelinesInfo);
+    const auto pipelineResult = device_.createComputePipeline(computePipelineCache_.get(), pipelinesInfo);
     TOY_ASSERT(pipelineResult.result == vk::Result::eSuccess);
 
     const auto pipeline = VulkanPipeline{ .pipeline = pipelineResult.value, .layout = pipelineLayoutResult.value, .bindPoint = vk::PipelineBindPoint::eCompute };

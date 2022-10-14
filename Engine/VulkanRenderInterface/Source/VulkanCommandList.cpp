@@ -257,8 +257,8 @@ api::vulkan::VulkanCommandList::VulkanCommandList(
 	VulkanRenderInterface& parent,
 	vk::CommandBuffer commandBuffer,
 	vk::CommandBufferLevel level, QueueType ownedQueueType):
-	renderInterface_(&parent),
 	CommandList(ownedQueueType),
+	renderInterface_(&parent),
 	cmd_(commandBuffer),
 	level_(level)
 {

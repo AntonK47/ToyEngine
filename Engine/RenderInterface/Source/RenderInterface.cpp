@@ -52,9 +52,13 @@ namespace toy::renderer
 		return createBufferInternal(descriptor);
 	}
 
-	void RenderInterface::map(const Handle<Buffer> buffer, void** data)
+	void RenderInterface::map(const Handle<Buffer>& buffer, void** data)
 	{
 		mapInternal(buffer, data);
+	}
+
+	void RenderInterface::unmap(const Handle<Buffer>& buffer)
+	{
 	}
 
 	BindGroup RenderInterface::allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout)

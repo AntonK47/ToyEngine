@@ -86,6 +86,17 @@ namespace toy::renderer::api::vulkan
 			uniqueValue_ = 0;
 			pool_.clear();
 		}
+
+		std::unordered_map<u32, Value>::iterator begin()
+		{
+			return pool_.begin();
+		}
+
+		std::unordered_map<u32, Value>::iterator end()
+		{
+			return pool_.end();
+		}
+
 	private:
 		u32 uniqueValue_{};
 		std::unordered_map<u32, Value> pool_{};
@@ -127,6 +138,51 @@ namespace toy::renderer::api::vulkan
 		vk::Pipeline pipeline;
 		vk::PipelineLayout layout;
 		vk::PipelineBindPoint bindPoint;
+	};
+
+	struct PipelineCacheDescriptor
+	{
+		vk::Device device;
+		u32 cacheSize;
+	};
+
+	struct PipelineCache
+	{
+	private:
+		bool hasInitialized{ false };
+		vk::PipelineCache cache{};
+		std::vector<u8> cacheDataStorage{};
+		vk::Device device{};
+
+	public:
+
+		void initialize(const PipelineCacheDescriptor& descriptor)
+		{
+			cacheDataStorage.resize(descriptor.cacheSize);
+			device = descriptor.device;
+
+			const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
+			{
+				.initialDataSize = static_cast<u32>(cacheDataStorage.size()),
+				.pInitialData = cacheDataStorage.data()
+
+			};
+			const auto result = device.createPipelineCache(cacheCreateInfo);
+			TOY_ASSERT(result.result == vk::Result::eSuccess);
+			cache = result.value;
+			hasInitialized = true;
+		}
+
+		void deinitialize()
+		{
+			device.destroyPipelineCache(cache);
+		}
+
+		[[nodiscard]] vk::PipelineCache get() const
+		{
+			TOY_ASSERT(hasInitialized);
+			return cache;
+		}
 	};
 
 	struct UploadBufferRing;
@@ -202,7 +258,7 @@ namespace toy::renderer::api::vulkan
 		void updateBindGroupInternal(const Handle<BindGroup>& bindGroup,
 			const std::initializer_list<BindingDataMapping>& mappings) override;
 	protected:
-		void mapInternal(Handle<Buffer> buffer, void** data) override;
+		void mapInternal(const Handle<Buffer>& buffer, void** data) override;
 		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
 			const ComputePipelineDescriptor& descriptor,
 			const std::vector<SetBindGroupMapping>& bindGroups) override;
@@ -254,7 +310,12 @@ namespace toy::renderer::api::vulkan
 		{
 			vk::Buffer buffer;
 			VmaAllocation allocation{};
+			bool isMapped{ false };
 		};
+
+
+		PipelineCache graphicsPipelineCache_{};
+		PipelineCache computePipelineCache_{};
 
 		Pool<ShaderModule, VulkanShaderModule> shaderModuleStorage_{};
 		Pool<Pipeline, VulkanPipeline> pipelineStorage_{};
@@ -262,4 +323,6 @@ namespace toy::renderer::api::vulkan
 		Pool<Buffer, VulkanBuffer> bufferStorage_{};
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};//TODO: this pool should reset each frame, it only contains the data for a current frame
 	};
+
+	
 }

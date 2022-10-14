@@ -246,7 +246,8 @@ namespace toy::renderer
 
 		[[nodiscard]] Handle<Buffer> createBuffer(const BufferDescriptor& descriptor);
 
-		void map(Handle<Buffer> buffer, void** data);
+		void map(const Handle<Buffer>& buffer, void** data);
+		void unmap(const Handle<Buffer>& buffer);
 
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout);
 		[[nodiscard]] BindGroup allocateBindGroup(const BindGroupDescriptor& descriptor);
@@ -302,7 +303,7 @@ namespace toy::renderer
 		virtual void presentInternal() = 0;
 
 		
-		virtual void mapInternal(Handle<Buffer> buffer, void** data) = 0;
+		virtual void mapInternal(const Handle<Buffer>& buffer, void** data) = 0;
 
 		virtual [[nodiscard]] Handle<BindGroupLayout> allocateBindGroupLayoutInternal(
 			const BindGroupDescriptor& descriptor) = 0;
