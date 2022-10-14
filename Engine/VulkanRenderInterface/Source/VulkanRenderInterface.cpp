@@ -63,9 +63,9 @@ namespace
         auto buffer = static_cast<char*>(nullptr);
         {
             using namespace std::string_literals;
-            const auto filePath = path;
+            const auto& filePath = path;
             auto fileStream = std::ifstream{ filePath, std::ios::binary | std::ios::ate };
-            assert(fileStream.is_open());
+            TOY_ASSERT(fileStream.is_open());
             length = static_cast<uint32_t>(fileStream.tellg());
             fileStream.seekg(0);
 
@@ -88,7 +88,7 @@ namespace
         return vk::Format::eB8G8R8A8Unorm;
     }
 
-    vk::DescriptorType mapDescriptorType(BindingType type)
+    vk::DescriptorType mapDescriptorType(const BindingType type)
     {
 	    switch (type)
 	    {
@@ -111,6 +111,8 @@ namespace
 	    case BindingType::Sampler:
             return vk::DescriptorType::eSampler;
 	    }
+
+        return vk::DescriptorType::eStorageBuffer;
     }
 
     PerThreadCommandPoolData createPerThreadCommandPoolData(vk::Device device,
@@ -451,19 +453,15 @@ namespace
 RenderThread::RenderThread()
 {
 	instance = this;
-
 }
 
 VulkanRenderInterface::~VulkanRenderInterface()
-{
-  
-    
-}
+= default;
 
 std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(QueueType queueType,
 	CommandListType commandListType)
 {
-    assert(std::this_thread::get_id() == renderThreadId_);
+    TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
 
     const auto commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers.front();
 
@@ -472,7 +470,8 @@ std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(Q
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
     };
 
-    commandBuffer.begin(beginInfo);
+    const auto result = commandBuffer.begin(beginInfo);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);
 }
@@ -522,7 +521,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 	};
     vpGetInstanceProfileSupport(nullptr, &profileProperties, &isSupported);
 
-    assert(isSupported);
+    TOY_ASSERT(isSupported);
 
     const auto instanceCreateInfo = VpInstanceCreateInfo
     {
@@ -579,7 +578,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
     };
     surface_ = instance_.createWin32SurfaceKHR(surfaceCreateInfo).value;
 
-    const auto surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_).value;
+    const auto& surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_).value;
     auto supportedCompositeAlpha =
         surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eOpaque
         ? vk::CompositeAlphaFlagBitsKHR::eOpaque
@@ -652,8 +651,8 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
 void VulkanRenderInterface::deinitializeInternal()
 {
-    device_.waitIdle();
-
+    const auto result = device_.waitIdle();
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     for(const auto& [queueType, perFramePools]: renderThreadCommandPoolData_.perQueueType)
     {
@@ -689,29 +688,17 @@ void VulkanRenderInterface::nextFrameInternal()
     bindGroupStorage_.reset();
     currentFrame_++;
 
-    const auto nextFramesFence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
-    device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
+    const auto& nextFramesFence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    auto result = device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     resetDescriptorPoolsUntilFrame((currentFrame_+maxDeferredFrames_ - 2)%maxDeferredFrames_);
 
 
     const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
-    device_.resetCommandPool(pool);
+    result = device_.resetCommandPool(pool);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 }
-
-//Handle<RenderTarget> VulkanRenderInterface::createRenderTarget(RenderTargetDescriptor)
-//{
-//	return {};
-//}
-//
-//Handle<Pipeline> VulkanRenderInterface::createPipeline(
-//	const GraphicsPipelineDescriptor& graphicsPipelineDescription, const std::vector<BindGroupDescriptor>& bindGroups)
-//{
-//	return {};
-//}
-
-
-
 
 Handle<BindGroupLayout> VulkanRenderInterface::allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
 {
@@ -728,7 +715,6 @@ Handle<BindGroupLayout> VulkanRenderInterface::allocateBindGroupLayoutInternal(c
 Handle<BindGroup> VulkanRenderInterface::allocateBindGroupInternal(
 	const Handle<BindGroupLayout>& bindGroupLayout)
 {
-
     return allocateBindGroupInternal(bindGroupLayout, 1).front();
 }
 
@@ -763,7 +749,7 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                 .pPoolSizes = poolSizes.data()
             };
             const auto result = device_.createDescriptorPool(poolCreateInfo);
-            assert(result.result == vk::Result::eSuccess);
+            TOY_ASSERT(result.result == vk::Result::eSuccess);
 
             descriptorPoolsPerFrame_[currentPools].push_back(result.value);
         }
@@ -802,7 +788,7 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                 poolIndex++;
                 break;
             default:
-                assert(false); //TODO: fatal error
+                TOY_ASSERT(false); //TODO: fatal error
             }
         }
     }
@@ -822,8 +808,8 @@ SwapchainImage VulkanRenderInterface::acquireNextSwapchainImageInternal()
 
     const auto nextImage = device_.acquireNextImage2KHR(acquireInfo).value;
 
-    const auto imageView = swapchainImageViews_[nextImage];
-    const auto image = swapchainImages_[nextImage];
+    const auto& imageView = swapchainImageViews_[nextImage];
+    const auto& image = swapchainImages_[nextImage];
 
     currentImageIndex_ = nextImage;
 
@@ -851,17 +837,17 @@ void VulkanRenderInterface::presentInternal()
 
     //TODO: should be a present queue
     const auto result = queues_[QueueType::graphics].queue.presentKHR(presentInfo);
-    assert(result == vk::Result::eSuccess);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
 void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<CommandList> commandList)
 {
     const auto& vulkanCommandList = dynamic_cast<VulkanCommandList&>(*commandList);
 
-    vulkanCommandList.cmd_.end();
+    auto result = vulkanCommandList.cmd_.end();
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     const auto queue = queues_[vulkanCommandList.ownedQueueType_].queue;
-
 
     const auto commandBuffers = std::array
 	{
@@ -897,13 +883,14 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
         .pSignalSemaphoreInfos = &signalSemaphoreSubmitInfo
 
     };
-    const auto fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
-    device_.resetFences(1, &fence);
-    const auto result = queue.submit2(1, &submitInfo, fence);
-    assert(result == vk::Result::eSuccess);
+    const auto& fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    result = device_.resetFences(1, &fence);
+    TOY_ASSERT(result == vk::Result::eSuccess);
+    result = queue.submit2(1, &submitInfo, fence);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
-std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
+Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups)
 {
     auto cacheData = std::vector<u8>{};
@@ -1121,7 +1108,6 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
     }
 
 
-
     //TODO: consider to use allocated pools
     const auto allocationCreateInfo = VmaAllocationCreateInfo
     {
@@ -1141,7 +1127,7 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
 	    &allocation,
 	    nullptr));
 
-    assert(result == vk::Result::eSuccess);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     const auto handle = bufferStorage_.add(VulkanBuffer{ buffer, allocation }, descriptor);
 
@@ -1166,9 +1152,9 @@ void VulkanRenderInterface::updateBindGroupInternal(
     for(auto i = u32{}; i < mappingsVector.size(); i++)
     {
         const auto& binding = mappingsVector[i];
-        assert(std::holds_alternative<CBV>(binding.view));
+        TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
         const auto bufferView = std::get<CBV>(binding.view);
-        const auto vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
+        const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
 
         const auto descriptorBufferInfo = vk::DescriptorBufferInfo
         {
@@ -1184,7 +1170,7 @@ void VulkanRenderInterface::updateBindGroupInternal(
 	{
         const auto& binding = mappingsVector[i];
         //TODO:: TEMP
-        assert(std::holds_alternative<CBV>(binding.view));
+        TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
 
         const auto write = vk::WriteDescriptorSet
         {
@@ -1205,7 +1191,7 @@ void VulkanRenderInterface::updateBindGroupInternal(
 
 void VulkanRenderInterface::mapInternal(Handle<Buffer> buffer, void** data)
 {
-    const auto vulkanBuffer = bufferStorage_.get(buffer);
+    const auto& vulkanBuffer = bufferStorage_.get(buffer);
     vmaMapMemory(allocator_, vulkanBuffer.allocation, data);
 }
 
