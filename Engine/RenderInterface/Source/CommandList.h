@@ -150,7 +150,7 @@ namespace toy::renderer
 		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
 		void endRendering();
 
-		void bindPipeline(const Ref<Pipeline>& pipeline);
+		void bindPipeline(const Handle<Pipeline>& pipeline);
 		void setScissor(const Scissor& scissor);
 		void setViewport(const Viewport& viewport);
 		void draw(core::u32 vertexCount,
@@ -172,7 +172,7 @@ namespace toy::renderer
 			core::u32  firstVertex,
 			core::u32  firstInstance) = 0;
 
-		virtual void bindPipelineInternal(const Ref<Pipeline>& pipeline) = 0;
+		virtual void bindPipelineInternal(const Handle<Pipeline>& pipeline) = 0;
 
 		virtual void setScissorInternal(const Scissor& scissor) = 0;
 		virtual void setViewportInternal(const Viewport& viewport) = 0;

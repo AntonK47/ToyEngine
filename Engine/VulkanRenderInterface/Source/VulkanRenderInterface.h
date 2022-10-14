@@ -181,11 +181,15 @@ namespace toy::renderer::api::vulkan
 			const std::unique_ptr<CommandList> commandList) override;
 
 	protected:
-		[[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(
+		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
 			const std::vector<SetBindGroupMapping>& bindGroups) override;
 
-		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(
+		/*[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(
+			ShaderStage stage,
+			const ShaderCode& code) override;*/
+
+		[[nodiscard]] Handle<ShaderModule> createShaderModuleInternal(
 			ShaderStage stage,
 			const ShaderCode& code) override;
 	private:
@@ -199,6 +203,9 @@ namespace toy::renderer::api::vulkan
 			const std::initializer_list<BindingDataMapping>& mappings) override;
 	protected:
 		void mapInternal(Handle<Buffer> buffer, void** data) override;
+		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
+			const ComputePipelineDescriptor& descriptor,
+			const std::vector<SetBindGroupMapping>& bindGroups) override;
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
@@ -246,11 +253,13 @@ namespace toy::renderer::api::vulkan
 		struct VulkanBuffer
 		{
 			vk::Buffer buffer;
-			VmaAllocation allocation;
+			VmaAllocation allocation{};
 		};
 
+		Pool<ShaderModule, VulkanShaderModule> shaderModuleStorage_{};
+		Pool<Pipeline, VulkanPipeline> pipelineStorage_{};
 
 		Pool<Buffer, VulkanBuffer> bufferStorage_{};
-		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};//TODO: this pool should be resetet each frame, it only contains the data for a current frame
+		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};//TODO: this pool should reset each frame, it only contains the data for a current frame
 	};
 }

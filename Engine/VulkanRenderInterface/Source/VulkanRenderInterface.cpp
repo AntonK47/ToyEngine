@@ -937,13 +937,13 @@ std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
         vk::PipelineShaderStageCreateInfo
         {
             .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = descriptor.vertexShader.query<VulkanShaderModule>().module,
+            .module = shaderModuleStorage_.get(descriptor.vertexShader).module,
             .pName = "main"
         },
         vk::PipelineShaderStageCreateInfo
         {
             .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = descriptor.fragmentShader.query<VulkanShaderModule>().module,
+            .module = shaderModuleStorage_.get(descriptor.fragmentShader).module,
             .pName = "main"
         }
     };
@@ -1011,38 +1011,46 @@ std::unique_ptr<Pipeline> VulkanRenderInterface::createPipelineInternal(
         .pDynamicStates = dynamicStates.data()
     };
 
-    const auto pipelinesInfo = 
-         vk::StructureChain
+
+    const auto pipelineLayoutResult = device_.createPipelineLayout(layoutCreateInfo);
+    TOY_ASSERT(pipelineLayoutResult.result == vk::Result::eSuccess);
+
+    const auto pipelinesInfo =
+        vk::StructureChain
+    {
+        vk::GraphicsPipelineCreateInfo
         {
-            vk::GraphicsPipelineCreateInfo
-            {
-                .stageCount = static_cast<uint32_t>(stages.size()),
-                .pStages = stages.data(),
-                .pVertexInputState = &vertexInputState,
-                .pInputAssemblyState = &inputAssemblyState,
-                .pViewportState = &viewportState,
-                .pRasterizationState = &rasterizationState,
-                .pMultisampleState = &multisampleState,
-                .pColorBlendState = &colorBlendState,
-                .pDynamicState = &dynamicState,
-                .layout = pipelineLayout,
-            },
-            vk::PipelineRenderingCreateInfo
-            {
-                .viewMask = 0,
-                .colorAttachmentCount = colorRenderTargets,
-                .pColorAttachmentFormats = colorRenderTargetFormats.data(),
-                .depthAttachmentFormat = hasDepthRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
-                .stencilAttachmentFormat = hasStencilRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.stencilRenderTarget.value().format) : vk::Format::eUndefined
-            }
-        };
+            .stageCount = static_cast<uint32_t>(stages.size()),
+            .pStages = stages.data(),
+            .pVertexInputState = &vertexInputState,
+            .pInputAssemblyState = &inputAssemblyState,
+            .pViewportState = &viewportState,
+            .pRasterizationState = &rasterizationState,
+            .pMultisampleState = &multisampleState,
+            .pColorBlendState = &colorBlendState,
+            .pDynamicState = &dynamicState,
+            .layout = pipelineLayout,
+        },
+        vk::PipelineRenderingCreateInfo
+        {
+            .viewMask = 0,
+            .colorAttachmentCount = colorRenderTargets,
+            .pColorAttachmentFormats = colorRenderTargetFormats.data(),
+            .depthAttachmentFormat = hasDepthRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
+            .stencilAttachmentFormat = hasStencilRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.stencilRenderTarget.value().format) : vk::Format::eUndefined
+        }
+    };
 
-    const auto pipeline = device_.createGraphicsPipeline(cache, pipelinesInfo.get()).value;
+    const auto pipelineResult = device_.createGraphicsPipeline(
+        cache,
+        pipelinesInfo.get());
+    TOY_ASSERT(pipelineResult.result == vk::Result::eSuccess);
 
-    return std::make_unique<VulkanPipeline>(VulkanPipeline{ .pipeline = pipeline, .layout = pipelineLayout, .bindPoint = vk::PipelineBindPoint::eGraphics });
+    const auto pipeline = VulkanPipeline{ .pipeline = pipelineResult.value, .layout = pipelineLayoutResult.value, .bindPoint = vk::PipelineBindPoint::eGraphics };
+    return pipelineStorage_.add(pipeline, descriptor);
 }
 
-std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderStage stage,
+Handle<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderStage stage,
 	const ShaderCode& code)
 {
     const auto moduleCreateInfo = vk::ShaderModuleCreateInfo
@@ -1055,7 +1063,11 @@ std::unique_ptr<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(
 
     LOG_IF(FATAL, result.result != vk::Result::eSuccess) << "Shader module creation failed!";
 
-    return std::make_unique<VulkanShaderModule>(VulkanShaderModule{.module = result.value});
+    const auto shaderModule = VulkanShaderModule
+	{
+		.module = result.value
+	};
+    return shaderModuleStorage_.add(shaderModule);
 }
 
 void VulkanRenderInterface::resetDescriptorPoolsUntilFrame(const u32 frame)
@@ -1195,4 +1207,61 @@ void VulkanRenderInterface::mapInternal(Handle<Buffer> buffer, void** data)
 {
     const auto vulkanBuffer = bufferStorage_.get(buffer);
     vmaMapMemory(allocator_, vulkanBuffer.allocation, data);
+}
+
+Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
+	const ComputePipelineDescriptor& descriptor,
+	const std::vector<SetBindGroupMapping>& bindGroups)
+{
+    auto cacheData = std::vector<u8>{};
+    constexpr auto cacheSize = 1024;
+    cacheData.resize(cacheSize);
+
+    const auto cacheCreateInfo = vk::PipelineCacheCreateInfo
+    {
+        .initialDataSize = cacheSize,
+        .pInitialData = cacheData.data()
+
+    };
+    //TODO: needs some pipeline cache management system
+    const auto cache = device_.createPipelineCache(cacheCreateInfo).value;
+
+    const auto stage = vk::PipelineShaderStageCreateInfo
+    {
+        .stage = vk::ShaderStageFlagBits::eCompute,
+        .module = shaderModuleStorage_.get(descriptor.computeShader).module,
+        .pName = "main"
+    };
+
+    const auto setCount = static_cast<u32>(bindGroups.size());
+
+    auto setLayouts = std::vector<vk::DescriptorSetLayout>{};
+    setLayouts.resize(setCount);
+
+    for (auto i = u32{}; i < setCount; i++)
+    {
+        setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index];
+    }
+
+    const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
+    {
+        .setLayoutCount = setCount,
+        .pSetLayouts = setLayouts.data(),
+        .pushConstantRangeCount = 0
+    };
+
+    const auto pipelineLayoutResult = device_.createPipelineLayout(layoutCreateInfo);
+    TOY_ASSERT(pipelineLayoutResult.result == vk::Result::eSuccess);
+
+    const auto pipelinesInfo = vk::ComputePipelineCreateInfo
+    {
+        .stage = stage,
+        .layout = pipelineLayoutResult.value
+    };
+
+    const auto pipelineResult = device_.createComputePipeline(cache, pipelinesInfo);
+    TOY_ASSERT(pipelineResult.result == vk::Result::eSuccess);
+
+    const auto pipeline = VulkanPipeline{ .pipeline = pipelineResult.value, .layout = pipelineLayoutResult.value, .bindPoint = vk::PipelineBindPoint::eCompute };
+    return pipelineStorage_.add(pipeline, descriptor);
 }

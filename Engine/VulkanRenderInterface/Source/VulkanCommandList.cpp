@@ -215,13 +215,15 @@ void api::vulkan::VulkanCommandList::endRenderingInternal()
 
 void api::vulkan::VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
 {
+	
 	cmd_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void api::vulkan::VulkanCommandList::bindPipelineInternal(const Ref<Pipeline>& pipeline)
+void api::vulkan::VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
 {
-	currentPipeline_ = const_cast<VulkanPipeline*>(&pipeline.query<VulkanPipeline>());
-	cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, currentPipeline_->pipeline);
+	const auto& vulkanPipeline = renderInterface_->pipelineStorage_.get(pipeline);
+	currentPipeline_ = vulkanPipeline;
+	cmd_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
 }
 
 void api::vulkan::VulkanCommandList::setScissorInternal(const Scissor& scissor)
@@ -244,8 +246,8 @@ void api::vulkan::VulkanCommandList::setViewportInternal(
 void api::vulkan::VulkanCommandList::bindGroupInternal(u32 set,
 	const Handle<BindGroup>& handle)
 {
-	const auto vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
-	const auto vulkanPipeline = *currentPipeline_;
+	const auto& vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
+	const auto& vulkanPipeline = currentPipeline_;
 
 
 	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, 0, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);

@@ -32,7 +32,7 @@ namespace toy::renderer::api::vulkan
 		                  u32 instanceCount,
 		                  u32 firstVertex,
 		                  u32 firstInstance) override;
-		void bindPipelineInternal(const Ref<Pipeline>& pipeline) override;
+		void bindPipelineInternal(const Handle<Pipeline>& pipeline) override;
 		void setScissorInternal(const Scissor& scissor) override;
 		void setViewportInternal(const Viewport& viewport) override;
 
@@ -40,7 +40,7 @@ namespace toy::renderer::api::vulkan
 	private:
 		friend VulkanRenderInterface;
 
-		VulkanPipeline* currentPipeline_{};
+		VulkanPipeline currentPipeline_{};
 		VulkanRenderInterface* renderInterface_;
 		vk::CommandBuffer cmd_;
 		vk::CommandBufferLevel level_;

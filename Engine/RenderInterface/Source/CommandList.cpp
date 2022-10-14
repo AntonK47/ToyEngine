@@ -32,7 +32,7 @@ namespace toy::renderer
 		endRenderingInternal();
 	}
 
-	void CommandList::bindPipeline(const Ref<Pipeline>& pipeline)
+	void CommandList::bindPipeline(const Handle<Pipeline>& pipeline)
 	{
 		bindPipelineInternal(pipeline);
 	}

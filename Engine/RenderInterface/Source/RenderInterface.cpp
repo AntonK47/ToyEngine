@@ -88,14 +88,21 @@ namespace toy::renderer
 
 	}
 
-	std::unique_ptr<Pipeline> RenderInterface::createPipeline(
+	Handle<Pipeline> RenderInterface::createPipeline(
 		const GraphicsPipelineDescriptor& descriptor,
 		const std::vector<SetBindGroupMapping>& bindGroups)
 	{
 		return createPipelineInternal(descriptor, bindGroups);
 	}
 
-	std::unique_ptr<ShaderModule> RenderInterface::createShaderModule(ShaderStage stage, const ShaderCode& code)
+	Handle<Pipeline> RenderInterface::createPipeline(
+		const ComputePipelineDescriptor& descriptor,
+		const std::vector<SetBindGroupMapping>& bindGroups)
+	{
+		return createPipelineInternal(descriptor, bindGroups);
+	}
+
+	Handle<ShaderModule> RenderInterface::createShaderModule(ShaderStage stage, const ShaderCode& code)
 	{
 		return createShaderModuleInternal(stage, code);
 	}

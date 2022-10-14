@@ -63,9 +63,9 @@ int Application::run()
 
     auto time = 0.0f;
 
-    auto pipeline = std::unique_ptr<Pipeline>{};
+    auto pipeline = Handle<Pipeline>{};
     auto bindGroupLayout = Handle<BindGroupLayout>{};
-    
+
     //resource loading
     {
         const auto vertexShaderGlslCode = loadShaderFile("Resources/FullscreenQuadWithoutUniforms.vert");
@@ -120,8 +120,8 @@ int Application::run()
         pipeline = renderer.createPipeline(
             GraphicsPipelineDescriptor
             {
-                .vertexShader = ShaderModuleRef(vertexShaderModule.get()),
-                .fragmentShader = ShaderModuleRef(fragmentShaderModule.get()),
+                .vertexShader = vertexShaderModule,
+                .fragmentShader = fragmentShaderModule,
                 .renderTargetDescriptor = RenderTargetsDescriptor
                 {
                     .colorRenderTargets = std::initializer_list
@@ -138,7 +138,7 @@ int Application::run()
                 SetBindGroupMapping{0, bindGroupLayout}
             });
     }
-    const auto myTestPipeline = Ref(pipeline.get());
+    const auto myTestPipeline = pipeline;
 
 
     bool stillRunning = true;

@@ -162,10 +162,15 @@ namespace toy::renderer
 
 	struct GraphicsPipelineDescriptor
 	{
-		ShaderModuleRef vertexShader;
-		ShaderModuleRef fragmentShader;
+		Handle<ShaderModule> vertexShader;
+		Handle<ShaderModule> fragmentShader;
 		RenderTargetsDescriptor renderTargetDescriptor;
 		PipelineState state{};
+	};
+
+	struct ComputePipelineDescriptor
+	{
+		Handle<ShaderModule> computeShader;
 	};
 
 
@@ -256,9 +261,11 @@ namespace toy::renderer
 		//virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
 
 		//draft for pipeline creation
-		[[nodiscard]] std::unique_ptr<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescriptor, const std::vector<SetBindGroupMapping>& bindGroups = {});
+		[[nodiscard]] Handle<Pipeline> createPipeline(const GraphicsPipelineDescriptor& graphicsPipelineDescriptor, const std::vector<SetBindGroupMapping>& bindGroups = {});
 
-		[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModule(ShaderStage stage, const ShaderCode& code);
+		[[nodiscard]] Handle<Pipeline> createPipeline(const ComputePipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups = {});
+
+		[[nodiscard]] Handle<ShaderModule> createShaderModule(ShaderStage stage, const ShaderCode& code);
 
 
 
@@ -279,9 +286,17 @@ namespace toy::renderer
 		virtual [[nodiscard]] std::unique_ptr<CommandList> acquireCommandListInternal(QueueType queueType, CommandListType commandListType = CommandListType::primary) = 0;
 		virtual [[nodiscard]] void submitCommandListInternal(std::unique_ptr<CommandList> commandList) = 0;
 
-		virtual [[nodiscard]] std::unique_ptr<Pipeline> createPipelineInternal(const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups) = 0;
+		virtual [[nodiscard]] Handle<Pipeline> createPipelineInternal(
+			const GraphicsPipelineDescriptor& descriptor,
+			const std::vector<SetBindGroupMapping>& bindGroups) = 0;
 
-		virtual [[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(ShaderStage stage, const ShaderCode& code) = 0;
+		virtual [[nodiscard]] Handle<Pipeline> createPipelineInternal(
+			const ComputePipelineDescriptor& descriptor,
+			const std::vector<SetBindGroupMapping>& bindGroups) = 0;
+
+		virtual [[nodiscard]] Handle<ShaderModule> createShaderModuleInternal(
+			ShaderStage stage,
+			const ShaderCode& code) = 0;
 
 		virtual void nextFrameInternal() = 0;
 		virtual void presentInternal() = 0;
@@ -289,14 +304,15 @@ namespace toy::renderer
 		
 		virtual void mapInternal(Handle<Buffer> buffer, void** data) = 0;
 
-		virtual [[nodiscard]] Handle<BindGroupLayout> allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor) = 0;
+		virtual [[nodiscard]] Handle<BindGroupLayout> allocateBindGroupLayoutInternal(
+			const BindGroupDescriptor& descriptor) = 0;
 		virtual [[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout, u32 bindGroupCount) = 0;
 		virtual [[nodiscard]] Handle<BindGroup> allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout) = 0;
 
 
-
+		//TODO: resource creation can be moved in a separate resource management class 
 		virtual [[nodiscard]] Handle<Buffer> createBufferInternal(const BufferDescriptor& descriptor) = 0;
 
 
