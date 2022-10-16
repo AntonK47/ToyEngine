@@ -11,6 +11,9 @@
     "gtest",
     "glm",
     "glslang",
-    "vulkan-memory-allocator"
+    "vulkan-memory-allocator",
+    "meshoptimizer",
+    "boost-program-options",
+    "assimp"
   ]
 }
