@@ -5,7 +5,7 @@ set(MODULE_SOURCES
 	MeshBuilder.h
 	MeshletBuilder.h
 	MeshletBuilder.cpp
-)
+	MeshBuilder.cpp)
 
 set(RESOURCE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Resources")
 
@@ -19,6 +19,7 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 
 target_link_libraries(${APPLICATION_NAME}
 	PRIVATE
+		Core
 		Engine
 		meshoptimizer::meshoptimizer
 		assimp::assimp

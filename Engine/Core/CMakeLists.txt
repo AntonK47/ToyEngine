@@ -2,11 +2,11 @@ set(MODULE_NAME Core)
 
 set(MODULE_SOURCES 
 	Source/Hash.cpp
- "Source/Logger.cpp")
+ "Source/Logger.cpp" "Source/Scene.cpp")
 set(MODULE_HEADERS 
 	Source/CommonTypes.h
 	Source/Hash.h
- "Source/Common.h" "Source/Logger.h")
+ "Source/Common.h" "Source/Logger.h" "Source/Scene.h")
 
 
 add_library(${MODULE_NAME}

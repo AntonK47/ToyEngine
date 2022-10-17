@@ -2,6 +2,8 @@
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
+
+#include "Scene.h"
 #include "SDLWindow.h"
 #include "VulkanRenderInterface.h"
 
@@ -29,10 +31,13 @@ namespace
 
 int Application::run()
 {
+    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Debug\\Tools\\MeshBuilder\\bunny.dat";
+
+    const auto scene = scene::loadSceneFile(filePath);
     logger::initialize();
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
-    
+
 
     window.initialize(WindowDescriptor{ 1280, 720 });
 
