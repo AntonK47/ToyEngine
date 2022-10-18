@@ -188,7 +188,12 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 		return CompilationResult::failed;
 	}
 
-	glslang_program_SPIRV_generate(program, stage);
+	//TODO: this options should be pass from the user land
+	auto options = glslang_spv_options_t
+	{
+		true, false, true, false, false, true
+	};
+	glslang_program_SPIRV_generate_with_options(program, stage, &options);
 
 	byteCode.resize(glslang_program_SPIRV_get_size(program));
 	glslang_program_SPIRV_get(program, byteCode.data());
