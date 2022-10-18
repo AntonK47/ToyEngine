@@ -125,13 +125,13 @@ ProcessResult process(const std::string& input,
 
 	//const auto filePath = "C:/Users/AntonKi8/source/repos/CandleFlameEngine/Resources/bun_zipper.ply";
 	//const auto filePath = "C:/Users/AntonKi8/source/repos/CandleFlameEngine/Resources/xyzrgb_dragon.ply";
-	const auto scene = importer.ReadFile(input,
-	                                     aiProcess_GenSmoothNormals|
+	const auto scene = importer.ReadFile(input, aiProcess_GenBoundingBoxes /*,
+	                                     aiProcess_GenSmoothNormals |
 	                                     aiProcess_Triangulate |
 	                                     aiProcess_GenBoundingBoxes |
 	                                     aiProcess_JoinIdenticalVertices |
-	                                     aiProcess_SortByPType);
-	importer.ApplyPostProcessing(aiPostProcessSteps::aiProcess_CalcTangentSpace);
+	                                     aiProcess_SortByPType*/);
+	//importer.ApplyPostProcessing(aiPostProcessSteps::aiProcess_CalcTangentSpace);
 	const auto error = importer.GetErrorString();
 	assert(scene && error);
 	//const auto mesh = loadMeshFile("aa.mesh");

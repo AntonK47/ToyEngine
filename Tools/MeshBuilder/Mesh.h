@@ -13,7 +13,7 @@
 inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 {
 	assert(aiMesh.mVertices);
-	assert(aiMesh.mNormals);
+	/*assert(aiMesh.mNormals);
 	assert(aiMesh.mAABB.mMin != aiMesh.mAABB.mMax);
 	//optimize
 	const auto faceCount = aiMesh.mNumFaces;
@@ -51,6 +51,44 @@ inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 			vertexOffset++;
 		}
 	}
+	*/
+
+	const auto faceCount = aiMesh.mNumFaces;
+	const auto indexCount = faceCount * 3;
+	auto unindexedVertices = std::vector<toy::core::scene::Position>{};
+
+
+
+
+
+	//auto unindexedNormals = std::vector<toy::core::scene::Normal>{};
+
+
+	unindexedVertices.resize(indexCount, toy::core::scene::Position{});
+	//unindexedNormals.resize(indexCount, toy::core::scene::Normal{});
+	auto vertexOffset = uint32_t{};
+
+	const auto aabb = aiMesh.mAABB;
+	const auto aabbCenter = (aabb.mMin + aabb.mMax) * 0.5f;
+	const auto invL = 0.5f / ((aabb.mMax.Length() > aabb.mMin.Length() ? aabb.mMax : aabb.mMin) - aabbCenter).Length();
+	for (unsigned i = 0; i < aiMesh.mNumFaces; i++)
+	{
+		for (unsigned j = 0; j < aiMesh.mFaces[i].mNumIndices; j++)
+		{
+			const auto aiVertex = aiMesh.mVertices[aiMesh.mFaces[i].mIndices[j]]- aabbCenter;
+			
+
+			const auto v = toy::core::scene::Position
+			{
+				.x = aiVertex.x * invL,
+				.y = aiVertex.y * invL,
+				.z = aiVertex.z * invL
+			};
+			
+			unindexedVertices[vertexOffset] = v;
+			vertexOffset++;
+		}
+	}
 
 	auto remap = std::vector<unsigned int>(indexCount);
 	const auto vertexCount = meshopt_generateVertexRemap(
@@ -64,9 +102,9 @@ inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 
 	auto mesh = toy::core::scene::Mesh
 	{
-		std::vector<toy::core::scene::Position>(vertexCount),
-		std::vector<toy::core::scene::Normal>(vertexCount),
-		std::vector<toy::core::scene::Index>(indexCount)
+		.vertices = std::vector<toy::core::scene::Position>(vertexCount),
+		//std::vector<toy::core::scene::Normal>(vertexCount),
+		.indices = std::vector<toy::core::scene::Index>(indexCount)
 	};
 
 

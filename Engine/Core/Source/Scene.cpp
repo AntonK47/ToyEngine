@@ -35,7 +35,7 @@ void toy::core::scene::saveSceneFile(const std::vector<SceneObject>& scene,
 			perLodHeader[j] = scene[i].mesh.lods[j].header;
 		}
 
-		file.write(reinterpret_cast<const char*>(perLodHeader.data()), sizeof(LodMesh) * perLodHeader.size());
+		file.write(reinterpret_cast<const char*>(perLodHeader.data()), sizeof(LodHeader) * perLodHeader.size());
 
 		for (uint32_t j{}; j < perLodHeader.size(); j++)
 		{
@@ -94,7 +94,7 @@ std::vector<SceneObject> toy::core::scene::loadSceneFile(
 	{
 		auto perLodHeader = std::vector<LodHeader>{};
 		perLodHeader.resize(perObjectHeader[i].lods);
-		file.read(reinterpret_cast<char*>(perLodHeader.data()), sizeof(LodMesh) * perLodHeader.size());
+		file.read(reinterpret_cast<char*>(perLodHeader.data()), sizeof(LodHeader) * perLodHeader.size());
 
 		for (uint32_t j{}; j < perLodHeader.size(); j++)
 		{
@@ -111,7 +111,7 @@ std::vector<SceneObject> toy::core::scene::loadSceneFile(
 	for (uint32_t i{}; i < totalObjects; i++)
 	{
 
-		file.read(reinterpret_cast<char*>(scene[i].mesh.triangles.data()), sizeof(unsigned char) * scene[i].mesh.triangles.size());
+		file.read(reinterpret_cast<char*>(scene[i].mesh.triangles.data()), sizeof(unsigned char) * (scene[i].mesh.triangles.size()+1));//TODO: +1 is a dirty fix
 		file.read(reinterpret_cast<char*>(scene[i].mesh.positionVertexStream.data()), sizeof(Position) * scene[i].mesh.positionVertexStream.size());
 	}
 
