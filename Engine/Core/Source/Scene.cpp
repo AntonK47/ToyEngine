@@ -86,7 +86,7 @@ std::vector<SceneObject> toy::core::scene::loadSceneFile(
 		scene[i].mesh.header = perObjectHeader[i];
 		scene[i].transform = perObjectTransform[i];
 		scene[i].mesh.lods.resize(perObjectHeader[i].lods);
-		scene[i].mesh.triangles.resize(perObjectHeader[i].totalTriangles);
+		scene[i].mesh.triangles.resize(perObjectHeader[i].totalTriangles*3);
 		scene[i].mesh.positionVertexStream.resize(perObjectHeader[i].totalVertexCount);
 	}
 

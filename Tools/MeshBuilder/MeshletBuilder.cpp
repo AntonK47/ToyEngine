@@ -120,8 +120,18 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 			const auto meshlet = meshlets[i];
 
 
-			std::array<float, 3> min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-			std::array<float, 3> max = { std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min() };
+			std::array<float, 3> min = 
+			{
+				std::numeric_limits<float>::max(),
+				std::numeric_limits<float>::max(),
+				std::numeric_limits<float>::max()
+			};
+			std::array<float, 3> max = 
+			{
+				std::numeric_limits<float>::min(),
+				std::numeric_limits<float>::min(),
+				std::numeric_limits<float>::min()
+			};
 
 			for (auto i = meshlet.vertex_offset; i < meshlet.vertex_offset + meshlet.vertex_count; i++)
 			{
@@ -167,7 +177,7 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 				meshlet.triangle_count, &mesh.vertices[0].x, mesh.vertices.size(), sizeof(Position));
 
 
-			meshletInfos[i] = Meshlet{ nextTriangle + meshlet.triangle_offset, meshlet.triangle_count, nextPosition + meshlet.vertex_offset, meshlet.vertex_count };
+			meshletInfos[i] = Meshlet{ meshlet.triangle_offset, meshlet.triangle_count,  meshlet.vertex_offset, meshlet.vertex_count };
 			totalTriangles += meshlet.triangle_count;
 			totalVertexCount += meshlet.vertex_count;
 
@@ -215,8 +225,8 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 
 
 		////TODO: store triangles in other way
-		processedMesh.triangles.insert(processedMesh.triangles.end(), meshletTriangles.begin(), meshletTriangles.begin() + totalTriangles);
-		processedMesh.positionVertexStream.insert(processedMesh.positionVertexStream.end(), positionStream.begin(), positionStream.begin() + totalVertexCount);
+		processedMesh.triangles.insert(processedMesh.triangles.end(), meshletTriangles.begin(), meshletTriangles.end());
+		processedMesh.positionVertexStream.insert(processedMesh.positionVertexStream.end(), positionStream.begin(), positionStream.end());
 
 		auto lodMesh = LodMesh
 		{
@@ -226,8 +236,8 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 		};
 
 		processedMesh.lods.push_back(lodMesh);
-		processedMesh.header.totalTriangles += totalTriangles;
-		processedMesh.header.totalVertexCount += totalVertexCount;
+		processedMesh.header.totalTriangles = processedMesh.triangles.size()/3;
+		processedMesh.header.totalVertexCount = processedMesh.positionVertexStream.size();
 
 		//TODO: generate only lod0 for now
 		break;
