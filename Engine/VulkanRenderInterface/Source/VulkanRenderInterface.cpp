@@ -1191,37 +1191,75 @@ void VulkanRenderInterface::updateBindGroupInternal(
     for(auto i = u32{}; i < mappingsVector.size(); i++)
     {
         const auto& binding = mappingsVector[i];
-        TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
-        const auto bufferView = std::get<CBV>(binding.view);
-        const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
-
-        const auto descriptorBufferInfo = vk::DescriptorBufferInfo
+        if(std::holds_alternative<CBV>(binding.view))
         {
-            .buffer = vulkanBuffer.buffer,
-            .offset = bufferView.bufferView.offset,
-            .range = bufferView.bufferView.size
-        };
+            TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
+            const auto bufferView = std::get<CBV>(binding.view);
+            const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
 
-        descriptorInfos[i] = descriptorBufferInfo;
+            const auto descriptorBufferInfo = vk::DescriptorBufferInfo
+            {
+                .buffer = vulkanBuffer.buffer,
+                .offset = bufferView.bufferView.offset,
+                .range = bufferView.bufferView.size
+            };
+
+            descriptorInfos[i] = descriptorBufferInfo;
+        }
+        if (std::holds_alternative<UAV>(binding.view))
+        {
+            TOY_ASSERT(std::holds_alternative<UAV>(binding.view));
+            const auto bufferView = std::get<UAV>(binding.view);
+            const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
+
+            const auto descriptorBufferInfo = vk::DescriptorBufferInfo
+            {
+                .buffer = vulkanBuffer.buffer,
+                .offset = bufferView.bufferView.offset,
+                .range = bufferView.bufferView.size
+            };
+
+            descriptorInfos[i] = descriptorBufferInfo;
+        }
     }
 
     for (auto i = u32{}; i < mappingsVector.size(); i++)
 	{
         const auto& binding = mappingsVector[i];
         //TODO:: TEMP
-        TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
-
-        const auto write = vk::WriteDescriptorSet
+        if(std::holds_alternative<CBV>(binding.view))
         {
-            .dstSet = vulkanBindGroup.descriptorSet,
-            .dstBinding = binding.binding,
-            .dstArrayElement = binding.arrayElement,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eUniformBuffer, //because of CBV type, TODO: derive it properly!
-            .pBufferInfo = &std::get<vk::DescriptorBufferInfo>(descriptorInfos[i])
-        };
+            TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
 
-        descriptorWrites.push_back(write);
+            const auto write = vk::WriteDescriptorSet
+            {
+                .dstSet = vulkanBindGroup.descriptorSet,
+                .dstBinding = binding.binding,
+                .dstArrayElement = binding.arrayElement,
+                .descriptorCount = 1,
+                .descriptorType = vk::DescriptorType::eUniformBuffer, //because of CBV type, TODO: derive it properly!
+                .pBufferInfo = &std::get<vk::DescriptorBufferInfo>(descriptorInfos[i])
+            };
+
+            descriptorWrites.push_back(write);
+        }
+        if (std::holds_alternative<UAV>(binding.view))
+        {
+            TOY_ASSERT(std::holds_alternative<UAV>(binding.view));
+
+            const auto write = vk::WriteDescriptorSet
+            {
+                .dstSet = vulkanBindGroup.descriptorSet,
+                .dstBinding = binding.binding,
+                .dstArrayElement = binding.arrayElement,
+                .descriptorCount = 1,
+                .descriptorType = vk::DescriptorType::eStorageBuffer, //because of UAV type, TODO: derive it properly!
+                .pBufferInfo = &std::get<vk::DescriptorBufferInfo>(descriptorInfos[i])
+            };
+
+            descriptorWrites.push_back(write);
+        }
+        
 	}
 
     device_.updateDescriptorSets(static_cast<u32>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
