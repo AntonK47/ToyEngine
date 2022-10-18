@@ -321,11 +321,13 @@ namespace
             },
             vk::PhysicalDeviceVulkan11Features
             {
-
+                .shaderDrawParameters = vk::Bool32{true}
             },
             vk::PhysicalDeviceVulkan12Features
             {
+                .storageBuffer8BitAccess = vk::Bool32{ true},
             	.shaderBufferInt64Atomics = vk::Bool32{true},
+                
 
                 .shaderUniformBufferArrayNonUniformIndexing = vk::Bool32{true},
                 .shaderSampledImageArrayNonUniformIndexing = vk::Bool32{true},
