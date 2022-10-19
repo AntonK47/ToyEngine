@@ -42,9 +42,6 @@ namespace
 
 int Application::run()
 {
-    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\dragon.dat";
-
-    const auto scene = scene::loadSceneFile(filePath);
     logger::initialize();
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
@@ -67,6 +64,11 @@ int Application::run()
 
     renderer.initialize(rendererDescriptor);
 
+
+    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\dragon.dat";
+    const auto scene = scene::loadSceneFile(filePath);
+
+
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
             .size = 1024,
@@ -78,48 +80,7 @@ int Application::run()
     renderer.map(frameData, &frameDataPtr);
 
     auto time = 0.0f;
-
-    auto pipeline = Handle<Pipeline>{};
-    auto bindGroupLayout = Handle<BindGroupLayout>{};
-
-    //resource loading
-    {
-        const auto vertexShaderGlslCode = loadShaderFile("Resources/FullscreenQuadWithoutUniforms.vert");
-        const auto fragmentShaderGlslCode = loadShaderFile("Resources/HyperbolicPoincareWeave.frag");
-
-        const auto vertexShaderInfo = GlslRuntimeCompiler::ShaderInfo
-        {
-            .entryPoint = "main",
-            .compilationDefines = {},
-            .shaderStage = compiler::ShaderStage::vertex,
-            .shaderCode = vertexShaderGlslCode,
-            .enableDebugCompilation = false
-        };
-
-        const auto fragmentShaderInfo = GlslRuntimeCompiler::ShaderInfo
-        {
-            .entryPoint = "main",
-            .compilationDefines = {},
-            .shaderStage = compiler::ShaderStage::fragment,
-            .shaderCode = fragmentShaderGlslCode,
-            .enableDebugCompilation = false
-        };
-
-        auto vertexShaderSpirvCode = ShaderByteCode{};
-        auto fragmentShaderSpirvCode = ShaderByteCode{};
-
-        auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, vertexShaderSpirvCode);
-        assert(result == CompilationResult::success);
-
-        result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, fragmentShaderSpirvCode);
-        assert(result == CompilationResult::success);
-
-
-        const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, vertexShaderSpirvCode });
-
-        const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, fragmentShaderSpirvCode });
-    }
-
+    
 
     const auto physicalMemorySize = u32{ 1024 * 1024 };
 
@@ -296,8 +257,6 @@ int Application::run()
     {
         u32 pageOffset;
     };
-
-    //auto mesh = loadMeshFile("E:\\Develop\\VulkanMultithreading\\x64\\Debug\\bunny.dat");
 
     
 
