@@ -1,5 +1,7 @@
 #include "VulkanBindGroupAllocator.h"
 
+#include "ValidationCommon.h"
+
 using namespace toy::renderer::api::vulkan;
 using namespace toy::core;
 using namespace toy::renderer;
@@ -110,7 +112,7 @@ std::unique_ptr<BindGroupLayout> VulkanBindingGroupAllocator::allocateBindGroupL
 
     auto [result, layout] = vulkanDevice.logicalDevice.createDescriptorSetLayout(createInfo.get());
 
-    assert(result == vk::Result::eSuccess);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     return std::make_unique<VulkanBindGroupLayout>(VulkanBindGroupLayout{ .layout = layout });
 }

@@ -243,14 +243,14 @@ void api::vulkan::VulkanCommandList::setViewportInternal(
 	cmd_.setViewport(0, 1, &vulkanViewport);
 }
 
-void api::vulkan::VulkanCommandList::bindGroupInternal(u32 set,
-	const Handle<BindGroup>& handle)
+void api::vulkan::VulkanCommandList::bindGroupInternal(const u32 set,
+                                                       const Handle<BindGroup>& handle)
 {
 	const auto& vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
 	const auto& vulkanPipeline = currentPipeline_;
 
 
-	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, 0, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
+	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, set, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
 }
 
 api::vulkan::VulkanCommandList::VulkanCommandList(

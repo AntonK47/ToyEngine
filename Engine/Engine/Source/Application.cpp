@@ -42,7 +42,7 @@ namespace
 
 int Application::run()
 {
-    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Debug\\Tools\\MeshBuilder\\bunny.dat";
+    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\dragon.dat";
 
     const auto scene = scene::loadSceneFile(filePath);
     logger::initialize();
@@ -118,43 +118,41 @@ int Application::run()
         const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, vertexShaderSpirvCode });
 
         const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, fragmentShaderSpirvCode });
-
-
-        const auto group1 = BindGroupDescriptor
-        {
-            .bindings =
-            {
-                {
-                    .binding = 0,
-                    .descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
-                }
-            }
-        };
-
-        bindGroupLayout = renderer.allocateBindGroupLayout(group1);
-
-        pipeline = renderer.createPipeline(
-            GraphicsPipelineDescriptor
-            {
-                .vertexShader = vertexShaderModule,
-                .fragmentShader = fragmentShaderModule,
-                .renderTargetDescriptor = RenderTargetsDescriptor
-                {
-                    .colorRenderTargets = std::initializer_list
-                    {
-                        ColorRenderTargetDescriptor{ Format::RGBA8 }
-                    }
-                },
-                .state = PipelineState
-                {
-                    .depthTestEnabled = true
-                }
-            },
-            {
-                SetBindGroupMapping{0, bindGroupLayout}
-            });
     }
-    const auto myTestPipeline = pipeline;
+
+
+    const auto physicalMemorySize = u32{ 1024 * 1024 };
+
+    /*
+     *
+     *table entry size 32bit = 4 byte
+     *pageAddressable size 7 bit
+     *
+     */
+
+    const auto pageSize = u32{ 256 };
+    const auto pageCountInPhysicalMemory = u32{ physicalMemorySize / pageSize };
+    const auto totalPageCount = u32{ physicalMemorySize / pageSize };
+    const auto pageTableEntrySize = u32{ 4 };
+    const auto pageTableByteSize = pageTableEntrySize * totalPageCount;
+
+    const auto unifiedGeometryBufferPhysical = renderer.createBuffer(
+        BufferDescriptor
+        {
+        	.size = physicalMemorySize,
+        	.accessUsage =  AccessUsage::storage,
+        	.memoryUsage = MemoryUsage::cpuWrite,
+        });
+
+    
+
+    const auto unifiedGeometryBufferPageTable = renderer.createBuffer(
+        BufferDescriptor
+        {
+            .size = pageTableByteSize,
+            .accessUsage = AccessUsage::storage,
+            .memoryUsage = MemoryUsage::cpuWrite,
+        });
 
 
     const auto simpleTriangleGroup = BindGroupDescriptor
@@ -164,6 +162,17 @@ int Application::run()
             {
                 .binding = 0,
                 .descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
+            }
+        }
+    };
+
+    const auto simpleTriangleMeshDataGroup = BindGroupDescriptor
+    {
+        .bindings =
+        {
+            {
+                .binding = 0,
+                .descriptor = SimpleDeclaration{ BindingType::StorageBuffer }
             },
             {
                 .binding = 1,
@@ -172,16 +181,12 @@ int Application::run()
             {
                 .binding = 2,
                 .descriptor = SimpleDeclaration{ BindingType::StorageBuffer }
-            },
-            {
-                .binding = 3,
-                .descriptor = SimpleDeclaration{ BindingType::StorageBuffer }
             }
         }
     };
 
     const auto simpleTriangleGroupLayout = renderer.allocateBindGroupLayout(simpleTriangleGroup);
-    
+    const auto simpleTriangleMeshDataGroupLayout = renderer.allocateBindGroupLayout(simpleTriangleMeshDataGroup);
 
 
 	const auto vertexShaderGlslCode = loadShaderFile("Resources/Triangle.vert");
@@ -238,7 +243,8 @@ int Application::run()
             }
         },
             {
-                SetBindGroupMapping{0, simpleTriangleGroupLayout}
+                SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
+                SetBindGroupMapping{1, simpleTriangleGroupLayout}
             });
 
     
@@ -278,6 +284,23 @@ int Application::run()
         });
 
     uploadDataToBuffer(renderer, (void*)scene[0].mesh.lods[0].meshlets.data(), meshletsBufferSize, meshletsBuffer, 0);
+
+    using Entry = u32;
+
+    using PageTable = std::array<Entry, totalPageCount>;
+
+    auto pageTable = PageTable{};
+
+
+    struct Surface
+    {
+        u32 pageOffset;
+    };
+
+    //auto mesh = loadMeshFile("E:\\Develop\\VulkanMultithreading\\x64\\Debug\\bunny.dat");
+
+    
+
     bool stillRunning = true;
     while (stillRunning)
     {
@@ -295,6 +318,21 @@ int Application::run()
 
         {
         	renderer.nextFrame();
+
+            //TODO: make global bind group allocator
+            Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout);
+            renderer.updateBindGroup(meshDataBindGroup, {
+
+                        {
+                            0, UAV{BufferView{ vertexBuffer, 0, vertexBufferSize}}
+                        },
+                        {
+                            1, UAV{BufferView{ triangleBuffer, 0, triangleBufferSize}}
+                        },
+                        {
+                            2, UAV{BufferView{ meshletsBuffer, 0, meshletsBufferSize}}
+                        }
+                });
 
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
@@ -321,15 +359,6 @@ int Application::run()
                 {
                     0,
                     CBV{ myConstantBufferView }
-                },
-                {
-                    1, UAV{BufferView{ vertexBuffer, 0, vertexBufferSize}}
-                },
-                {
-                    2, UAV{BufferView{ triangleBuffer, 0, triangleBufferSize}}
-                },
-                {
-                    3, UAV{BufferView{ meshletsBuffer, 0, meshletsBufferSize}}
                 }
                 });
 
@@ -383,7 +412,9 @@ int Application::run()
                 commandList->bindPipeline(simpleTrianglePipeline);
                 commandList->setScissor(scissor);
                 commandList->setViewport(viewport);
-                commandList->bindGroup(0, bindGroup);
+                commandList->bindGroup(0, meshDataBindGroup);
+                commandList->bindGroup(1, bindGroup);
+
                 commandList->draw(scene[0].mesh.header.totalTriangles*3, 1, 0, 0);
             }
 

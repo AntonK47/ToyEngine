@@ -788,17 +788,23 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
         {
             const auto poolSizes = std::array
             {
+                //TODO: compute proper sizes for each descriptor type
                 vk::DescriptorPoolSize
                 {
                     .type = vk::DescriptorType::eUniformBuffer,
-                    .descriptorCount = 1
+                    .descriptorCount = 10
+                },
+                vk::DescriptorPoolSize
+                {
+                    .type = vk::DescriptorType::eStorageBuffer,
+                    .descriptorCount = 10
                 }
             };
 
             const auto poolCreateInfo = vk::DescriptorPoolCreateInfo
             {
                 .flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
-                .maxSets = 1000,
+                .maxSets = 100,
                 .poolSizeCount = poolSizes.size(),
                 .pPoolSizes = poolSizes.data()
             };
@@ -1098,7 +1104,7 @@ Handle<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderSta
 
 void VulkanRenderInterface::resetDescriptorPoolsUntilFrame(const u32 frame)
 {
-    for(auto i = currentFrame_; i< frame; i++)
+    for(auto i = currentFrame_; i%maxDeferredFrames_!= frame; i++)
     {
         const auto& pools = descriptorPoolsPerFrame_[i % maxDeferredFrames_];
 
