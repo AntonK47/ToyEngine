@@ -7,3 +7,14 @@
 #include <Common.h>
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+
+namespace toy::renderer::api::vulkan
+{
+	struct VulkanNativeBackend
+	{
+		vk::Device device;
+		vk::Instance instance;
+	};
+
+	VulkanNativeBackend getVulkanNativeBackend(const NativeBackend& nativeBackend);
+}

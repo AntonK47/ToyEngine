@@ -27,6 +27,8 @@ namespace toy::renderer
 		RenderInterface& operator=(const RenderInterface& other) = default;
 		RenderInterface& operator=(RenderInterface&& other) noexcept = default;
 
+		NativeBackend getNativeBackend();
+
 		RenderInterface() = default;
 		virtual ~RenderInterface() = default;
 
@@ -83,6 +85,8 @@ namespace toy::renderer
 	protected:
 		virtual void initializeInternal(const RendererDescriptor& descriptor) = 0;
 		virtual void deinitializeInternal() = 0;
+
+		virtual NativeBackend getNativeBackendInternal() = 0;
 
 		virtual [[nodiscard]] SwapchainImage acquireNextSwapchainImageInternal() = 0;
 

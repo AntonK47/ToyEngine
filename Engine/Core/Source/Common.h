@@ -13,3 +13,9 @@
 #define NOMINMAX
 #include <Windows.h>
 #endif
+
+struct NativeBackend
+{
+	//depends on backend it should be converted to appropriate pointer type
+	void* nativeBackend;
+};

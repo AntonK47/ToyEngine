@@ -1,9 +1,10 @@
-set(MODULE_NAME Engine)
+set(MODULE_NAME GraphicsDebuger)
 set(MODULE_SOURCES 
-	Source/Application.cpp
+	Source/RenderDocCapture.cpp
 )
 set(MODULE_HEADERS 
-	Source/Application.h
+	Source/RenderDocCapture.h
+	Source/renderdoc_app.h
 )
 
 add_library(${MODULE_NAME}
@@ -23,12 +24,9 @@ find_package(glm CONFIG REQUIRED)
 target_link_libraries(${MODULE_NAME}
 	PRIVATE
 		Core
-		SDLWindow
-		glm::glm
 		VulkanRenderInterface
-		GLSLRuntimeCompiler
-		GraphicsDebuger
+		
 )
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
-	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
-endif()
+#if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+#	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+#endif()

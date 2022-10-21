@@ -394,6 +394,9 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
+#ifdef TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING
+    layers.push_back("VK_LAYER_RENDERDOC_Capture");
+#endif
 
 #ifdef TOY_ENGINE_VULKAN_BACKEND
     extensions.insert(extensions.end(),
@@ -564,6 +567,9 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     graphicsPipelineCache_.initialize(PipelineCacheDescriptor{ device_, 1024 });
     computePipelineCache_.initialize(PipelineCacheDescriptor{ device_, 1024 });
+
+    nativeBackend_.device = device_;
+    nativeBackend_.instance = instance_;
 
 }
 
@@ -1369,4 +1375,14 @@ Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
     TOY_ASSERT(result.result == vk::Result::eSuccess);
 
     return imageViewStorage_.add(VulkanImageView{ result.value }, descriptor);
+}
+
+NativeBackend VulkanRenderInterface::getNativeBackendInternal()
+{
+    const auto nativeBackend = NativeBackend
+    {
+        .nativeBackend = static_cast<void*>(&nativeBackend_)
+    };
+
+    return nativeBackend;
 }

@@ -187,6 +187,10 @@ namespace toy::renderer::api::vulkan
 
 	struct UploadBufferRing;
 
+	
+
+	
+
 	class VulkanRenderInterface final : public RenderInterface
 	{
 	public:
@@ -266,6 +270,7 @@ namespace toy::renderer::api::vulkan
 			const ImageDescriptor& descriptor) override;
 		[[nodiscard]] Handle<ImageView> createImageViewInternal(
 			const ImageViewDescriptor& descriptor) override;
+		NativeBackend getNativeBackendInternal() override;
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
@@ -278,6 +283,7 @@ namespace toy::renderer::api::vulkan
 
 		VmaAllocator allocator_{};
 
+		VulkanNativeBackend nativeBackend_{};
 		vk::Device device_;
 		vk::Instance instance_;
 		vk::PhysicalDevice adapter_;

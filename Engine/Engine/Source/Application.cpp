@@ -5,6 +5,8 @@
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <RenderDocCapture.h>
+
 
 #include "Scene.h"
 #include "SDLWindow.h"
@@ -48,7 +50,7 @@ int Application::run()
     logger::initialize();
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
-
+    auto graphicsDebugger = debugger::RenderDocCapture{};
 
     window.initialize(WindowDescriptor{ 1280, 720 });
 
@@ -66,6 +68,17 @@ int Application::run()
 
 
     renderer.initialize(rendererDescriptor);
+
+    
+    
+    const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
+    {
+        .nativeBackend = renderer.getNativeBackend()
+    };
+
+    graphicsDebugger.initialize(renderDocDescriptor);
+
+    auto captureTool = graphicsDebugger.getScopeCapture();
 
 
     const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\dragon.dat";
@@ -296,7 +309,14 @@ int Application::run()
             }
         }
 
+        if(io.keyboardState.one == toy::io::ButtonState::pressed)
         {
+            captureTool.captureNextMarkedScope();
+        }
+
+        {
+            captureTool.start();
+
         	renderer.nextFrame();
 
             //TODO: make global bind group allocator
@@ -417,9 +437,11 @@ int Application::run()
             renderer.present();
 
             time += 0.01f;
+            captureTool.stopAndOpenCapture();
         }
     }
 
+    graphicsDebugger.deinitialize();
     renderer.deinitialize();
     window.deinitialize();
     logger::deinitialize();

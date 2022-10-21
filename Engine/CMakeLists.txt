@@ -9,6 +9,7 @@ foreach(MODULE
 	RenderInterface 
 	VulkanRenderInterface
 	GLSLRuntimeCompiler
+	GraphicsDebuger
 )
 	message(STATUS "Prepare module ${MODULE}")
 	add_subdirectory(${MODULE} EXCLUDE_FROM_ALL)
