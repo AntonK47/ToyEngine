@@ -2,6 +2,9 @@
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_common.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Scene.h"
 #include "SDLWindow.h"
@@ -57,7 +60,7 @@ int Application::run()
         .meta = window.getRendererMeta(),
         .windowExtentGetter = [&window]()
         {
-            return Extent{ window.width(), window.height()};
+            return WindowExtent{ window.width(), window.height()};
         }
     };
 
@@ -72,7 +75,7 @@ int Application::run()
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
             .size = 1024,
-            .accessUsage = AccessUsage::uniform,
+            .accessUsage = BufferAccessUsage::uniform,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
@@ -101,7 +104,7 @@ int Application::run()
         BufferDescriptor
         {
         	.size = physicalMemorySize,
-        	.accessUsage =  AccessUsage::storage,
+        	.accessUsage = BufferAccessUsage::storage,
         	.memoryUsage = MemoryUsage::cpuWrite,
         });
 
@@ -111,7 +114,7 @@ int Application::run()
         BufferDescriptor
         {
             .size = pageTableByteSize,
-            .accessUsage = AccessUsage::storage,
+            .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuWrite,
         });
 
@@ -195,8 +198,9 @@ int Application::run()
             {
                 .colorRenderTargets = std::initializer_list
                 {
-                    ColorRenderTargetDescriptor{ Format::RGBA8 }
-                }
+                    ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
+                },
+                .depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d16 }
             },
             .state = PipelineState
             {
@@ -215,7 +219,7 @@ int Application::run()
     const auto vertexBuffer = renderer.createBuffer(BufferDescriptor
         {
         	.size = vertexBufferSize,
-            .accessUsage = AccessUsage::storage,
+            .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
@@ -228,7 +232,7 @@ int Application::run()
     const auto triangleBuffer = renderer.createBuffer(BufferDescriptor
         {
             .size = triangleBufferSize,
-            .accessUsage = AccessUsage::storage,
+            .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
@@ -240,7 +244,7 @@ int Application::run()
     const auto meshletsBuffer = renderer.createBuffer(BufferDescriptor
         {
             .size = meshletsBufferSize,
-            .accessUsage = AccessUsage::storage,
+            .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
@@ -258,7 +262,24 @@ int Application::run()
         u32 pageOffset;
     };
 
-    
+    const auto imageDescriptor = ImageDescriptor
+	{
+        .format = Format::d16,
+        .extent = Extent{window.width(), window.height()},
+        .mips = 1,
+        .layers = 1,
+        .accessUsage = ImageAccessUsage::depthStencilAttachment,
+    };
+    auto depthFramebuffer = renderer.createImage(imageDescriptor);
+
+    const auto depthFramebufferViewDescriptor = ImageViewDescriptor
+    {
+        .image = depthFramebuffer,
+        .format = Format::d16,
+        .type = ImageViewType::_2D,
+        .aspect = ImageViewAspect::depth
+    };
+    auto depthFramebufferView = renderer.createImageView(depthFramebufferViewDescriptor);
 
     bool stillRunning = true;
     while (stillRunning)
@@ -295,24 +316,10 @@ int Application::run()
 
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
-            const auto offset = u32{};
-            struct FrameData
-            {
-                float resolution[2];
-                float mouse[2];
-                float time;
-            };
+            auto data = glm::rotate(glm::identity<glm::mat4>(), time, glm::vec3{0.0f,1.0f,0.0f});
+            std::memcpy(frameDataPtr, &data, sizeof(glm::mat4));
 
-            auto data = FrameData{};
-            data.resolution[0] = static_cast<float>(window.width());
-            data.resolution[1] = static_cast<float>(window.height());
-            data.mouse[0] = static_cast<float>(io.mouseState.position.x);
-            data.mouse[1] = static_cast<float>(io.mouseState.position.y);
-            data.time = time;
-
-            std::memcpy(frameDataPtr, &data, sizeof(FrameData));
-
-            const auto myConstantBufferView = BufferView{ frameData, offset, sizeof(float)};
+            const auto myConstantBufferView = BufferView{ frameData, {}, sizeof(glm::mat4)};
 
             renderer.updateBindGroup(bindGroup, {
                 {
@@ -332,16 +339,26 @@ int Application::run()
                 {
                     .srcLayout = Layout::Undefined,
                     .dstLayout = Layout::Present,
-                    .image = swapchainImage.image.get()
+                    .image = swapchainImage.image
                 }
                 });
+            commandList->barrier({
+                ImageBarrierDescriptor
+	            {
+	                .srcLayout = Layout::Undefined,
+	                .dstLayout = Layout::DepthStencilRenderTarget,
+                    .aspect = ImageViewAspect::depth,
+	                .image = depthFramebuffer
+	            }
+                });
             
+                
             commandList->barrier({ 
                 ImageBarrierDescriptor
             	{
             		.srcLayout = Layout::Present,
                     .dstLayout = Layout::ColorRenderTarget,
-                    .image = swapchainImage.image.get()
+                    .image = swapchainImage.image
             	}
             });
 
@@ -350,22 +367,30 @@ int Application::run()
                 .colorRenderTargets = {
                     RenderTargetDescriptor
                     {
-                        .renderTargetImageAccessor = swapchainImage.view.get(),
+                        .imageView = swapchainImage.view,
                         .load = LoadOperation::clear,
                         .store = StoreOperation::store,
                         .resolveMode = ResolveMode::none,
                         .clearValue = ColorClear{ 100.0f/255.0f, 149.0f/255.0f, 237.0f/255.0f, 1.0f }
                     }
+                },
+                .depthRenderTarget = RenderTargetDescriptor
+                {
+                    .imageView = depthFramebufferView,
+                    .load = LoadOperation::clear,
+                    .store = StoreOperation::store,
+                    .resolveMode = ResolveMode::none,
+                    .clearValue = DepthClear{ 1.0f }
                 }
             };
 
-            constexpr auto area = toy::RenderArea{ 0,0,1280,720 };
+            constexpr auto area = RenderArea{ 0,0,1280,720 };
 
             commandList->beginRendering(renderingDescriptor, area);
 
             {
-                constexpr auto scissor = toy::Scissor{ 0,0,1280, 720};
-                constexpr auto viewport = toy::Viewport{ 0.0,0.0,1280.0,720.0 };
+                constexpr auto scissor = Scissor{ 0,0,1280, 720};
+                constexpr auto viewport = Viewport{ 0.0,0.0,1280.0,720.0 };
 
 
                 commandList->bindPipeline(simpleTrianglePipeline);
@@ -384,7 +409,7 @@ int Application::run()
             	{
             		.srcLayout = Layout::ColorRenderTarget,
             		.dstLayout = Layout::Present,
-                    .image = swapchainImage.image.get()
+                    .image = swapchainImage.image
             	}
             });
 

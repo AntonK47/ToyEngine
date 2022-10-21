@@ -6,10 +6,13 @@
 #include <VulkanCommandList.h>
 #include <Windows.h>
 #include <vulkan/vulkan_profiles.hpp>
-#include <fstream>
+
 
 #include "Hash.h"
 #include "g3log/g3log.hpp"
+
+#include "VulkanMappings.h"
+
 const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
 using namespace toy::renderer;
 using namespace api::vulkan;
@@ -17,103 +20,7 @@ namespace
 {
 #define MAP_FLAG_BIT(srcFlag, srcFlagBit, dstFlag, dstFlagBit) if (srcFlag.containBit(srcFlagBit)) { dstFlag |= dstFlagBit; }
 
-    vk::BufferUsageFlags vulkanMapAccessUsageFlag(const Flags<AccessUsage>& usage)
-    {
-        auto vulkanUsage = vk::BufferUsageFlags{};
-
-        if(usage.containBit(AccessUsage::accelerationStructure))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR;
-        }
-        if (usage.containBit(AccessUsage::vertex))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eVertexBuffer;
-        }
-        if (usage.containBit(AccessUsage::index))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eIndexBuffer;
-        }
-        if (usage.containBit(AccessUsage::indirect))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eIndirectBuffer;
-        }
-        if (usage.containBit(AccessUsage::uniform))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eUniformBuffer;
-        }
-        if (usage.containBit(AccessUsage::storage))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eStorageBuffer;
-        }
-        if (usage.containBit(AccessUsage::transferDst))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eTransferDst;
-        }
-        if (usage.containBit(AccessUsage::transferSrc))
-        {
-            vulkanUsage |= vk::BufferUsageFlagBits::eTransferSrc;
-        }
-
-        return vulkanUsage;
-    }
-
-    vk::ShaderModule loadShader(const vk::Device device, const std::string& path)
-    {
-        auto length = uint32_t{};
-        auto buffer = static_cast<char*>(nullptr);
-        {
-            using namespace std::string_literals;
-            const auto& filePath = path;
-            auto fileStream = std::ifstream{ filePath, std::ios::binary | std::ios::ate };
-            TOY_ASSERT(fileStream.is_open());
-            length = static_cast<uint32_t>(fileStream.tellg());
-            fileStream.seekg(0);
-
-            buffer = new char[length];
-            fileStream.read(buffer, length);
-            fileStream.close();
-        }
-
-        const auto moduleCreateInfo = vk::ShaderModuleCreateInfo
-        {
-            .codeSize = static_cast<size_t>(length),
-            .pCode = reinterpret_cast<const uint32_t*>(buffer)
-        };
-
-        return device.createShaderModule(moduleCreateInfo).value;
-    }
-
-    vk::Format mapFormat(Format format)
-    {
-        return vk::Format::eB8G8R8A8Unorm;
-    }
-
-    vk::DescriptorType mapDescriptorType(const BindingType type)
-    {
-	    switch (type)
-	    {
-	    case BindingType::Texture1D:
-            
-	    case BindingType::Texture2D:
-            
-	    case BindingType::Texture3D:
-            
-	    case BindingType::Texture2DArray:
-            return vk::DescriptorType::eSampledImage;
-	    case BindingType::UniformBuffer:
-            return vk::DescriptorType::eUniformBuffer;
-	    case BindingType::StorageBuffer:
-            return vk::DescriptorType::eStorageBuffer;
-
-	    case BindingType::AccelerationStructure:
-            return vk::DescriptorType::eAccelerationStructureKHR;
-
-	    case BindingType::Sampler:
-            return vk::DescriptorType::eSampler;
-	    }
-
-        return vk::DescriptorType::eStorageBuffer;
-    }
+    
 
     PerThreadCommandPoolData createPerThreadCommandPoolData(vk::Device device,
                                                             vk::CommandBufferLevel level,
@@ -617,14 +524,15 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
     swapchain_ = device_.createSwapchainKHR(swapchainCreateInfo).value;
 
     swapchainImageAfterPresentFences_.resize(swapchainImagesCount_);
-    swapchainImageViews_.resize(swapchainImagesCount_);
+    auto swapchainImageViews = std::vector<vk::ImageView>{};
+	swapchainImageViews.resize(swapchainImagesCount_);
 
-    swapchainImages_ = device_.getSwapchainImagesKHR(swapchain_).value;
+    auto swapchainImages = device_.getSwapchainImagesKHR(swapchain_).value;
     for (u32 i{}; i < swapchainImagesCount_; i++)
     {
         const auto imageViewCreateInfo = vk::ImageViewCreateInfo
         {
-        	.image = swapchainImages_[i],
+        	.image = swapchainImages[i],
             .viewType = vk::ImageViewType::e2D,
             .format = supportedFormat.format,
             .subresourceRange = vk::ImageSubresourceRange
@@ -632,9 +540,15 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
                 vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
             }
         };
-    	swapchainImageViews_[i] = device_.createImageView(imageViewCreateInfo).value;
+    	swapchainImageViews[i] = device_.createImageView(imageViewCreateInfo).value;
 
         swapchainImageAfterPresentFences_[i] = device_.createFence(vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled}).value;
+    }
+
+    for (auto i = u32{}; i<swapchainImages.size(); i++)
+    {
+        swapchainImages_.push_back(imageStorage_.add(VulkanImage{ swapchainImages[i], {},false, true }));
+        swapchainImageViews_.push_back(imageViewStorage_.add(VulkanImageView{ swapchainImageViews[i]}));
     }
 
     
@@ -674,6 +588,28 @@ void VulkanRenderInterface::deinitializeInternal()
             device_.destroyBuffer(buffer.buffer);
         }
         bufferStorage_.reset();
+
+        for (const auto& [key, image] : imageStorage_)
+        {
+            //TODO: This should be fixed, not every buffer is host accessible and in a mapped state
+
+            if (image.isMapped)
+            {
+                vmaUnmapMemory(allocator_, image.allocation);
+            }
+            if(!image.isExternal)
+            {
+	            vmaFreeMemory(allocator_, image.allocation);
+				device_.destroyImage(image.image);
+            }
+        }
+        imageStorage_.reset();
+
+        for (const auto& [key, imageView] : imageViewStorage_)
+        {
+        	device_.destroyImageView(imageView.imageView);
+        }
+        imageViewStorage_.reset();
 
         for (const auto& [key, pipeline] : pipelineStorage_)
         {
@@ -721,7 +657,6 @@ void VulkanRenderInterface::deinitializeInternal()
 
     for (auto i = u32{}; i < maxDeferredFrames_; i++)
     {
-        device_.destroyImageView(swapchainImageViews_[i]);
         device_.destroyFence(swapchainImageAfterPresentFences_[i]);
     }
 
@@ -875,8 +810,8 @@ SwapchainImage VulkanRenderInterface::acquireNextSwapchainImageInternal()
 
     return SwapchainImage
     {
-        .image = std::make_unique<VulkanImage>(VulkanImage{.image = image }),
-        .view = std::make_unique<VulkanImageView>(VulkanImageView{.vulkanImageView = imageView })
+        .image = image,
+        .view = imageView
     };
 }
 
@@ -959,7 +894,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
     colorRenderTargetFormats.resize(colorRenderTargets);
     for (auto i = u32{}; i < colorRenderTargets; i++)
     {
-        colorRenderTargetFormats[i] = mapFormat(descriptor.renderTargetDescriptor.colorRenderTargets[i].format);
+        colorRenderTargetFormats[i] = mapColorFormat(descriptor.renderTargetDescriptor.colorRenderTargets[i].format);
     }
 
     const auto hasDepthRenderTarget = descriptor.renderTargetDescriptor.depthRenderTarget.has_value();
@@ -1012,7 +947,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
     {
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eBack,
-        .frontFace = vk::FrontFace::eCounterClockwise,
+        .frontFace = vk::FrontFace::eClockwise,
         .lineWidth = 1.0f
     };
     auto multisampleState = vk::PipelineMultisampleStateCreateInfo
@@ -1043,6 +978,18 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         .pDynamicStates = dynamicStates.data()
     };
 
+    auto depthStencilState = vk::PipelineDepthStencilStateCreateInfo{};
+    if(descriptor.state.depthTestEnabled)
+    {
+        depthStencilState.depthTestEnable = vk::Bool32{ descriptor.state.depthTestEnabled };
+        depthStencilState.depthWriteEnable = vk::Bool32{ descriptor.state.depthTestEnabled };
+        depthStencilState.depthCompareOp = vk::CompareOp::eLess;
+
+        depthStencilState.depthBoundsTestEnable = vk::Bool32{ false };
+        depthStencilState.minDepthBounds = 0.0f;
+        depthStencilState.maxDepthBounds = 1.0f;
+        depthStencilState.stencilTestEnable = vk::Bool32{ false };
+    }
 
     const auto pipelineLayoutResult = device_.createPipelineLayout(layoutCreateInfo);
     TOY_ASSERT(pipelineLayoutResult.result == vk::Result::eSuccess);
@@ -1059,6 +1006,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
             .pViewportState = &viewportState,
             .pRasterizationState = &rasterizationState,
             .pMultisampleState = &multisampleState,
+            .pDepthStencilState = &depthStencilState,
             .pColorBlendState = &colorBlendState,
             .pDynamicState = &dynamicState,
             .layout = pipelineLayoutResult.value,
@@ -1068,7 +1016,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
             .viewMask = 0,
             .colorAttachmentCount = colorRenderTargets,
             .pColorAttachmentFormats = colorRenderTargetFormats.data(),
-            .depthAttachmentFormat = hasDepthRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
+            .depthAttachmentFormat = hasDepthRenderTarget ? mapDepthFormat(descriptor.renderTargetDescriptor.depthRenderTarget.value().format) : vk::Format::eUndefined,
             .stencilAttachmentFormat = hasStencilRenderTarget ? mapFormat(descriptor.renderTargetDescriptor.stencilRenderTarget.value().format) : vk::Format::eUndefined
         }
     };
@@ -1120,7 +1068,7 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
 	const BufferDescriptor& descriptor)
 {
     
-    const auto usage = vulkanMapAccessUsageFlag(descriptor.accessUsage);
+    const auto usage = vulkanMapBufferAccessUsageFlag(descriptor.accessUsage);
 
     auto queues = std::vector<u32>{};
     queues.reserve(3);
@@ -1323,4 +1271,102 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 
     const auto pipeline = VulkanPipeline{ .pipeline = pipelineResult.value, .layout = pipelineLayoutResult.value, .bindPoint = vk::PipelineBindPoint::eCompute };
     return pipelineStorage_.add(pipeline, descriptor);
+}
+
+Handle<Image> VulkanRenderInterface::createImageInternal(
+	const ImageDescriptor& descriptor)
+{
+    const auto usage = vulkanMapImageAccessUsageFlag(descriptor.accessUsage);
+
+    auto queues = std::vector<u32>{};
+    queues.reserve(3);
+
+    if (descriptor.queuesSharing.containBit(QueuesSharing::graphics))
+    {
+        queues.push_back(queues_[QueueType::graphics].familyIndex);
+    }
+    if (descriptor.queuesSharing.containBit(QueuesSharing::asyncCompute))
+    {
+        queues.push_back(queues_[QueueType::asyncCompute].familyIndex);
+    }
+    if (descriptor.queuesSharing.containBit(QueuesSharing::transfer))
+    {
+        queues.push_back(queues_[QueueType::transfer].familyIndex);
+    }
+
+    auto imageType = vk::ImageType::e1D;
+    if(descriptor.extent.height > 1)
+    {
+        imageType = vk::ImageType::e2D;
+    }
+    if (descriptor.extent.depth > 1)
+    {
+        imageType = vk::ImageType::e3D;
+    }
+   
+
+    auto imageCreateInfo = vk::ImageCreateInfo
+    {
+        .imageType = imageType,
+        .format = mapFormat(descriptor.format),
+        .extent = mapExtent(descriptor.extent),
+        .mipLevels = descriptor.mips,
+        .arrayLayers = descriptor.layers,
+        .samples = vk::SampleCountFlagBits::e1,//msaa
+        .tiling = vk::ImageTiling::eOptimal,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive,
+        .initialLayout = vk::ImageLayout::eUndefined
+    };
+
+    if (queues.size() > 1)
+    {
+        imageCreateInfo.sharingMode = vk::SharingMode::eConcurrent;
+        imageCreateInfo.queueFamilyIndexCount = static_cast<u32>(queues.size());
+        imageCreateInfo.pQueueFamilyIndices = queues.data();
+    }
+
+    //TODO: consider to use allocated pools
+    const auto allocationCreateInfo = VmaAllocationCreateInfo
+    {
+        .usage = descriptor.memoryUsage == MemoryUsage::gpuOnly ? VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE : descriptor.memoryUsage == MemoryUsage::cpuOnly ? VMA_MEMORY_USAGE_AUTO_PREFER_HOST : VMA_MEMORY_USAGE_AUTO
+    };
+
+    auto image = vk::Image{};
+    auto allocation = VmaAllocation{};
+
+    const auto result = static_cast<vk::Result>(vmaCreateImage(allocator_,
+        reinterpret_cast<VkImageCreateInfo*>(&
+            imageCreateInfo),
+        &allocationCreateInfo,
+        reinterpret_cast<VkImage*>(&image),
+        &allocation,
+        nullptr));
+
+    TOY_ASSERT(result == vk::Result::eSuccess);
+
+    const auto handle = imageStorage_.add(VulkanImage{ image, allocation }, descriptor);
+
+    return handle;
+}
+
+Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
+	const ImageViewDescriptor& descriptor)
+{
+    //TODO: Mip levels????
+    const auto imageViewCreateInfo = vk::ImageViewCreateInfo
+    {
+        .image = imageStorage_.get(descriptor.image).image,
+        .viewType = mapViewType(descriptor.type),
+        .format = mapFormat(descriptor.format),
+        .subresourceRange = vk::ImageSubresourceRange
+        {
+            mapViewAspect(descriptor.aspect), 0, 1, 0, 1
+        }
+    };
+    const auto result = device_.createImageView(imageViewCreateInfo);
+
+    TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+    return imageViewStorage_.add(VulkanImageView{ result.value }, descriptor);
 }

@@ -37,9 +37,7 @@ layout(set = 0, binding = 2, scalar) buffer MeshletsBlock
 
 layout(set = 1, binding = 0) uniform perFrame
 {
-    vec2 iResolution;
-    vec2 iMouse;
-    float iTime;
+    mat4 localTransform;
 };
 
 layout(location = 0) out uint clusterId;
@@ -57,6 +55,6 @@ void main()
 	if(triangleId >= meshlet.triangleCount*3) return;
     int index = meshlet.positionStreamOffset + int(uint(triangles[meshlet.triangleOffset + triangleId]));
     Position p = positionStream[index];
-    float s = 1.0f;
-	gl_Position = vec4(p.x*s,p.y*s,p.z*s+0.3f,1.0);
+    float s = 0.5f;
+	gl_Position = localTransform*vec4(p.x*s,-p.y*s,p.z*s,1.0) + vec4(0.0,0.0,1.0,0.0);
 }

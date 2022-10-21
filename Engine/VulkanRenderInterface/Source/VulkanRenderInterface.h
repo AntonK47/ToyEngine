@@ -105,15 +105,15 @@ namespace toy::renderer::api::vulkan
 
 	class VulkanRenderInterface;
 
-	struct VulkanImage final : ImageResource
+	/*struct VulkanImage final : ImageResource
 	{
 		vk::Image image;
-	};
+	};*/
 
-	struct VulkanImageView final : ImageView
+	/*struct VulkanImageView final : ImageView
 	{
 		vk::ImageView vulkanImageView;
-	};
+	};*/
 
 	struct VulkanShaderModule final : ShaderModule
 	{
@@ -262,6 +262,10 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
 			const ComputePipelineDescriptor& descriptor,
 			const std::vector<SetBindGroupMapping>& bindGroups) override;
+		[[nodiscard]] Handle<Image> createImageInternal(
+			const ImageDescriptor& descriptor) override;
+		[[nodiscard]] Handle<ImageView> createImageViewInternal(
+			const ImageViewDescriptor& descriptor) override;
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
@@ -295,8 +299,8 @@ namespace toy::renderer::api::vulkan
 		vk::SwapchainKHR swapchain_;
 
 		static constexpr u32 swapchainImagesCount_ = 3;
-		std::vector<vk::ImageView> swapchainImageViews_{};
-		std::vector<vk::Image> swapchainImages_{};
+		std::vector<Handle<ImageView>> swapchainImageViews_{};
+		std::vector<Handle<Image>> swapchainImages_{};
 		std::vector<vk::Fence> swapchainImageAfterPresentFences_{};
 
 		std::unordered_map<u32, vk::DescriptorSetLayout> bindGroupLayoutCache_{};
@@ -313,6 +317,19 @@ namespace toy::renderer::api::vulkan
 			bool isMapped{ false };
 		};
 
+		struct VulkanImage
+		{
+			vk::Image image;
+			VmaAllocation allocation{};
+			bool isMapped{ false };
+			bool isExternal{ false };
+		};
+
+		struct VulkanImageView
+		{
+			vk::ImageView imageView;
+		};
+
 
 		PipelineCache graphicsPipelineCache_{};
 		PipelineCache computePipelineCache_{};
@@ -321,6 +338,10 @@ namespace toy::renderer::api::vulkan
 		Pool<Pipeline, VulkanPipeline> pipelineStorage_{};
 
 		Pool<Buffer, VulkanBuffer> bufferStorage_{};
+		Pool<Image, VulkanImage> imageStorage_{};
+
+		Pool<ImageView, VulkanImageView> imageViewStorage_{};
+
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};//TODO: this pool should reset each frame, it only contains the data for a current frame
 	};
 

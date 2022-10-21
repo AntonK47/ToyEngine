@@ -1,25 +1,35 @@
 #pragma once
+#include <CommonTypes.h>
 
 namespace toy::renderer
 {
+	
+
 	template <typename T>
 	struct Handle
 	{
 		core::u32 index{};
 	};
+	
 
-	struct Resource
-	{};
-
-	struct ImageResource : Resource
+	enum class ImageViewType
 	{
-
+		_1D,
+		_2D,
+		_3D
 	};
 
-	struct ImageView : Resource
+	enum class ImageViewAspect
 	{
-
+		color,
+		depth
 	};
+
+	struct ImageView{};
+
+	struct Image{};
+
+	struct Buffer{};
 
 	template <typename T>
 	struct Accessor

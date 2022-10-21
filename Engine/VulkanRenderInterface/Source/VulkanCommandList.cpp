@@ -1,4 +1,5 @@
 #include "VulkanCommandList.h"
+#include "VulkanMappings.h"
 
 using namespace toy::renderer;
 
@@ -29,6 +30,18 @@ namespace
 		return vk::ClearValue{ vk::ClearColorValue{ std::array<float,4>{colorClear.r,colorClear.g,colorClear.b,colorClear.a} } };
 	}
 
+	vk::ClearValue mapDepthClearValue(const DepthClear& colorClear)
+	{
+		return vk::ClearValue
+		{
+			.depthStencil = vk::ClearDepthStencilValue
+			{
+				colorClear.depth,
+				u32{0}
+			}
+		};
+	}
+
 	vk::AttachmentStoreOp mapStoreOp(StoreOperation store)
 	{
 		//TODO: it should have proper mapping now
@@ -37,7 +50,7 @@ namespace
 
 	bool hasDepthAttachment(const RenderingDescriptor& descriptor)
 	{
-		return false;
+		return true;//TODO:?????
 	}
 
 	bool hasStencilAttachment(const RenderingDescriptor& descriptor)
@@ -63,10 +76,10 @@ void api::vulkan::VulkanCommandList::barrierInternal(const std::initializer_list
 			auto barrier = vk::ImageMemoryBarrier2{};
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.image = static_cast<VulkanImage*>(imageBarrierDescriptor.image)->image;
+			barrier.image = renderInterface_->imageStorage_.get(imageBarrierDescriptor.image).image;
 			barrier.subresourceRange = vk::ImageSubresourceRange
 			{
-				vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+				mapViewAspect(imageBarrierDescriptor.aspect), 0, 1, 0, 1
 			};
 
 			switch (imageBarrierDescriptor.srcLayout)
@@ -101,6 +114,11 @@ void api::vulkan::VulkanCommandList::barrierInternal(const std::initializer_list
 				barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+				break;
+			case Layout::DepthStencilRenderTarget:
+				barrier.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+				barrier.dstStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
+				barrier.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 				break;
 			case Layout::Present:
 				barrier.newLayout = vk::ImageLayout::ePresentSrcKHR;
@@ -149,7 +167,7 @@ void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescr
 	{
 		const auto& colorRenderTarget = descriptor.colorRenderTargets[i];
 
-		auto imageView = static_cast<VulkanImageView&>(*colorRenderTarget.renderTargetImageAccessor).vulkanImageView;
+		auto imageView = renderInterface_->imageViewStorage_.get(descriptor.colorRenderTargets[i].imageView).imageView;
 
 		colorAttachments[i] = vk::RenderingAttachmentInfo
 		{
@@ -158,7 +176,7 @@ void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescr
 			.resolveMode = mapResolve(colorRenderTarget.resolveMode),
 			.loadOp = mapLoadOp(colorRenderTarget.load),
 			.storeOp = mapStoreOp(colorRenderTarget.store),
-			.clearValue = mapClearValue(colorRenderTarget.clearValue)
+			.clearValue = mapClearValue(std::get<ColorClear>(colorRenderTarget.clearValue))
 		};
 	}
 
@@ -166,7 +184,7 @@ void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescr
 
 	if(hasDepthAttachment(descriptor))
 	{
-		auto imageView = static_cast<VulkanImageView&>(*descriptor.depthRenderTarget.renderTargetImageAccessor).vulkanImageView;
+		auto imageView = renderInterface_->imageViewStorage_.get(descriptor.depthRenderTarget.imageView).imageView;
 		depthAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -174,14 +192,14 @@ void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescr
 			.resolveMode = mapResolve(descriptor.depthRenderTarget.resolveMode),
 			.loadOp = mapLoadOp(descriptor.depthRenderTarget.load),
 			.storeOp = mapStoreOp(descriptor.depthRenderTarget.store),
-			.clearValue = mapClearValue(descriptor.depthRenderTarget.clearValue)
+			.clearValue = mapDepthClearValue(std::get<DepthClear>(descriptor.depthRenderTarget.clearValue))
 		};
 	}
 
 	auto stencilAttachment = vk::RenderingAttachmentInfo{};
 	if(hasStencilAttachment(descriptor))
 	{
-		auto imageView = static_cast<VulkanImageView&>(*descriptor.stencilRenderTarget.renderTargetImageAccessor).vulkanImageView;
+		auto imageView = renderInterface_->imageViewStorage_.get(descriptor.stencilRenderTarget.imageView).imageView;
 		stencilAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -189,7 +207,7 @@ void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescr
 			.resolveMode = mapResolve(descriptor.stencilRenderTarget.resolveMode),
 			.loadOp = mapLoadOp(descriptor.stencilRenderTarget.load),
 			.storeOp = mapStoreOp(descriptor.stencilRenderTarget.store),
-			.clearValue = mapClearValue(descriptor.stencilRenderTarget.clearValue)
+			//.clearValue = mapClearValue(descriptor.stencilRenderTarget.clearValue)TODO:??
 		};
 	}
 

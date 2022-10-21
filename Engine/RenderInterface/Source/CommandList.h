@@ -65,7 +65,8 @@ namespace toy::renderer
 		Layout dstLayout;
 		ResourcePipelineStageUsageFlags srcStage{ ResourcePipelineStageUsageFlagBits::none };
 		ResourcePipelineStageUsageFlags dstStage{ ResourcePipelineStageUsageFlagBits::none };
-		ImageResource* image;
+		ImageViewAspect aspect;
+		Handle<Image> image;
 		//???
 	};
 	struct MemoryBarrierDescriptor {};
@@ -112,13 +113,20 @@ namespace toy::renderer
 		float a;
 	};
 
+	struct DepthClear
+	{
+		float depth;
+	};
+
+	using ClearValue = std::variant<ColorClear, DepthClear>;
+
 	struct RenderTargetDescriptor
 	{
-		ImageView* renderTargetImageAccessor{};
+		Handle<ImageView> imageView{};
 		LoadOperation load{};
 		StoreOperation store{};
 		ResolveMode resolveMode{};
-		ColorClear clearValue{};
+		ClearValue clearValue{};
 	};
 
 	struct RenderingDescriptor

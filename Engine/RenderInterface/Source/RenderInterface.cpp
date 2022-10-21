@@ -52,6 +52,18 @@ namespace toy::renderer
 		return createBufferInternal(descriptor);
 	}
 
+	Handle<Image> RenderInterface::createImage(
+		const ImageDescriptor& descriptor)
+	{
+		return createImageInternal(descriptor);
+	}
+
+	Handle<ImageView> RenderInterface::createImageView(
+		const ImageViewDescriptor& descriptor)
+	{
+		return createImageViewInternal(descriptor);
+	}
+
 	void RenderInterface::map(const Handle<Buffer>& buffer, void** data)
 	{
 		mapInternal(buffer, data);
