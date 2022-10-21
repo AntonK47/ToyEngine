@@ -33,6 +33,15 @@ namespace toy::renderer::api::vulkan
 		std::function<void(void)> deleter;
 	};
 
+	/*struct ImageBuffer : renderer::Buffer
+	{
+		vk::Image image;
+		VmaAllocation allocation{};
+		VmaAllocationInfo allocationInfo{};
+
+		std::function<void(void)> deleter;
+	};*/
+
 	//template <typename T>
 	//struct Pool
 	//{

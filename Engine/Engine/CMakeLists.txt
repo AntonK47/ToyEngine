@@ -31,13 +31,3 @@ target_link_libraries(${MODULE_NAME}
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 endif()
-
-#if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CopyResources.cmake" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
-#    add_custom_target(${MODULE_NAME}_copy_resource_files
-#        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/CopyResources.cmake
-#        COMMENT "Copy resources for ${MODULE_NAME} from ${CMAKE_CURRENT_SOURCE_DIR} to ${CMAKE_CURRENT_BINARY_DIR}"
-#    )
-#
-#    add_dependencies(${MODULE_NAME} ${MODULE_NAME}_copy_resource_files)
-#    set_target_properties(${MODULE_NAME}_copy_resource_files PROPERTIES FOLDER Misc)
-#endif()

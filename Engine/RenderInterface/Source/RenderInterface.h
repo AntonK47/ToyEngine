@@ -16,208 +16,7 @@ namespace toy::renderer
 	using namespace core;
 	class CommandList;
 
-	enum class CommandListType
-	{
-		primary,
-		secondary
-	};
-
-	enum class QueueType
-	{
-		graphics,
-		asyncCompute,
-		transfer
-	};
-
 	
-
-
-	enum class AccessUsage : FlagBits
-	{
-		none = 0 << 0,
-		uniform = 1 << 0,
-		index = 1 << 1,
-		vertex = 1 << 2,
-		storage = 1 << 3,
-		indirect = 1 << 4,
-		accelerationStructure = 1 << 5,
-		transferSrc = 1 << 6,
-		transferDst = 1 << 7
-	};
-
-	enum class QueuesSharing : FlagBits
-	{
-		graphics = 0 << 0,
-		asyncCompute = 1 << 0,
-		transfer = 1 << 1,
-	};
-
-	enum class MemoryUsage
-	{
-		gpuOnly,
-		cpuOnly,
-		cpuRead,
-		cpuWrite
-	};
-	
-
-	/*struct BufferDescriptor
-	{
-		uint32_t size{};
-		Flags<AccessUsage> accessUsage;
-		Flags<UsageContext> usageContext;
-	};*/
-
-	struct Buffer
-	{
-	};
-
-	struct Extent
-	{
-		u32 width;
-		u32 height;
-	};
-
-	struct RendererDescriptor
-	{
-		u32 version;
-		std::string instanceName;
-		window::WindowHandler handler;
-		window::BackendRendererMeta meta;
-		std::function<Extent()> windowExtentGetter;
-	};
-
-	struct RenderTarget {};
-	struct Texture {};
-
-	//TODO: move to shared struct definitions
-	enum class ShaderStage
-	{
-		vertex,
-		fragment,
-		geometry,
-		tessellationControl,
-		tessellationEvaluation,
-		task,
-		mesh,
-		anyHit,
-		closestHit,
-		miss,
-		rayGeneration,
-		intersection,
-	};
-	
-	using ShaderByteCode = std::vector<u32>;
-
-	enum class ShaderLanguage
-	{
-		Spirv1_6
-	};
-
-	struct ShaderCode
-	{
-		ShaderLanguage language;
-		ShaderByteCode code;
-	};
-
-
-	//struct Pipeline {};
-	struct ShaderModule {};
-
-	enum class Format
-	{
-		RGBA8,
-		RGBA16,
-		R11G11B10
-	};
-
-	using DepthFormat = Format;
-	using StencilFormat = Format;
-
-	struct ColorRenderTargetDescriptor
-	{
-		Format format;
-	};
-	struct DepthRenderTargetDescriptor
-	{
-		DepthFormat format;
-	};
-	struct StencilRenderTargetDescriptor
-	{
-		StencilFormat format;
-	};
-	struct RenderTargetsDescriptor
-	{
-		std::vector<ColorRenderTargetDescriptor> colorRenderTargets;
-		std::optional<DepthRenderTargetDescriptor> depthRenderTarget;
-		std::optional<StencilRenderTargetDescriptor> stencilRenderTarget;
-	};
-
-	struct PipelineState
-	{
-		bool depthTestEnabled;
-	};
-
-	using ShaderModuleRef = Ref<ShaderModule>;
-
-	struct GraphicsPipelineDescriptor
-	{
-		Handle<ShaderModule> vertexShader;
-		Handle<ShaderModule> fragmentShader;
-		RenderTargetsDescriptor renderTargetDescriptor;
-		PipelineState state{};
-	};
-
-	struct ComputePipelineDescriptor
-	{
-		Handle<ShaderModule> computeShader;
-	};
-
-
-	struct SetBindGroupMapping
-	{
-		u32 set;
-		Handle<BindGroupLayout> bindGroupLayout;
-	};
-
-	struct SwapchainImage
-	{
-		std::unique_ptr<ImageResource> image;
-		std::unique_ptr<ImageView> view;
-	};
-
-	struct BufferView
-	{
-		Handle<Buffer> buffer;
-		u32 offset;
-		u32 size;
-	};
-
-	struct CBV
-	{
-		BufferView bufferView;
-	};
-
-	struct UAV
-	{
-		BufferView bufferView;
-	};
-
-	struct BindingDataMapping
-	{
-		u32 binding;
-		std::variant<CBV, UAV> view;
-		u32 arrayElement{};
-	};
-
-
-	struct BufferDescriptor
-	{
-		u32 size{};
-		Flags<AccessUsage> accessUsage;
-		MemoryUsage memoryUsage{MemoryUsage::gpuOnly};
-		Flags<QueuesSharing> queuesSharing{QueuesSharing::graphics};
-	};
 
 	class RenderInterface
 	{
@@ -245,6 +44,9 @@ namespace toy::renderer
 
 
 		[[nodiscard]] Handle<Buffer> createBuffer(const BufferDescriptor& descriptor);
+		[[nodiscard]] Handle<Image> createImage(const ImageDescriptor& descriptor);
+		[[nodiscard]] Handle<ImageView> createImageView(const ImageViewDescriptor& descriptor);
+
 
 		void map(const Handle<Buffer>& buffer, void** data);
 		void unmap(const Handle<Buffer>& buffer);
@@ -315,7 +117,8 @@ namespace toy::renderer
 
 		//TODO: resource creation can be moved in a separate resource management class 
 		virtual [[nodiscard]] Handle<Buffer> createBufferInternal(const BufferDescriptor& descriptor) = 0;
-
+		virtual [[nodiscard]] Handle<Image> createImageInternal(const ImageDescriptor& descriptor) = 0;
+		virtual [[nodiscard]] Handle<ImageView> createImageViewInternal(const ImageViewDescriptor& descriptor) = 0;
 
 		DECLARE_VALIDATOR(validation::RenderInterfaceValidator);
 	};
