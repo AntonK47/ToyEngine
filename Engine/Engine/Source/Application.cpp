@@ -35,7 +35,7 @@ namespace
 
     
 
-    void uploadDataToBuffer(RenderInterface& renderer, void* uploadData, size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
+    void uploadDataToBuffer(RenderInterface& renderer, const void* uploadData, size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
     {
         void* data;
         renderer.map(buffer, &data);
@@ -98,7 +98,7 @@ int Application::run()
     auto time = 0.0f;
     
 
-    const auto physicalMemorySize = u32{ 1024 * 1024 };
+    constexpr auto physicalMemorySize = u32{ 1024 * 1024 };
 
     /*
      *
@@ -107,13 +107,13 @@ int Application::run()
      *
      */
 
-    const auto pageSize = u32{ 256 };
-    const auto pageCountInPhysicalMemory = u32{ physicalMemorySize / pageSize };
-    const auto totalPageCount = u32{ physicalMemorySize / pageSize };
-    const auto pageTableEntrySize = u32{ 4 };
-    const auto pageTableByteSize = pageTableEntrySize * totalPageCount;
+    constexpr auto pageSize = u32{ 256 };
+    [[maybe_unused]] constexpr auto pageCountInPhysicalMemory = u32{ physicalMemorySize / pageSize };
+    constexpr auto totalPageCount = u32{ physicalMemorySize / pageSize };
+    constexpr auto pageTableEntrySize = u32{ 4 };
+    constexpr auto pageTableByteSize = pageTableEntrySize * totalPageCount;
 
-    const auto unifiedGeometryBufferPhysical = renderer.createBuffer(
+    [[maybe_unused]] const auto unifiedGeometryBufferPhysical = renderer.createBuffer(
         BufferDescriptor
         {
         	.size = physicalMemorySize,
@@ -121,9 +121,8 @@ int Application::run()
         	.memoryUsage = MemoryUsage::cpuWrite,
         });
 
-    
 
-    const auto unifiedGeometryBufferPageTable = renderer.createBuffer(
+    [[maybe_unused]] const auto unifiedGeometryBufferPageTable = renderer.createBuffer(
         BufferDescriptor
         {
             .size = pageTableByteSize,
@@ -188,19 +187,19 @@ int Application::run()
     };
 
 
-	auto simpleTriangleVSSpirvCode = ShaderByteCode{};
-    auto simpleTriangleFSSpirvCode = ShaderByteCode{};
+	auto simpleTriangleVsSpirvCode = ShaderByteCode{};
+    auto simpleTriangleFsSpirvCode = ShaderByteCode{};
 
-    auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, simpleTriangleVSSpirvCode);
-    assert(result == CompilationResult::success);
+    auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, simpleTriangleVsSpirvCode);
+    TOY_ASSERT(result == CompilationResult::success);
 
-    result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, simpleTriangleFSSpirvCode);
-    assert(result == CompilationResult::success);
+    result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, simpleTriangleFsSpirvCode);
+    TOY_ASSERT(result == CompilationResult::success);
 
 
-    const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, simpleTriangleVSSpirvCode });
+    const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, simpleTriangleVsSpirvCode });
 
-    const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, simpleTriangleFSSpirvCode });
+    const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, simpleTriangleFsSpirvCode });
 
     const auto simpleTrianglePipeline = renderer.createPipeline(
         GraphicsPipelineDescriptor
@@ -251,23 +250,23 @@ int Application::run()
 
     uploadDataToBuffer(renderer, (void*)scene[0].mesh.triangles.data(), triangleBufferSize, triangleBuffer, 0);
 
-    const auto meshletsBufferSize = static_cast<u32>(scene[0].mesh.lods[0].meshlets.size() * sizeof(
+    const auto meshletBufferSize = static_cast<u32>(scene[0].mesh.lods[0].meshlets.size() * sizeof(
 	    scene::Meshlet));
 
-    const auto meshletsBuffer = renderer.createBuffer(BufferDescriptor
+    const auto meshletBuffer = renderer.createBuffer(BufferDescriptor
         {
-            .size = meshletsBufferSize,
+            .size = meshletBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
-    uploadDataToBuffer(renderer, (void*)scene[0].mesh.lods[0].meshlets.data(), meshletsBufferSize, meshletsBuffer, 0);
+    uploadDataToBuffer(renderer, (void*)scene[0].mesh.lods[0].meshlets.data(), meshletBufferSize, meshletBuffer, 0);
 
     using Entry = u32;
 
     using PageTable = std::array<Entry, totalPageCount>;
 
-    auto pageTable = PageTable{};
+    [[maybe_unused]] auto pageTable = PageTable{};
 
 
     struct Surface
@@ -294,6 +293,8 @@ int Application::run()
     };
     auto depthFramebufferView = renderer.createImageView(depthFramebufferViewDescriptor);
 
+    auto frameNumber = u32{};
+
     bool stillRunning = true;
     while (stillRunning)
     {
@@ -311,9 +312,13 @@ int Application::run()
 
         if(io.keyboardState.one == toy::io::ButtonState::pressed)
         {
-            captureTool.captureNextMarkedScope();
+            if(captureTool.isRenderDocInjected())
+            {
+                captureTool.captureNextMarkedScope();
+                LOG(INFO) << "capturing frame " << frameNumber << "...";
+            }
         }
-
+        frameNumber++;
         {
             captureTool.start();
 
@@ -330,7 +335,7 @@ int Application::run()
                             1, UAV{BufferView{ triangleBuffer, 0, triangleBufferSize}}
                         },
                         {
-                            2, UAV{BufferView{ meshletsBuffer, 0, meshletsBufferSize}}
+                            2, UAV{BufferView{ meshletBuffer, 0, meshletBufferSize}}
                         }
                 });
 

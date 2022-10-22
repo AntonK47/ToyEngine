@@ -38,11 +38,19 @@ void ScopeCapture::stopAndOpenCapture()
     shouldCapture_ = false;
 }
 
+bool ScopeCapture::isRenderDocInjected() const
+{
+    return capture_->hasInitialized_;
+}
+
 void RenderDocCapture::initialize(const RenderDocCaptureDescriptor& descriptor)
 {
+#ifndef TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING
+    return;
+#endif
     auto pathBuffer = std::vector<wchar_t>{};
 	pathBuffer.resize(256);
-    const auto length = GetEnvironmentVariableW(L"RENDERDOC_PATH", pathBuffer.data(), pathBuffer.size());
+    const auto length = GetEnvironmentVariableW(L"RENDERDOC_PATH", pathBuffer.data(), static_cast<DWORD>(pathBuffer.size()));
     const auto hasError = GetLastError();
     pathBuffer.resize(length);
     
@@ -81,45 +89,48 @@ void RenderDocCapture::initialize(const RenderDocCaptureDescriptor& descriptor)
         }
         
 
-        const auto RENDERDOC_GetAPI =
-            reinterpret_cast<pRENDERDOC_GetAPI>(GetProcAddress(
+        const auto renderdocGetApi =
+            reinterpret_cast<pRENDERDOC_GetAPI>(GetProcAddress(  // NOLINT(clang-diagnostic-cast-function-type)
 	            dllHandle,
 	            "RENDERDOC_GetAPI"));
 
 #endif
 
-
-        const auto hasNoError = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void**)&renderDocApi);
+       const auto hasNoError = renderdocGetApi(eRENDERDOC_API_Version_1_1_2, reinterpret_cast<void**>(&renderDocApi));
 
         if(!hasNoError)
         {
             LOG(WARNING) << "Can't load RenderDoc dynamic library!";
             return;
-        }
+        } 
 
         nativeBackend_ = descriptor.nativeBackend;
 
         auto capturePath = std::array<char,256>{};
+        auto capturePathLength = size_t{};
 
+    	const auto error = wcstombs_s(&capturePathLength, capturePath.data(), capturePath.size(), std::filesystem::current_path().append("ToyEngineCaptures\\frame_").native().c_str(), 255);
 
-        wcstombs(capturePath.data(), std::filesystem::current_path().append("ToyEngineCaptures\\frame_").native().c_str(), 255);
+        if (error != 0)
+        {
+            LOG(WARNING) << "Invalid capture storage folder path!";
+            return;
+        }
+
         renderDocApi->SetCaptureFilePathTemplate(capturePath.data());
-    
         renderDocApi->SetFocusToggleKeys(nullptr, 0);
         renderDocApi->SetCaptureKeys(nullptr, 0);
-
         renderDocApi->SetCaptureOptionU32(eRENDERDOC_Option_CaptureCallstacks, 1);
         renderDocApi->SetCaptureOptionU32(eRENDERDOC_Option_RefAllResources, 1 );
         renderDocApi->SetCaptureOptionU32(eRENDERDOC_Option_SaveAllInitials, 1 );
-
         renderDocApi->MaskOverlayBits(eRENDERDOC_Overlay_None, eRENDERDOC_Overlay_None);
-
+        hasInitialized_ = true;
     }
 }
 
 void RenderDocCapture::deinitialize()
 {
-    if(dllHandle)
+    if(hasInitialized_)
     {
         
     }
@@ -127,39 +138,40 @@ void RenderDocCapture::deinitialize()
 
 void RenderDocCapture::startCapture()
 {
-    if (renderDocApi)
+    if (hasInitialized_)
     {
 #ifdef TOY_ENGINE_VULKAN_BACKEND
-        const auto nativeBackend = renderer::api::vulkan::getVulkanNativeBackend(nativeBackend_);
+        const auto nativeBackend = api::vulkan::getVulkanNativeBackend(nativeBackend_);
+        const auto instance = static_cast<VkInstance>(nativeBackend.instance);
         const auto devicePointer = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(
-            (VkInstance*)&nativeBackend.instance);
+            &instance);
 #endif
         renderDocApi->StartFrameCapture(devicePointer, nullptr);
-
     }
 }
 
 void RenderDocCapture::stopCapture()
 {
-    if (renderDocApi)
+    if (hasInitialized_)
     {
 #ifdef TOY_ENGINE_VULKAN_BACKEND
-        const auto nativeBackend = renderer::api::vulkan::getVulkanNativeBackend(nativeBackend_);
+        const auto nativeBackend = api::vulkan::getVulkanNativeBackend(nativeBackend_);
+        const auto instance = static_cast<VkInstance>(nativeBackend.instance);
         const auto devicePointer = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(
-	        (VkInstance*)&nativeBackend.instance);
+	        &instance);
 #endif
-
         const auto hasNoError = renderDocApi->EndFrameCapture(devicePointer, nullptr);
-        //TOY_ASSERT(hasNoError == 1);
 
-
-        renderDocApi->SetCaptureFilePathTemplate("captures/frame_");
-        
+        LOG_IF(WARNING, hasNoError == 0) << "Trying to stop non running capturing process!";
     }
 }
 
 void RenderDocCapture::launchRenderDocApplication()
 {
+    if(!hasInitialized_)
+    {
+        return;
+    }
     auto captureFilePath = std::array<char,512>{};
     auto captureFilePathLength = core::u32{ 512 };
 
@@ -171,7 +183,7 @@ void RenderDocCapture::launchRenderDocApplication()
 
     const auto path = std::string{ captureFilePath.data(), captureFilePathLength } + ".rdc";
 
-    if(!std::filesystem::exists(std::filesystem::path{ path }))
+    if(!exists(std::filesystem::path{ path }))
     {
         LOG(WARNING) << "Can't find capture file!";
         return;
@@ -179,7 +191,6 @@ void RenderDocCapture::launchRenderDocApplication()
 
     if (!renderDocApi->IsRemoteAccessConnected())
     {
-        
         const auto result = renderDocApi->LaunchReplayUI(true, path.c_str());
         if(result == 0)
         {

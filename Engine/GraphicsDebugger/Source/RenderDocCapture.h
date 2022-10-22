@@ -30,6 +30,7 @@ namespace toy::renderer::debugger
 
 		void start();
 		void stopAndOpenCapture();
+		[[nodiscard]]bool isRenderDocInjected() const;
 	private:
 
 		explicit ScopeCapture(RenderDocCapture* capture) : capture_{ capture } {}
@@ -45,7 +46,7 @@ namespace toy::renderer::debugger
 		void initialize(const RenderDocCaptureDescriptor& descriptor);
 		void deinitialize();
 
-		ScopeCapture getScopeCapture()
+		[[nodiscard]] ScopeCapture getScopeCapture()
 		{
 			return ScopeCapture(this);
 		}
@@ -57,6 +58,7 @@ namespace toy::renderer::debugger
 
 		void launchRenderDocApplication();
 		NativeBackend nativeBackend_{};
+		bool hasInitialized_{ false };
 	};
 
 	
