@@ -1,9 +1,6 @@
 #pragma once
 
-#include <string>
-
 #include "Common.h"
-
 
 namespace toy::renderer::debugger
 {
@@ -21,7 +18,6 @@ namespace toy::renderer::debugger
 	};
 
 	class ScopeCapture;
-
 
 	class ScopeCapture
 	{
