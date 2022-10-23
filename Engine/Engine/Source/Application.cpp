@@ -1,7 +1,10 @@
+#define GLM_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_LEFT_HANDED
 #include "Application.h"
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
+
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -82,6 +85,7 @@ int Application::run()
 
 
     const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\dragon.dat";
+    //const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\bunny.dat";
     const auto scene = scene::loadSceneFile(filePath);
 
 
@@ -296,6 +300,38 @@ int Application::run()
     auto frameNumber = u32{};
 
     bool stillRunning = true;
+
+
+    struct Camera
+    {
+        glm::vec3 position;
+        glm::vec3 forward;
+        glm::vec3 up;
+        float movementSpeed{1.0f};
+        float sensitivity{ 1.0f };
+    };
+
+    auto camera = Camera
+    {
+        .position = glm::vec3{0.0f,0.0f,1.0f},
+        .forward = glm::vec3{0.0f,0.0f,-1.0f},
+        .up = glm::vec3{0.0f,1.0f,0.0f},
+        .movementSpeed = 0.01f,
+        .sensitivity = 0.2f
+    };
+
+    struct View
+    {
+        glm::mat4 view;
+        glm::mat4 projection;
+        glm::mat4 viewProjection;
+    };
+
+    auto isMouseClick = false;
+    auto previewsMouseLeftPressed = false;
+    auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
+    auto mouseButtonPressed = false;
+
     while (stillRunning)
     {
         window.pollEvents();
@@ -318,6 +354,60 @@ int Application::run()
                 LOG(INFO) << "capturing frame " << frameNumber << "...";
             }
         }
+
+        if(io.keyboardState.w == toy::io::ButtonState::pressed)
+        {
+            camera.position += camera.forward * camera.movementSpeed;
+        }
+        if (io.keyboardState.s == toy::io::ButtonState::pressed)
+        {
+            camera.position -= camera.forward * camera.movementSpeed;
+        }
+        if (io.keyboardState.a == toy::io::ButtonState::pressed)
+        {
+            camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed;
+        }
+        if (io.keyboardState.d == toy::io::ButtonState::pressed)
+        {
+            camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed;
+        }
+        if(io.mouseState.leftButton == toy::io::ButtonState::pressed && !mouseButtonPressed)
+        {
+            onMousePressedScreenLocation = glm::vec2{ io.mouseState.position.x, io.mouseState.position.y };
+            mouseButtonPressed = true;
+        }
+
+        if (io.mouseState.leftButton == toy::io::ButtonState::unpressed && mouseButtonPressed)
+        {
+            mouseButtonPressed = false;
+        }
+
+        if(mouseButtonPressed)
+        {
+            auto mouseScreenLocation = glm::vec2{ io.mouseState.position.x, io.mouseState.position.y };
+
+            auto delta = mouseScreenLocation - onMousePressedScreenLocation;
+            delta.y *= -1.0;
+
+            const auto right = glm::normalize(cross(camera.forward, camera.up));
+            const auto up = glm::normalize(cross(right, camera.forward));
+
+            const auto f = glm::normalize(camera.forward + right * delta.y + up * delta.x);//TODO:: swapped x and y??
+
+            auto rotationAxis = glm::normalize(glm::cross(f, camera.forward));
+
+            if(glm::length(rotationAxis) >= 0.1f)
+            {
+                const auto rotation = glm::rotate(glm::identity<glm::mat4>(), glm::radians(glm::length(delta) * camera.sensitivity), f);
+
+                camera.forward = glm::normalize(glm::vec3(rotation * glm::vec4(camera.forward, 0.0f)));
+            }
+
+            
+            
+            onMousePressedScreenLocation = mouseScreenLocation;
+        }
+
         frameNumber++;
         {
             captureTool.start();
@@ -341,10 +431,23 @@ int Application::run()
 
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
-            auto data = glm::rotate(glm::identity<glm::mat4>(), time, glm::vec3{0.0f,1.0f,0.0f});
-            std::memcpy(frameDataPtr, &data, sizeof(glm::mat4));
 
-            const auto myConstantBufferView = BufferView{ frameData, {}, sizeof(glm::mat4)};
+            {
+                const auto aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
+                const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 0.001f, 1000.0f);
+                const auto view = glm::lookAt(camera.position, camera.position+camera.forward, camera.up);
+
+                const auto viewData = View
+                {
+                    .view = view,
+                    .projection = projection,
+                    .viewProjection = projection*view
+                };
+
+                std::memcpy(frameDataPtr, &viewData, sizeof(View));
+            }
+
+            const auto myConstantBufferView = BufferView{ frameData, {}, sizeof(View)};
 
             renderer.updateBindGroup(bindGroup, {
                 {
