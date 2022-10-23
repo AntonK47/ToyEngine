@@ -52,19 +52,18 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 #endif
 
         currentPolledEvents_ = std::vector<Event>{};
+
+        windowIo_.keyboardState.reset();
+		windowIo_.mouseState.reset();
     }
 }
 
-void SDLWindow::resizeInternal(u32 width, u32 height)
-{
-	
-}
 
 void SDLWindow::resetPolledEventsAndIo()
 {
     currentPolledEvents_.clear();
-    windowIo_.keyboardState.reset();
-    windowIo_.mouseState.reset();
+    /*windowIo_.keyboardState.reset();
+    windowIo_.mouseState.reset();*/
 }
 
 toy::io::WindowIo SDLWindow::getIoInternal()
@@ -81,4 +80,8 @@ void SDLWindow::deinitializeInternal()
 {
     SDL_DestroyWindow(window_);
     SDL_Quit();
+}
+
+void SDLWindow::resizeInternal(core::u32 width, core::u32 height)
+{
 }

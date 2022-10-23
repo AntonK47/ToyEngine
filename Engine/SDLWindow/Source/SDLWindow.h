@@ -16,12 +16,11 @@ namespace toy::window
         [[nodiscard]] io::WindowIo getIoInternal() override;
         [[nodiscard]] std::vector<Event> getEventsInternal() override;
         void pollEventsInternal() override;
-        void resizeInternal(core::u32 width, core::u32 height) override;
         void initializeInternal(const WindowDescriptor& descriptor) override;
         void deinitializeInternal() override;
-    
-        void resetPolledEventsAndIo();
+        void resizeInternal(core::u32 width, core::u32 height) override;
 
+        void resetPolledEventsAndIo();
 
         SDL_Window* window_ = nullptr;
         std::vector<Event> currentPolledEvents_{};

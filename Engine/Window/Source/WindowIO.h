@@ -14,8 +14,8 @@ namespace toy::io
 
     struct Point
     {
-        core::u32 x;
-        core::u32 y;
+        core::i32 x;
+        core::i32 y;
     };
 
     struct MouseState
