@@ -467,16 +467,16 @@ int Application::run()
             commandList->barrier({
                 ImageBarrierDescriptor
                 {
-                    .srcLayout = Layout::Undefined,
-                    .dstLayout = Layout::Present,
+                    .srcLayout = Layout::undefined,
+                    .dstLayout = Layout::present,
                     .image = swapchainImage.image
                 }
                 });
             commandList->barrier({
                 ImageBarrierDescriptor
 	            {
-	                .srcLayout = Layout::Undefined,
-	                .dstLayout = Layout::DepthStencilRenderTarget,
+	                .srcLayout = Layout::undefined,
+	                .dstLayout = Layout::depthStencilRenderTarget,
                     .aspect = ImageViewAspect::depth,
 	                .image = depthFramebuffer
 	            }
@@ -486,8 +486,8 @@ int Application::run()
             commandList->barrier({ 
                 ImageBarrierDescriptor
             	{
-            		.srcLayout = Layout::Present,
-                    .dstLayout = Layout::ColorRenderTarget,
+            		.srcLayout = Layout::present,
+                    .dstLayout = Layout::colorRenderTarget,
                     .image = swapchainImage.image
             	}
             });
@@ -537,8 +537,8 @@ int Application::run()
             commandList->barrier({ 
                 ImageBarrierDescriptor
             	{
-            		.srcLayout = Layout::ColorRenderTarget,
-            		.dstLayout = Layout::Present,
+            		.srcLayout = Layout::colorRenderTarget,
+            		.dstLayout = Layout::present,
                     .image = swapchainImage.image
             	}
             });

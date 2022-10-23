@@ -2,7 +2,6 @@
 #include "Vulkan.h"
 #include "RenderInterfaceCommonTypes.h"
 
-
 namespace toy::renderer
 {
     using namespace toy::core;

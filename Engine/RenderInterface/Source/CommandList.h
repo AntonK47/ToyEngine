@@ -2,7 +2,6 @@
 #include <vector>
 
 #include "CommandListValidator.h"
-//#include "RenderInterface.h"
 
 #include "Resource.h"
 #include "RenderInterfaceCommonTypes.h"
@@ -31,14 +30,14 @@ namespace toy::renderer
 
 	enum class Layout
 	{
-		Undefined,
-		Present,
-		ColorRenderTarget,
-		DepthStencilRenderTarget,
-		TransferSrc,
-		TransferDst,
-		ShaderRead,
-		ShaderReadWrite
+		undefined,
+		present,
+		colorRenderTarget,
+		depthStencilRenderTarget,
+		transferSrc,
+		transferDst,
+		shaderRead,
+		shaderReadWrite
 	};
 
 	enum class ShaderStageUsage
@@ -188,7 +187,7 @@ namespace toy::renderer
 		QueueType ownedQueueType_{};
 
 	private:
-		toy::renderer::validation::CommandListValidator validatorObject_;
+		validation::CommandListValidator validatorObject_;
 		//DECLARE_VALIDATOR(validation::CommandListValidator);
 	};
 }

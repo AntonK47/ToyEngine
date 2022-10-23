@@ -21,8 +21,7 @@ namespace toy::renderer::api::vulkan
 		~VulkanCommandList() override;
 
 		void barrierInternal(
-			const std::initializer_list<BarrierDescriptor>&
-			descriptors) override;
+			const std::initializer_list<BarrierDescriptor>& descriptors) override;
 
 		void beginRenderingInternal(const RenderingDescriptor& descriptor,
 		                            const RenderArea& area) override;

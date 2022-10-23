@@ -2,15 +2,9 @@
 #include "VulkanMappings.h"
 
 using namespace toy::renderer;
-
+using namespace api::vulkan;
 namespace
 {
-	vk::ImageView getImageView(const Handle<Texture>& handle)
-	{
-		return vk::ImageView{};
-	}
-	
-
 	vk::ResolveModeFlagBits mapResolve(ResolveMode resolveMode)
 	{
 		return vk::ResolveModeFlagBits::eNone;
@@ -55,11 +49,11 @@ namespace
 	}
 }
 
-api::vulkan::VulkanCommandList::~VulkanCommandList()
+VulkanCommandList::~VulkanCommandList()
 {
 }
 
-void api::vulkan::VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors)
+void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors)
 {
 	auto imageBarriers = std::vector<vk::ImageMemoryBarrier2>{};
 
@@ -80,17 +74,17 @@ void api::vulkan::VulkanCommandList::barrierInternal(const std::initializer_list
 
 			switch (imageBarrierDescriptor.srcLayout)
 			{
-			case Layout::Undefined:
+			case Layout::undefined:
 				barrier.oldLayout = vk::ImageLayout::eUndefined;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite;
 				break;
-			case Layout::ColorRenderTarget:
+			case Layout::colorRenderTarget:
 				barrier.oldLayout = vk::ImageLayout::eColorAttachmentOptimal;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
 				break;
-			case Layout::Present:
+			case Layout::present:
 				barrier.oldLayout = vk::ImageLayout::ePresentSrcKHR;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eNone;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eNone;
@@ -106,17 +100,17 @@ void api::vulkan::VulkanCommandList::barrierInternal(const std::initializer_list
 
 			switch (imageBarrierDescriptor.dstLayout)
 			{
-			case Layout::ColorRenderTarget:
+			case Layout::colorRenderTarget:
 				barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
 				break;
-			case Layout::DepthStencilRenderTarget:
+			case Layout::depthStencilRenderTarget:
 				barrier.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 				break;
-			case Layout::Present:
+			case Layout::present:
 				barrier.newLayout = vk::ImageLayout::ePresentSrcKHR;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eNone;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eNone;
@@ -148,7 +142,7 @@ void api::vulkan::VulkanCommandList::barrierInternal(const std::initializer_list
 
 }
 
-void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area)
+void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area)
 {
 	const auto containsSecondaryBuffers = false;
 	auto flags = vk::RenderingFlags{};
@@ -222,32 +216,32 @@ void api::vulkan::VulkanCommandList::beginRenderingInternal(const RenderingDescr
 	cmd_.beginRendering(renderingInfo);
 }
 
-void api::vulkan::VulkanCommandList::endRenderingInternal()
+void VulkanCommandList::endRenderingInternal()
 {
 	cmd_.endRendering();
 }
 
-void api::vulkan::VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
+void VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
 {
 	
 	cmd_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void api::vulkan::VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
+void VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
 {
 	const auto& vulkanPipeline = renderInterface_->pipelineStorage_.get(pipeline);
 	currentPipeline_ = vulkanPipeline;
 	cmd_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
 }
 
-void api::vulkan::VulkanCommandList::setScissorInternal(const Scissor& scissor)
+void VulkanCommandList::setScissorInternal(const Scissor& scissor)
 {
 	const auto vulkanScissor = vk::Rect2D{ {scissor.x,scissor.y},{scissor.width, scissor.height}};
 	
 	cmd_.setScissor(0, 1, &vulkanScissor);
 }
 
-void api::vulkan::VulkanCommandList::setViewportInternal(
+void VulkanCommandList::setViewportInternal(
 	const Viewport& viewport)
 {
 	//TODO: flip viewport???
@@ -258,7 +252,7 @@ void api::vulkan::VulkanCommandList::setViewportInternal(
 	cmd_.setViewport(0, 1, &vulkanViewport);
 }
 
-void api::vulkan::VulkanCommandList::bindGroupInternal(
+void VulkanCommandList::bindGroupInternal(
 	const u32 set,
 	const Handle<BindGroup>& handle)
 {
@@ -279,13 +273,13 @@ void api::vulkan::VulkanCommandList::bindGroupInternal(
 	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, set, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
 }
 
-api::vulkan::VulkanCommandList::VulkanCommandList(
+VulkanCommandList::VulkanCommandList(
 	VulkanRenderInterface& parent,
-	vk::CommandBuffer commandBuffer,
-	vk::CommandBufferLevel level, QueueType ownedQueueType):
+	const vk::CommandBuffer commandBuffer,
+	const vk::CommandBufferLevel level,
+	const QueueType ownedQueueType) :
 	CommandList(ownedQueueType),
 	renderInterface_(&parent),
 	cmd_(commandBuffer),
 	level_(level)
-{
-}
+{}

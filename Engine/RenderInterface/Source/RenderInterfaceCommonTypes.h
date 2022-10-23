@@ -1,5 +1,4 @@
 #pragma once
-#include <Common.h>
 #include <CommonTypes.h>
 #include <functional>
 #include <optional>
@@ -207,8 +206,8 @@ namespace toy::renderer
 	struct BufferView
 	{
 		Handle<Buffer> buffer;
-		core::u32 offset;
-		core::u32 size;
+		core::u32 offset{};
+		core::u32 size{};
 	};
 
 	struct CBV

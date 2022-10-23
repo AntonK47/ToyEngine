@@ -2,7 +2,6 @@
 
 #include "Vulkan.h"
 #include "Structs.h"
-
 #include <fstream>
 
 using namespace toy::core;
