@@ -26,15 +26,6 @@ namespace toy::renderer
 	};
 
 	struct ImageView{};
-
 	struct Image{};
-
 	struct Buffer{};
-
-	template <typename T>
-	struct Accessor
-	{
-		/*T* resource;
-		View<T> view;*/
-	};
 }

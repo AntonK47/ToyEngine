@@ -20,7 +20,45 @@ namespace
 {
 #define MAP_FLAG_BIT(srcFlag, srcFlagBit, dstFlag, dstFlagBit) if (srcFlag.containBit(srcFlagBit)) { dstFlag |= dstFlagBit; }
 
-    
+
+
+    template<typename T>
+    uint64_t vkHppToHandler(T object)
+    {
+        return reinterpret_cast<uint64_t>(static_cast<typename T::CType>(object));
+    }
+
+    inline void setObjectName(const vk::Device device, const vk::ObjectType type, const uint64_t handle, const char* name) noexcept
+    {
+#ifdef _DEBUG
+        const auto nameInfo = vk::DebugUtilsObjectNameInfoEXT
+        {
+            .objectType = type,
+            .objectHandle = handle,
+            .pObjectName = name
+        };
+
+        const auto result = device.setDebugUtilsObjectNameEXT(nameInfo);
+        TOY_ASSERT(result == vk::Result::eSuccess);
+#endif
+    }
+
+    template<typename T>
+    inline void setObjectName(const vk::Device device, T handle, const char* name) noexcept
+    {
+        assert(vk::isVulkanHandleType<T>::value);
+        if (vk::isVulkanHandleType<T>::value)
+        {
+            setObjectName(device, T::objectType, vkHppToHandler(handle), name);
+        }
+    }
+
+    template<typename T>
+    inline void setObjectName(const vk::Device device, T handle, const std::string& name) noexcept
+    {
+        setObjectName(device, handle, name.c_str());
+    }
+
 
     PerThreadCommandPoolData createPerThreadCommandPoolData(vk::Device device,
                                                             vk::CommandBufferLevel level,
@@ -135,6 +173,8 @@ namespace
             return vk::Bool32{ false };
         default:;
         }
+
+        //DebugBreak();
 
         constexpr auto defaultColorSequence = "\033[0m";
         // ReSharper disable once CppTooWideScope
@@ -308,27 +348,19 @@ namespace
             bindings[i].binding = descriptor.bindings[i].binding;
             bindingFlags[i] = vk::DescriptorBindingFlagBits::eUpdateAfterBind;
             bindings[i].stageFlags = vk::ShaderStageFlagBits::eAll; //TODO:: it's wrong
-            if (std::holds_alternative<SimpleDeclaration>(descriptor.bindings[i].descriptor))
-            {
-                const auto simpleBinding = std::get<SimpleDeclaration>(descriptor.bindings[i].descriptor);
-                bindings[i].descriptorType = mapDescriptorType(simpleBinding.type);
-                bindings[i].descriptorCount = 1;
-            }
-            if (std::holds_alternative<ArrayDeclaration>(descriptor.bindings[i].descriptor))
-            {
-                const auto arrayBinding = std::get<ArrayDeclaration>(descriptor.bindings[i].descriptor);
-                bindings[i].descriptorType = mapDescriptorType(arrayBinding.type);
-                bindings[i].descriptorCount = arrayBinding.elementsCount;
-            }
-            if (std::holds_alternative<BindlessDeclaration>(descriptor.bindings[i].descriptor))
-            {
-                //TODO: this binding should be the last one in the descriptor set
-                const auto bindlessBinding = std::get<BindlessDeclaration>(descriptor.bindings[i].descriptor);
-                bindings[i].descriptorType = mapDescriptorType(bindlessBinding.type);
-                bindings[i].descriptorCount = bindlessBinding.maxDescriptorCount;
-                bindingFlags[i] = vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
-            }
 
+            {
+                const auto bindingDescriptor = descriptor.bindings[i].descriptor;
+                bindings[i].descriptorType = mapDescriptorType(bindingDescriptor.type);
+                bindings[i].descriptorCount = bindingDescriptor.descriptorCount;
+
+                const auto isLastBinding = i == bindings.size() - 1;
+                if (descriptor.flags.containBit(BindGroupFlag::unboundLast) && isLastBinding)
+                {
+                    bindingFlags[i] |= vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+                }
+
+            }
         }
 
         //TODO: check for bindless feature
@@ -348,16 +380,12 @@ namespace
             }
         };
 
+        const auto result = device.createDescriptorSetLayout(createInfo.get());
 
-
-        return device.createDescriptorSetLayout(createInfo.get()).value;
+        setObjectName(device, result.value, "DSL[" + std::to_string(bindings.size()) + "]");
+        return result.value;
     }
-
-
-
 }
-
-
 
 RenderThread::RenderThread()
 {
@@ -633,14 +661,14 @@ void VulkanRenderInterface::deinitializeInternal()
 
         graphicsPipelineCache_.deinitialize();
         computePipelineCache_.deinitialize();
-
     }
 
     for(const auto& [key, descriptorSetLayout] : bindGroupLayoutCache_)
     {
-        device_.destroyDescriptorSetLayout(descriptorSetLayout);
+        device_.destroyDescriptorSetLayout(descriptorSetLayout.layout);
     }
-    
+    bindGroupLayoutCache_.clear();
+
     for(const auto& pools : descriptorPoolsPerFrame_)
     {
 	    for(const auto& pool: pools)
@@ -648,6 +676,12 @@ void VulkanRenderInterface::deinitializeInternal()
             device_.resetDescriptorPool(pool);
             device_.destroyDescriptorPool(pool);
 	    }
+    }
+
+    for (const auto& pool : descriptorPoolsPersistent_)
+    {
+        device_.resetDescriptorPool(pool);
+        device_.destroyDescriptorPool(pool);
     }
 
     for(const auto& [queueType, perFramePools]: renderThreadCommandPoolData_.perQueueType)
@@ -683,41 +717,47 @@ void VulkanRenderInterface::nextFrameInternal()
     bindGroupStorage_.reset();
     currentFrame_++;
 
-    const auto& nextFramesFence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    const auto& nextFramesFence = swapchainImageAfterPresentFences_[(currentFrame_+1) % maxDeferredFrames_];
     auto result = device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
     TOY_ASSERT(result == vk::Result::eSuccess);
-
-    resetDescriptorPoolsUntilFrame((currentFrame_+maxDeferredFrames_ - 2)%maxDeferredFrames_);
-
 
     const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
     result = device_.resetCommandPool(pool);
     TOY_ASSERT(result == vk::Result::eSuccess);
+
+    resetDescriptorPoolsUntilFrame(currentFrame_);
 }
 
-Handle<BindGroupLayout> VulkanRenderInterface::allocateBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
+Handle<BindGroupLayout> VulkanRenderInterface::createBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
 {
     const auto hash = Hasher::hash32(descriptor);
     if (bindGroupLayoutCache_.contains(hash))
     {
         return Handle<BindGroupLayout>{hash};
     }
-    bindGroupLayoutCache_[hash] = createGroupLayout(device_, descriptor);
+
+    auto bindGroup = VulkanBindGroupLayout{};
+
+	bindGroup.layout = createGroupLayout(device_, descriptor);
+    if(descriptor.flags.containBit(BindGroupFlag::unboundLast))
+    {
+        bindGroup.lastBindVariableSize = descriptor.bindings.back().descriptor.descriptorCount;
+    }
+
+    bindGroupLayoutCache_[hash] = bindGroup;
 
     return Handle<BindGroupLayout>{hash};
 }
 
-Handle<BindGroup> VulkanRenderInterface::allocateBindGroupInternal(
-	const Handle<BindGroupLayout>& bindGroupLayout)
-{
-    return allocateBindGroupInternal(bindGroupLayout, 1).front();
-}
-
 std::vector<Handle<BindGroup>> VulkanRenderInterface::
 allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
-	const u32 bindGroupCount)
+	const u32 bindGroupCount, const BindGroupUsageScope& scope)
 {
-    const auto currentPools = currentFrame_ % swapchainImagesCount_;
+    const auto currentPoolsIndex = currentFrame_ % swapchainImagesCount_;
+    auto& currentPools = 
+        scope == BindGroupUsageScope::persistent ?
+        descriptorPoolsPersistent_ :
+		descriptorPoolsPerFrame_[currentPoolsIndex];
 
     auto bindGroups = std::vector<Handle<BindGroup>>{};
     bindGroups.resize(bindGroupCount);
@@ -725,7 +765,7 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
     auto cantAllocateDescriptorSet = true;
     while (cantAllocateDescriptorSet)
     {
-        if (poolIndex >= descriptorPoolsPerFrame_[currentPools].size())
+        if (poolIndex >= currentPools.size())
         {
             const auto poolSizes = std::array
             {
@@ -752,35 +792,61 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
             const auto result = device_.createDescriptorPool(poolCreateInfo);
             TOY_ASSERT(result.result == vk::Result::eSuccess);
 
-            descriptorPoolsPerFrame_[currentPools].push_back(result.value);
+            currentPools.push_back(result.value);
         }
         else
         {
-            const auto pool = descriptorPoolsPerFrame_[currentPools][poolIndex];
+            const auto pool = currentPools[poolIndex];
 
             auto setLayouts = std::vector<vk::DescriptorSetLayout>{};
             setLayouts.resize(bindGroupCount);
-            std::fill(setLayouts.begin(), setLayouts.end(), bindGroupLayoutCache_[bindGroupLayout.index]);
 
-            const auto allocateInfo = vk::DescriptorSetAllocateInfo
+            auto lastBindVariableSize = std::vector<u32>{};
+            lastBindVariableSize.resize(bindGroupCount);
+
+            std::fill(setLayouts.begin(), setLayouts.end(), bindGroupLayoutCache_[bindGroupLayout.index].layout);
+
+            std::fill(lastBindVariableSize.begin(), lastBindVariableSize.end(), bindGroupLayoutCache_[bindGroupLayout.index].lastBindVariableSize);
+
+            const auto allocateInfo = vk::StructureChain
             {
-                .descriptorPool = pool,
-                .descriptorSetCount = bindGroupCount,
-                .pSetLayouts = setLayouts.data()
+                vk::DescriptorSetAllocateInfo
+	            {
+	                .descriptorPool = pool,
+	                .descriptorSetCount = bindGroupCount,
+	                .pSetLayouts = setLayouts.data()
+	            },
+                vk::DescriptorSetVariableDescriptorCountAllocateInfo
+                {
+                    .descriptorSetCount = static_cast<u32>(lastBindVariableSize.size()),
+                    .pDescriptorCounts = lastBindVariableSize.data()
+                }
             };
-            const auto result = device_.allocateDescriptorSets(allocateInfo);
+            const auto result = device_.allocateDescriptorSets(allocateInfo.get());
 
             switch (result.result)
             {
             case vk::Result::eSuccess:
                 for(auto i = u32{}; i < bindGroupCount; i++)
                 {
-                    
-                    bindGroups[i] = bindGroupStorage_.add(
-                        VulkanBindGroup
-                        {
-	                    .descriptorSet = result.value[i]
-                    });
+
+                    setObjectName(device_, result.value[i], "DS");
+                    if(scope == BindGroupUsageScope::persistent)
+                    {
+                        bindGroups[i] = persistentBindGroupStorage_.add(
+                            VulkanBindGroup
+                            {
+                            .descriptorSet = result.value[i]
+                            }, BindGroup { scope });
+                    }
+                    else
+                    {
+                        bindGroups[i] = bindGroupStorage_.add(
+                            VulkanBindGroup
+                            {
+                            .descriptorSet = result.value[i]
+                            }, BindGroup{ scope });
+                    }
                 }
                 
                 cantAllocateDescriptorSet = false;
@@ -929,7 +995,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 
     for (auto i = u32{}; i < setCount; i++)
     {
-        setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index];
+        setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index].layout;
     }
 
     const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
@@ -1031,7 +1097,6 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         graphicsPipelineCache_.get(),
         pipelinesInfo.get());
     TOY_ASSERT(pipelineResult.result == vk::Result::eSuccess);
-
     const auto pipeline = VulkanPipeline{ .pipeline = pipelineResult.value, .layout = pipelineLayoutResult.value, .bindPoint = vk::PipelineBindPoint::eGraphics };
     return pipelineStorage_.add(pipeline, descriptor);
 }
@@ -1058,9 +1123,9 @@ Handle<ShaderModule> VulkanRenderInterface::createShaderModuleInternal(ShaderSta
 
 void VulkanRenderInterface::resetDescriptorPoolsUntilFrame(const u32 frame)
 {
-    for(auto i = currentFrame_; i%maxDeferredFrames_!= frame; i++)
+    
     {
-        const auto& pools = descriptorPoolsPerFrame_[i % maxDeferredFrames_];
+        const auto& pools = descriptorPoolsPerFrame_[frame % maxDeferredFrames_];
 
         for(const auto& pool: pools)
         {
@@ -1137,7 +1202,16 @@ void VulkanRenderInterface::updateBindGroupInternal(
 	const Handle<BindGroup>& bindGroup,
 	const std::initializer_list<BindingDataMapping>& mappings)
 {
-    auto vulkanBindGroup = bindGroupStorage_.get(bindGroup);
+    auto vulkanBindGroup = VulkanBindGroup{};
+    //TODO: do something clever
+    if(persistentBindGroupStorage_.contains(bindGroup))
+    {
+        vulkanBindGroup = persistentBindGroupStorage_.get(bindGroup);
+    }
+    else
+    {
+        vulkanBindGroup = bindGroupStorage_.get(bindGroup);
+    }
 
     const auto mappingsVector = std::vector<BindingDataMapping>{ mappings };
 
@@ -1253,7 +1327,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 
     for (auto i = u32{}; i < setCount; i++)
     {
-        setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index];
+        setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index].layout;
     }
 
     const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo

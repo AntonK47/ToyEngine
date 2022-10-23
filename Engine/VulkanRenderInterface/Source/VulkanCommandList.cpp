@@ -9,11 +9,7 @@ namespace
 	{
 		return vk::ImageView{};
 	}
-
-	vk::ImageView getImageView(const Accessor<ImageResource>& handle)
-	{
-		return vk::ImageView{};
-	}
+	
 
 	vk::ResolveModeFlagBits mapResolve(ResolveMode resolveMode)
 	{
@@ -262,10 +258,21 @@ void api::vulkan::VulkanCommandList::setViewportInternal(
 	cmd_.setViewport(0, 1, &vulkanViewport);
 }
 
-void api::vulkan::VulkanCommandList::bindGroupInternal(const u32 set,
-                                                       const Handle<BindGroup>& handle)
+void api::vulkan::VulkanCommandList::bindGroupInternal(
+	const u32 set,
+	const Handle<BindGroup>& handle)
 {
-	const auto& vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
+	auto vulkanBindGroup = VulkanBindGroup{};
+	//TODO: do something clever
+	if (renderInterface_->persistentBindGroupStorage_.contains(handle))
+	{
+		vulkanBindGroup = renderInterface_->persistentBindGroupStorage_.get(handle);
+	}
+	else
+	{
+		vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
+	}
+	//const auto& vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
 	const auto& vulkanPipeline = currentPipeline_;
 
 

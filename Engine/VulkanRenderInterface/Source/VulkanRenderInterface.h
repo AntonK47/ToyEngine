@@ -71,9 +71,14 @@ namespace toy::renderer::api::vulkan
 			return Handle<HandleType>{hash};
 		}
 
-		Value& get(const Handle<HandleType> handle)
+		[[nodiscard]] Value& get(const Handle<HandleType> handle)
 		{
 			return pool_[handle.index];
+		}
+
+		bool contains(const Handle<HandleType> handle)
+		{
+			return pool_.contains(handle.index);
 		}
 
 		void remove(const Handle<HandleType> handle)
@@ -225,13 +230,12 @@ namespace toy::renderer::api::vulkan
 		void deinitializeInternal() override;
 		void nextFrameInternal() override;
 
-		[[nodiscard]] Handle<BindGroupLayout> allocateBindGroupLayoutInternal(
+		[[nodiscard]] Handle<BindGroupLayout> createBindGroupLayoutInternal(
 			const BindGroupDescriptor& descriptor) override;
-		[[nodiscard]] Handle<BindGroup> allocateBindGroupInternal(
-			const Handle<BindGroupLayout>& bindGroupLayout) override;
 		[[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout,
-			u32 bindGroupCount) override;
+			u32 bindGroupCount,
+			const BindGroupUsageScope& scope) override;
 
 	public:
 		[[nodiscard]] SwapchainImage
@@ -244,10 +248,6 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
 			const std::vector<SetBindGroupMapping>& bindGroups) override;
-
-		/*[[nodiscard]] std::unique_ptr<ShaderModule> createShaderModuleInternal(
-			ShaderStage stage,
-			const ShaderCode& code) override;*/
 
 		[[nodiscard]] Handle<ShaderModule> createShaderModuleInternal(
 			ShaderStage stage,
@@ -309,11 +309,19 @@ namespace toy::renderer::api::vulkan
 		std::vector<Handle<Image>> swapchainImages_{};
 		std::vector<vk::Fence> swapchainImageAfterPresentFences_{};
 
-		std::unordered_map<u32, vk::DescriptorSetLayout> bindGroupLayoutCache_{};
+		struct VulkanBindGroupLayout
+		{
+			vk::DescriptorSetLayout layout;
+			u32 lastBindVariableSize{ 0 };
+		};
+
+		std::unordered_map<u32, VulkanBindGroupLayout> bindGroupLayoutCache_{};
 
 		LinearFrameAllocator<vk::DescriptorSet> bindGroupCache_{};
 
 		std::array<std::vector<vk::DescriptorPool>, swapchainImagesCount_> descriptorPoolsPerFrame_;
+
+		std::vector<vk::DescriptorPool> descriptorPoolsPersistent_;
 		u32 lastFrameInUse_{};
 
 		struct VulkanBuffer
@@ -348,7 +356,8 @@ namespace toy::renderer::api::vulkan
 
 		Pool<ImageView, VulkanImageView> imageViewStorage_{};
 
-		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};//TODO: this pool should reset each frame, it only contains the data for a current frame
+		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};
+		Pool<BindGroup, VulkanBindGroup> persistentBindGroupStorage_{};//TODO:: bind groups should be removed manual
 	};
 
 	

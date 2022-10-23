@@ -141,7 +141,7 @@ int Application::run()
         {
             {
                 .binding = 0,
-                .descriptor = SimpleDeclaration{ BindingType::UniformBuffer}
+                .descriptor = BindingDescriptor{ BindingType::UniformBuffer}
             }
         }
     };
@@ -152,21 +152,21 @@ int Application::run()
         {
             {
                 .binding = 0,
-                .descriptor = SimpleDeclaration{ BindingType::StorageBuffer }
+                .descriptor = BindingDescriptor{ BindingType::StorageBuffer }
             },
             {
                 .binding = 1,
-                .descriptor = SimpleDeclaration{ BindingType::StorageBuffer }
+                .descriptor = BindingDescriptor{ BindingType::StorageBuffer }
             },
             {
                 .binding = 2,
-                .descriptor = SimpleDeclaration{ BindingType::StorageBuffer }
+                .descriptor = BindingDescriptor{ BindingType::StorageBuffer }
             }
         }
     };
 
-    const auto simpleTriangleGroupLayout = renderer.allocateBindGroupLayout(simpleTriangleGroup);
-    const auto simpleTriangleMeshDataGroupLayout = renderer.allocateBindGroupLayout(simpleTriangleMeshDataGroup);
+    const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
+    const auto simpleTriangleMeshDataGroupLayout = renderer.createBindGroupLayout(simpleTriangleMeshDataGroup);
 
 
 	const auto vertexShaderGlslCode = loadShaderFile("Resources/Triangle.vert");
@@ -201,9 +201,9 @@ int Application::run()
     TOY_ASSERT(result == CompilationResult::success);
 
 
-    const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, simpleTriangleVsSpirvCode });
+    const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleVsSpirvCode });
 
-    const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::Spirv1_6, simpleTriangleFsSpirvCode });
+    const auto fragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleFsSpirvCode });
 
     const auto simpleTrianglePipeline = renderer.createPipeline(
         GraphicsPipelineDescriptor
@@ -327,8 +327,23 @@ int Application::run()
         glm::mat4 viewProjection;
     };
 
-    auto isMouseClick = false;
-    auto previewsMouseLeftPressed = false;
+
+    //TODO: make global bind group allocator
+    Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, BindGroupUsageScope::persistent);
+    renderer.updateBindGroup(meshDataBindGroup, {
+
+                {
+                    0, UAV{BufferView{ vertexBuffer, 0, vertexBufferSize}}
+                },
+                {
+                    1, UAV{BufferView{ triangleBuffer, 0, triangleBufferSize}}
+                },
+                {
+                    2, UAV{BufferView{ meshletBuffer, 0, meshletBufferSize}}
+                }
+        });
+
+
     auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
     auto mouseButtonPressed = false;
 
@@ -414,20 +429,7 @@ int Application::run()
 
         	renderer.nextFrame();
 
-            //TODO: make global bind group allocator
-            Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout);
-            renderer.updateBindGroup(meshDataBindGroup, {
-
-                        {
-                            0, UAV{BufferView{ vertexBuffer, 0, vertexBufferSize}}
-                        },
-                        {
-                            1, UAV{BufferView{ triangleBuffer, 0, triangleBufferSize}}
-                        },
-                        {
-                            2, UAV{BufferView{ meshletBuffer, 0, meshletBufferSize}}
-                        }
-                });
+            
 
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 

@@ -69,7 +69,7 @@ std::unique_ptr<BindGroupLayout> VulkanBindingGroupAllocator::allocateBindGroupL
     {
         bindings[i].binding = descriptor.bindings[i].binding;
         bindingFlags[i] = vk::DescriptorBindingFlagBits::eUpdateAfterBind;
-        if (std::holds_alternative<SimpleDeclaration>(descriptor.bindings[i].descriptor))
+        /*if (std::holds_alternative<SimpleDeclaration>(descriptor.bindings[i].descriptor))
         {
             const auto simpleBinding = std::get<SimpleDeclaration>(descriptor.bindings[i].descriptor);
             bindings[i].descriptorType = mapDescriptorType(simpleBinding.type);
@@ -89,7 +89,7 @@ std::unique_ptr<BindGroupLayout> VulkanBindingGroupAllocator::allocateBindGroupL
             bindings[i].descriptorCount = bindlessBinding.maxDescriptorCount;
             bindingFlags[i] = vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
         }
-
+        */
     }
 
     //TODO: check for bindless feature

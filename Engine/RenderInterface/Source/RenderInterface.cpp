@@ -74,35 +74,22 @@ void RenderInterface::unmap(const Handle<Buffer>& buffer)
 {
 }
 
-BindGroup RenderInterface::allocateBindGroup(const BindGroupDescriptor& descriptor, const BindGroupLayout& layout)
+Handle<BindGroupLayout> RenderInterface::createBindGroupLayout(const BindGroupDescriptor& descriptor)
 {
-	return {};
-}
-
-BindGroup RenderInterface::allocateBindGroup(const BindGroupDescriptor& descriptor)
-{
-	return {};
-}
-
-
-
-Handle<BindGroupLayout> RenderInterface::allocateBindGroupLayout(const BindGroupDescriptor& descriptor)
-{
-	return allocateBindGroupLayoutInternal(descriptor);
+	return createBindGroupLayoutInternal(descriptor);
 }
 
 Handle<BindGroup> RenderInterface::allocateBindGroup(
-	const Handle<BindGroupLayout>& bindGroupLayout)
+	const Handle<BindGroupLayout>& bindGroupLayout, const BindGroupUsageScope& scope)
 {
-	return allocateBindGroupInternal(bindGroupLayout);
+	return allocateBindGroupInternal(bindGroupLayout, 1, scope).front();
 }
 
 std::vector<Handle<BindGroup>> RenderInterface::allocateBindGroup(
 	const Handle<BindGroupLayout>& bindGroupLayout,
-	const u32 bindGroupCount)
+	const u32 bindGroupCount, const BindGroupUsageScope& scope)
 {
-	return allocateBindGroupInternal(bindGroupLayout, bindGroupCount);
-
+	return allocateBindGroupInternal(bindGroupLayout, bindGroupCount, scope);
 }
 
 Handle<Pipeline> RenderInterface::createPipeline(

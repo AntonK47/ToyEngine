@@ -45,8 +45,6 @@ namespace toy::renderer
 	};
 
 
-
-
 	enum class BufferAccessUsage : core::FlagBits
 	{
 		none = 0 << 0,
@@ -125,7 +123,7 @@ namespace toy::renderer
 
 	enum class ShaderLanguage
 	{
-		Spirv1_6
+		spirv1_6
 	};
 
 	struct ShaderCode
@@ -134,8 +132,6 @@ namespace toy::renderer
 		ShaderByteCode code;
 	};
 
-
-	//struct Pipeline {};
 	struct ShaderModule {};
 
 	enum class Format
@@ -196,11 +192,10 @@ namespace toy::renderer
 		Handle<ShaderModule> computeShader;
 	};
 
-
 	struct SetBindGroupMapping
 	{
-		core::u32 set;
-		Handle<BindGroupLayout> bindGroupLayout;
+		core::u32 set{0};
+		Handle<BindGroupLayout> bindGroupLayout{};
 	};
 
 	struct SwapchainImage
@@ -228,11 +223,10 @@ namespace toy::renderer
 
 	struct BindingDataMapping
 	{
-		core::u32 binding;
-		std::variant<CBV, UAV> view;
+		core::u32 binding{0};
+		std::variant<CBV, UAV> view{};
 		core::u32 arrayElement{};
 	};
-
 
 	struct BufferDescriptor
 	{
@@ -259,8 +253,6 @@ namespace toy::renderer
 		MemoryUsage memoryUsage{ MemoryUsage::gpuOnly };
 		core::Flags<QueuesSharing> queuesSharing{ QueuesSharing::graphics };
 	};
-
-
 
 	struct ImageViewDescriptor
 	{

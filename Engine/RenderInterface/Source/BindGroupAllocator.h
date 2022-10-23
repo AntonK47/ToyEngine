@@ -34,22 +34,42 @@ namespace toy::renderer
 		core::u32 maxDescriptorCount;
 	};
 
+	struct BindingDescriptor
+	{
+		BindingType type{};
+		core::u32 descriptorCount{1};
+	};
+
 	struct Binding
 	{
 		core::u32 binding{};
-		std::variant<SimpleDeclaration, ArrayDeclaration, BindlessDeclaration> descriptor;
+		BindingDescriptor descriptor{};
 	};
 
 	struct BindGroupLayout {};
 
+	enum class BindGroupFlag : core::FlagBits
+	{
+		none = 0 << 0,
+		unboundLast = 1 << 0,
+	};
+
+	enum class BindGroupUsageScope
+	{
+		perFrame,
+		persistent //global?
+	};
+
 	struct BindGroupDescriptor
 	{
 		std::vector<Binding> bindings;
+		core::Flags<BindGroupFlag> flags{ BindGroupFlag::none };
+
 	};
 
 	struct BindGroup
 	{
-
+		BindGroupUsageScope scope;
 	};
 
 	struct Device{};
