@@ -254,7 +254,8 @@ void api::vulkan::VulkanCommandList::setScissorInternal(const Scissor& scissor)
 void api::vulkan::VulkanCommandList::setViewportInternal(
 	const Viewport& viewport)
 {
-	const auto vulkanViewport = vk::Viewport{ viewport.x,viewport.y,viewport.width,viewport.height,0.0,1.0 };
+	//TODO: flip viewport???
+	const auto vulkanViewport = vk::Viewport{ viewport.x,viewport.y + viewport.height,viewport.width,-viewport.height,0.0,1.0 };
 
 	//TODO:: Whats about depth value?
 
