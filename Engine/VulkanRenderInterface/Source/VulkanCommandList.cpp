@@ -3,6 +3,7 @@
 
 using namespace toy::renderer;
 using namespace api::vulkan;
+
 namespace
 {
 	vk::ResolveModeFlagBits mapResolve(ResolveMode resolveMode)
@@ -46,6 +47,11 @@ namespace
 	bool hasStencilAttachment(const RenderingDescriptor& descriptor)
 	{
 		return false;
+	}
+
+	vk::GeometryFlagsKHR mapGeometryFlags(GeometryBehavior behavier)
+	{
+		return vk::GeometryFlagsKHR{};
 	}
 }
 
@@ -204,7 +210,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	const auto renderingInfo = vk::RenderingInfo
 	{
 		.flags = flags,
-		.renderArea = vk::Rect2D{ vk::Offset2D(area.x, area.y), area.width, area.height},
+		.renderArea = vk::Rect2D{ vk::Offset2D{ area.x, area.y }, vk::Extent2D{area.width, area.height} },
 		.layerCount = 1,
 		.viewMask = 0,
 		.colorAttachmentCount = static_cast<u32>(colorAttachments.size()),
@@ -272,6 +278,151 @@ void VulkanCommandList::bindGroupInternal(
 
 	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, set, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
 }
+
+std::vector<Handle<AccelerationStructure>> VulkanCommandList::
+buildAccelerationStructureInternal(const TriangleGeometry& geometry,
+	const std::vector<AccelerationStructureDescriptor>& descriptors)
+{
+	const auto vertexData = renderInterface_->device_.getBufferAddress(
+		vk::BufferDeviceAddressInfo
+		{
+			.buffer = renderInterface_->bufferStorage_.get(geometry.vertexBuffer).buffer
+		});
+
+	const auto indexData = renderInterface_->device_.getBufferAddress(
+		vk::BufferDeviceAddressInfo
+		{
+			.buffer = renderInterface_->bufferStorage_.get(geometry.indexBuffer).buffer
+		});
+
+	const auto accelerationStructureGeometry = vk::AccelerationStructureGeometryKHR
+	{
+		.geometryType = vk::GeometryTypeKHR::eTriangles,
+		.geometry =
+		{
+			.triangles = vk::AccelerationStructureGeometryTrianglesDataKHR
+			{
+				.vertexFormat = vk::Format::eR32G32B32Sfloat,
+				.vertexData = {vertexData},
+				.vertexStride = geometry.vertexStride,
+				.maxVertex = geometry.totalVertices,
+				.indexType = vk::IndexType::eUint32, //TODO pick the right one
+				.indexData = {indexData},
+				.transformData = {0}
+			}
+		},
+		.flags = mapGeometryFlags(geometry.behavior)
+	};
+
+	auto properties = vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceAccelerationStructurePropertiesKHR>{};
+	renderInterface_->adapter_.getProperties2(&properties.get());
+
+	const auto accelerationStructureProperties = properties.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
+
+	auto buildInfos = std::vector<vk::AccelerationStructureBuildGeometryInfoKHR>{};
+	buildInfos.resize(descriptors.size());
+
+	auto buildRages = std::vector<vk::AccelerationStructureBuildRangeInfoKHR>{};
+	buildInfos.resize(descriptors.size());
+
+	auto buildSizes = std::vector<vk::AccelerationStructureBuildSizesInfoKHR>{};
+	buildSizes.resize(descriptors.size());
+
+	auto totalAccelerationStructureBufferSize = u32{};
+	auto totalScratchBufferSize = u32{};
+
+	auto accelerationStructureBufferOffsets = std::vector<u32>{};
+	accelerationStructureBufferOffsets.resize(descriptors.size());
+
+	auto scratchBufferOffsets = std::vector<u32>{};
+	scratchBufferOffsets.resize(descriptors.size());
+
+	for (auto i = u32{}; i < descriptors.size(); i++)
+	{
+		buildInfos[i] = vk::AccelerationStructureBuildGeometryInfoKHR
+		{
+			.type = vk::AccelerationStructureTypeKHR::eBottomLevel,
+			.mode = vk::BuildAccelerationStructureModeKHR::eBuild,
+			.srcAccelerationStructure = VK_NULL_HANDLE,
+			.geometryCount = 1,
+			.pGeometries = &accelerationStructureGeometry
+		};
+
+		const auto maxPrimitiveCount = descriptors[i].primitiveCount; //TODO:!!!!!!!!!!!
+
+		TOY_ASSERT_BREAK(maxPrimitiveCount <= accelerationStructureProperties.maxInstanceCount);
+
+		buildSizes[i] = renderInterface_->device_.getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfos[i], maxPrimitiveCount);
+
+
+		scratchBufferOffsets[i] = totalScratchBufferSize;
+		accelerationStructureBufferOffsets[i] = totalAccelerationStructureBufferSize;
+
+		totalAccelerationStructureBufferSize += buildSizes[i].accelerationStructureSize + 256 - buildSizes[i].accelerationStructureSize % 256;
+		totalScratchBufferSize += buildSizes[i].buildScratchSize + accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment - buildSizes[i].buildScratchSize % accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+	}
+
+	const auto accelerationStructureBuffer = renderInterface_->createBuffer(BufferDescriptor{ totalAccelerationStructureBufferSize, BufferAccessUsage::accelerationStructure, MemoryUsage::gpuOnly });
+
+	const auto scratchBuffer = renderInterface_->createBuffer(BufferDescriptor{ totalScratchBufferSize, BufferAccessUsage::storage, MemoryUsage::gpuOnly });
+
+	auto accelerationStructures = std::vector<vk::AccelerationStructureKHR>{};
+	accelerationStructures.resize(descriptors.size());
+
+	for (auto i = u32{}; i < descriptors.size(); i++)
+	{
+		const auto accelerationStructureCreateInfo = vk::AccelerationStructureCreateInfoKHR
+		{
+			.buffer = renderInterface_->bufferStorage_.get(accelerationStructureBuffer).buffer,
+			.offset = accelerationStructureBufferOffsets[i],
+			.size = buildSizes[i].accelerationStructureSize,
+			.type = vk::AccelerationStructureTypeKHR::eBottomLevel
+		};
+
+		const auto result = renderInterface_->device_.createAccelerationStructureKHR(accelerationStructureCreateInfo);
+
+		TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+		accelerationStructures[i] = result.value;
+	}
+
+
+	const auto scratchBufferDeviceAddress = renderInterface_->device_.getBufferAddress(vk::BufferDeviceAddressInfo
+		{
+				.buffer = renderInterface_->bufferStorage_.get(scratchBuffer).buffer
+		});
+
+	for (auto i = u32{}; i < descriptors.size(); i++)
+	{
+		buildInfos[i].dstAccelerationStructure = accelerationStructures[i];
+		buildInfos[i].scratchData.deviceAddress = scratchBufferDeviceAddress + scratchBufferOffsets[i];
+	}
+
+	auto buildRanges = std::vector<vk::AccelerationStructureBuildRangeInfoKHR>{};
+	buildRanges.resize(descriptors.size());
+
+	auto buildRangeInfos = std::vector<vk::AccelerationStructureBuildRangeInfoKHR*>{};
+	buildRangeInfos.resize(descriptors.size());
+
+	for (auto i = u32{}; i < descriptors.size(); i++)
+	{
+		buildRanges[i] = vk::AccelerationStructureBuildRangeInfoKHR
+		{
+			.primitiveCount = descriptors[i].primitiveCount,
+			.primitiveOffset = descriptors[i].primitiveOffset*sizeof(float)*3,
+			.firstVertex = 0,//TODO: it could be easily adapted to per meschlet based tlas 
+			.transformOffset = 0
+		};
+		buildRangeInfos[i] = &buildRanges[i];
+	}
+
+	cmd_.buildAccelerationStructuresKHR(buildInfos, buildRangeInfos);
+
+
+	return std::vector<Handle<AccelerationStructure>>();
+}
+
+
 
 VulkanCommandList::VulkanCommandList(
 	VulkanRenderInterface& parent,

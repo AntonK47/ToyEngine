@@ -191,6 +191,20 @@ namespace toy::renderer
 		Handle<ShaderModule> computeShader;
 	};
 
+	struct RayTracingPipelineDescriptor
+	{
+		
+	};
+
+	struct AccelerationStructure
+	{};
+
+	struct AccelerationStructureDescriptor
+	{
+		core::u32 primitiveCount;
+		core::u32 primitiveOffset;
+	};
+
 	struct SetBindGroupMapping
 	{
 		core::u32 set{0};

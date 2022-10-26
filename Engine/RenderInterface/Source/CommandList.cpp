@@ -1,5 +1,4 @@
 #include "CommandList.h"
-
 #include "ValidationCommon.h"
 
 using namespace toy::core;
@@ -18,6 +17,13 @@ namespace toy::renderer
 	{
 		VALIDATE(validateBarrier(descriptors));
 		barrierInternal(descriptors);
+	}
+
+	std::vector<Handle<AccelerationStructure>> CommandList::
+	buildAccelerationStructure(const TriangleGeometry& geometry,
+		const std::vector<AccelerationStructureDescriptor>& descriptors)
+	{
+		return buildAccelerationStructureInternal(geometry, descriptors);
 	}
 
 	void CommandList::beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area)
@@ -54,6 +60,12 @@ namespace toy::renderer
 		//TODO: When scissor or viewport state was not set before, than make and set a fullscreen scissor and viewport (or match render area)
 		VALIDATE(validateDraw(vertexCount, instanceCount, firstVertex, firstInstance));
 		drawInternal(vertexCount, instanceCount, firstVertex, firstInstance);
+	}
+
+	Handle<AccelerationStructure> CommandList::buildAccelerationStructure(
+		const std::vector<AccelerationStructureInstance>& instances)
+	{
+		return {};
 	}
 
 	void CommandList::beginRendering(const RenderingDescriptor& descriptor)

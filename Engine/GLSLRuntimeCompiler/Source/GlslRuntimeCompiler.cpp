@@ -1,11 +1,9 @@
 #include "GlslRuntimeCompiler.h"
-#include <iostream>
+
 #include <sstream>
 #include <glslang/Include/glslang_c_interface.h>
-using namespace toy::renderer::compiler;
 
-#undef LOG
-#define LOG(severity, msg) std::cout << "[" << severity << "]: " << msg << std::endl
+using namespace toy::renderer::compiler;
 
 namespace 
 {

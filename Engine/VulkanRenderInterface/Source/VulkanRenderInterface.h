@@ -110,16 +110,6 @@ namespace toy::renderer::api::vulkan
 
 	class VulkanRenderInterface;
 
-	/*struct VulkanImage final : ImageResource
-	{
-		vk::Image image;
-	};*/
-
-	/*struct VulkanImageView final : ImageView
-	{
-		vk::ImageView vulkanImageView;
-	};*/
-
 	struct VulkanShaderModule final : ShaderModule
 	{
 		vk::ShaderModule module;
@@ -136,7 +126,6 @@ namespace toy::renderer::api::vulkan
 		vk::CommandBufferLevel level;
 		std::map<QueueType, std::vector<PerFrameCommandPoolData>> perQueueType;
 	};
-
 
 	struct VulkanPipeline final : Pipeline
 	{
@@ -160,7 +149,6 @@ namespace toy::renderer::api::vulkan
 		vk::Device device{};
 
 	public:
-
 		void initialize(const PipelineCacheDescriptor& descriptor)
 		{
 			cacheDataStorage.resize(descriptor.cacheSize);
@@ -215,16 +203,11 @@ namespace toy::renderer::api::vulkan
 		            uint64_t dstOffset,
 		            void* data,
 		            uint64_t size);
-
-
-
-	private:
 		
-
+	private:
 		std::unique_ptr<CommandList> acquireCommandListInternal(
 			QueueType queueType,
 			CommandListType commandListType) override;
-
 
 		void initializeInternal(const RendererDescriptor& descriptor) override;
 		void deinitializeInternal() override;

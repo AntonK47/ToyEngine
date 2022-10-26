@@ -35,6 +35,15 @@ namespace toy::core
 		uint32_t flags{};
 	};
 
+	//TODO: create sfinae friendly operator
+	/*template<typename T>
+	Flags<T> operator|(const T& lhs, const T& rhs)
+	{
+		auto flag = FlagBits<T>{};
+		flag |= lhs;
+		flag |= rhs;
+		return flag;
+	}*/
 
 
 	using u64 = uint64_t;

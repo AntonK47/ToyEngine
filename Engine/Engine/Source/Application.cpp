@@ -4,16 +4,13 @@
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
-
+#include <RenderDocCapture.h>
+#include <Scene.h>
+#include <SDLWindow.h>
+#include <VulkanRenderInterface.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <RenderDocCapture.h>
-
-
-#include "Scene.h"
-#include "SDLWindow.h"
-#include "VulkanRenderInterface.h"
 
 using namespace toy::renderer;
 using namespace toy::window;
@@ -38,7 +35,7 @@ namespace
 
     
 
-    void uploadDataToBuffer(RenderInterface& renderer, const void* uploadData, size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
+    void uploadDataToBuffer(RenderInterface& renderer, const void* uploadData, const size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
     {
         void* data;
         renderer.map(buffer, &data);
@@ -88,6 +85,20 @@ int Application::run()
     //const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\bunny.dat";
     const auto scene = scene::loadSceneFile(filePath);
 
+    const auto triangleCount = scene[0].mesh.lods[0].header.totalTriangles;
+    const auto indexCount = scene[0].mesh.lods[0].header.totalTriangles * 3;
+    auto indexData = std::vector<u32>{};
+    indexData.resize(indexCount);
+    const auto& meshlets = scene[0].mesh.lods[0].meshlets;
+    for(auto i = u32{}; i < meshlets.size(); i++)
+    {
+	    for(auto j = meshlets[i].triangleOffset; j < meshlets[i].triangleOffset + meshlets[i].triangleCount * 3; j++)
+	    {
+            indexData[j] = scene[0].mesh.triangles[j] + meshlets[i].positionStreamOffset;
+	    }
+    }
+    
+    
 
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
@@ -137,32 +148,32 @@ int Application::run()
 
     const auto simpleTriangleGroup = BindGroupDescriptor
     {
-        .bindings =
-        {
-            {
-                .binding = 0,
-                .descriptor = BindingDescriptor{ BindingType::UniformBuffer}
-            }
-        }
+	    .bindings =
+	    {
+		    {
+			    .binding = 0,
+			    .descriptor = BindingDescriptor{BindingType::UniformBuffer}
+		    }
+	    }
     };
 
     const auto simpleTriangleMeshDataGroup = BindGroupDescriptor
     {
-        .bindings =
-        {
-            {
-                .binding = 0,
-                .descriptor = BindingDescriptor{ BindingType::StorageBuffer }
-            },
-            {
-                .binding = 1,
-                .descriptor = BindingDescriptor{ BindingType::StorageBuffer }
-            },
-            {
-                .binding = 2,
-                .descriptor = BindingDescriptor{ BindingType::StorageBuffer }
-            }
-        }
+	    .bindings =
+	    {
+		    {
+			    .binding = 0,
+			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+		    },
+		    {
+			    .binding = 1,
+			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+		    },
+		    {
+			    .binding = 2,
+			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+		    }
+	    }
     };
 
     const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
@@ -172,23 +183,25 @@ int Application::run()
 	const auto vertexShaderGlslCode = loadShaderFile("Resources/Triangle.vert");
     const auto fragmentShaderGlslCode = loadShaderFile("Resources/Triangle.frag");
 
-    const auto vertexShaderInfo = GlslRuntimeCompiler::ShaderInfo
-    {
-        .entryPoint = "main",
-        .compilationDefines = {},
-        .shaderStage = compiler::ShaderStage::vertex,
-        .shaderCode = vertexShaderGlslCode,
-        .enableDebugCompilation = false
-    };
+    const auto vertexShaderInfo =
+	    GlslRuntimeCompiler::ShaderInfo
+	    {
+		    .entryPoint = "main",
+		    .compilationDefines = {},
+		    .shaderStage = compiler::ShaderStage::vertex,
+		    .shaderCode = vertexShaderGlslCode,
+		    .enableDebugCompilation = false
+	    };
 
-    const auto fragmentShaderInfo = GlslRuntimeCompiler::ShaderInfo
-    {
-        .entryPoint = "main",
-        .compilationDefines = {},
-        .shaderStage = compiler::ShaderStage::fragment,
-        .shaderCode = fragmentShaderGlslCode,
-        .enableDebugCompilation = false
-    };
+    const auto fragmentShaderInfo =
+	    GlslRuntimeCompiler::ShaderInfo
+	    {
+		    .entryPoint = "main",
+		    .compilationDefines = {},
+		    .shaderStage = compiler::ShaderStage::fragment,
+		    .shaderCode = fragmentShaderGlslCode,
+		    .enableDebugCompilation = false
+	    };
 
 
 	auto simpleTriangleVsSpirvCode = ShaderByteCode{};
@@ -232,10 +245,13 @@ int Application::run()
     const auto vertexBufferSize = static_cast<u32>(scene[0].mesh.positionVertexStream.size() * sizeof(
         scene::Position));
 
+    auto usage = Flags<BufferAccessUsage>{ BufferAccessUsage::vertex };
+    usage |= BufferAccessUsage::storage;
+
     const auto vertexBuffer = renderer.createBuffer(BufferDescriptor
         {
         	.size = vertexBufferSize,
-            .accessUsage = BufferAccessUsage::storage,
+            .accessUsage = usage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
@@ -253,6 +269,19 @@ int Application::run()
         });
 
     uploadDataToBuffer(renderer, (void*)scene[0].mesh.triangles.data(), triangleBufferSize, triangleBuffer, 0);
+
+
+    const auto indexBufferSize = static_cast<u32>(indexCount * sizeof(
+        u32));
+
+    const auto indexBuffer = renderer.createBuffer(BufferDescriptor
+        {
+            .size = indexBufferSize,
+            .accessUsage = BufferAccessUsage::index,
+            .memoryUsage = MemoryUsage::cpuOnly,
+        });
+
+    uploadDataToBuffer(renderer, (void*)indexData.data(), indexBufferSize, indexBuffer, 0);
 
     const auto meshletBufferSize = static_cast<u32>(scene[0].mesh.lods[0].meshlets.size() * sizeof(
 	    scene::Meshlet));
@@ -343,6 +372,27 @@ int Application::run()
                 }
         });
 
+    /*renderer.nextFrame(); //TODO: command submit should work also without calling nextFrame in a frame async scenario
+    auto commandListTmp = renderer.acquireCommandList(QueueType::graphics);
+
+
+    const auto triangleGeometry = TriangleGeometry
+    {
+        .vertexBuffer = vertexBuffer,
+        .totalVertices = u32{vertexBufferSize / sizeof(scene::Position)},
+        .vertexStride = sizeof(scene::Position),
+    };
+
+    const auto as = commandListTmp->buildAccelerationStructure(
+        triangleGeometry,
+        {
+        	AccelerationStructureDescriptor
+        	{
+                u32{vertexBufferSize / sizeof(scene::Position)}/3,
+        		0
+        	}
+        });
+    renderer.submitCommandList(std::move(commandListTmp));*/
 
     auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
     auto mouseButtonPressed = false;
@@ -418,8 +468,6 @@ int Application::run()
                 camera.forward = glm::normalize(glm::vec3(rotation * glm::vec4(camera.forward, 0.0f)));
             }
 
-            
-            
             onMousePressedScreenLocation = mouseScreenLocation;
         }
 
@@ -463,6 +511,32 @@ int Application::run()
 
             //TODO: maybe I should use ref instead of unique_ptr?
             auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
+
+
+
+            if(frameNumber == 2)
+            {
+                const auto triangleGeometry = TriangleGeometry
+                {
+                    .indexBuffer = indexBuffer,
+                    .vertexBuffer = vertexBuffer,
+                    .totalVertices = u32{vertexBufferSize / sizeof(scene::Position)},
+                    .vertexStride = sizeof(scene::Position)
+                };
+
+                const auto as = commandList->buildAccelerationStructure(
+                    triangleGeometry,
+                    {
+                        AccelerationStructureDescriptor
+                        {
+                            triangleCount,
+                            0
+                        }
+                    });
+            }
+
+
+
 
             commandList->barrier({
                 ImageBarrierDescriptor

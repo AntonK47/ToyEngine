@@ -74,6 +74,10 @@ namespace toy::renderer
 
 		[[nodiscard]] Handle<Pipeline> createPipeline(
 			const ComputePipelineDescriptor& descriptor,
+			const std::vector<SetBindGroupMapping>& bindGroups = {}); //TODO: Why do not move bindGroups into a descriptor
+
+		[[nodiscard]] Handle<Pipeline> createPipeline(
+			const RayTracingPipelineDescriptor& descriptor,
 			const std::vector<SetBindGroupMapping>& bindGroups = {});
 
 		[[nodiscard]] Handle<ShaderModule> createShaderModule(

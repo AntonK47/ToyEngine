@@ -218,7 +218,7 @@ namespace
         return 0;
     }
 
-    vk::Device createDevice(vk::PhysicalDevice adapter, const std::vector<std::reference_wrapper<api::vulkan::DeviceQueue>>& queues, const Features& requiredFeatures)
+    vk::Device createDevice(const vk::PhysicalDevice adapter, const std::vector<std::reference_wrapper<DeviceQueue>>& queues, const Features& requiredFeatures)
     {
         std::cout << "device name: " << adapter.getProperties2().properties.deviceName << std::endl;
 
@@ -252,9 +252,15 @@ namespace
             );
         }
 
+        //TODO: Ray tracing and Acceleration structure extensions do not work properly with enabled render doc layer, it should be configured in cmake
         auto extensions = std::vector
         {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+            VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+            
+            VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME
         };
 
         const auto features = vk::StructureChain
@@ -274,7 +280,7 @@ namespace
             {
                 .storageBuffer8BitAccess = vk::Bool32{ true},
             	.shaderBufferInt64Atomics = vk::Bool32{true},
-                
+                .descriptorIndexing = vk::Bool32{ true },
 
                 .shaderUniformBufferArrayNonUniformIndexing = vk::Bool32{true},
                 .shaderSampledImageArrayNonUniformIndexing = vk::Bool32{true},
@@ -294,13 +300,28 @@ namespace
                 .descriptorBindingVariableDescriptorCount = vk::Bool32{true},
 
                 .scalarBlockLayout = vk::Bool32{true},
-                .timelineSemaphore = vk::Bool32{ true }
+                .timelineSemaphore = vk::Bool32{ true },
+                .bufferDeviceAddress = vk::Bool32{ true},
+
             },
             vk::PhysicalDeviceVulkan13Features
             {
                 .synchronization2 = vk::Bool32{ true},
                 .dynamicRendering = vk::Bool32{ true},
                 .maintenance4 = vk::Bool32{true}
+            },
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR
+            {
+                .accelerationStructure = vk::Bool32{true},
+                .descriptorBindingAccelerationStructureUpdateAfterBind = vk::Bool32{true}
+            },
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR
+            {
+                .rayTracingPipeline = vk::Bool32{true}
+            },
+            vk::PhysicalDeviceRayTracingMaintenance1FeaturesKHR
+            {
+                .rayTracingMaintenance1 = vk::Bool32{true}
             }
         };
 
@@ -314,7 +335,11 @@ namespace
             .pEnabledFeatures = nullptr
         };
 
-        const auto device = adapter.createDevice(deviceCreateInfo).value;
+        const auto result = adapter.createDevice(deviceCreateInfo);
+
+        TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+        const auto device = result.value;
 
         for (auto& queue : queues)
         {
@@ -333,7 +358,14 @@ namespace
 
     vk::PhysicalDevice selectAdapter(vk::Instance instance, const Features& requestedFeatures)
     {
-        return instance.enumeratePhysicalDevices().value.front();
+        
+
+        const auto adapters = instance.enumeratePhysicalDevices().value;
+        const auto adapter = adapters.front();
+
+        const auto properties = adapter.enumerateDeviceExtensionProperties().value;
+
+        return adapter;
     }
 
 
@@ -410,7 +442,7 @@ std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(Q
     const auto result = commandBuffer.begin(beginInfo);
     TOY_ASSERT(result == vk::Result::eSuccess);
 
-    return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);
+    return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);//TODO: switch to Handle based command list, like struct CommandList{ Handle<CommandList> handle; functions...};
 }
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
@@ -452,26 +484,31 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-
-    auto isSupported = vk::Bool32{};
+    //TODO: find matching profile with ray tracing support
+    /*auto isSupported = vk::Bool32{};
     auto profileProperties = VpProfileProperties
 	{
         .profileName = VP_LUNARG_DESKTOP_PORTABILITY_2021_NAME,
         .specVersion = VP_LUNARG_DESKTOP_PORTABILITY_2021_SPEC_VERSION
 	};
-    vpGetInstanceProfileSupport(nullptr, &profileProperties, &isSupported);
+    vpGetInstanceProfileSupport(nullptr, &profileProperties, &isSupported);*/
 
-    TOY_ASSERT(isSupported);
+    //TOY_ASSERT(isSupported);
 
-    const auto instanceCreateInfo = VpInstanceCreateInfo
+    /*const auto instanceCreateInfo = VpInstanceCreateInfo
     {
         .pCreateInfo = reinterpret_cast<const VkInstanceCreateInfo*>(&instanceInfo),
         .pProfile = &profileProperties
     };
     
-    vpCreateInstance(&instanceCreateInfo, nullptr, reinterpret_cast<VkInstance*>(&instance_));
+    vpCreateInstance(&instanceCreateInfo, nullptr, reinterpret_cast<VkInstance*>(&instance_));*/
 
-    /*instance_ = vk::createInstance(instanceInfo).value;*/
+    const auto result = vk::createInstance(instanceInfo);
+
+    TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+    instance_ = result.value;
+
     VULKAN_HPP_DEFAULT_DISPATCHER.init(instance_);
 
     const auto requestedFeatures = Features{};
@@ -501,6 +538,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     const auto allocatorCreateInfo = VmaAllocatorCreateInfo
     {
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
         .physicalDevice = adapter_,
         .device = device_,
         .instance = instance_,
@@ -1139,7 +1177,7 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
 	const BufferDescriptor& descriptor)
 {
     
-    const auto usage = vulkanMapBufferAccessUsageFlag(descriptor.accessUsage);
+    const auto usage = vulkanMapBufferAccessUsageFlag(descriptor.accessUsage) | vk::BufferUsageFlagBits::eShaderDeviceAddress;
 
     auto queues = std::vector<u32>{};
     queues.reserve(3);

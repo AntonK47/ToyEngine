@@ -44,18 +44,18 @@ vk::BufferUsageFlags toy::renderer::vulkanMapBufferAccessUsageFlag(
 	const Flags<BufferAccessUsage>& usage)
 {
 	auto vulkanUsage = vk::BufferUsageFlags{};
-
+	//TODO: Add new ray tracing specific access usages
 	if (usage.containBit(BufferAccessUsage::accelerationStructure))
 	{
 		vulkanUsage |= vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR;
 	}
 	if (usage.containBit(BufferAccessUsage::vertex))
 	{
-		vulkanUsage |= vk::BufferUsageFlagBits::eVertexBuffer;
+		vulkanUsage |= vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR;
 	}
 	if (usage.containBit(BufferAccessUsage::index))
 	{
-		vulkanUsage |= vk::BufferUsageFlagBits::eIndexBuffer;
+		vulkanUsage |= vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR;
 	}
 	if (usage.containBit(BufferAccessUsage::indirect))
 	{

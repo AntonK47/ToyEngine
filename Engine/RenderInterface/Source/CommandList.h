@@ -1,10 +1,10 @@
 #pragma once
 #include <vector>
+#include <glm/ext/matrix_common.hpp>
 
 #include "CommandListValidator.h"
-
-#include "Resource.h"
 #include "RenderInterfaceCommonTypes.h"
+#include "Resource.h"
 
 namespace toy::renderer
 {
@@ -135,7 +135,31 @@ namespace toy::renderer
 		RenderTargetDescriptor stencilRenderTarget{};
 	};
 
-	
+	enum class GeometryBehavior
+	{
+		none,
+		translucent,
+		opaque,
+		hitAnyOnce
+	};
+
+	struct TriangleGeometry
+	{
+		Handle<Buffer> indexBuffer;
+		Handle<Buffer> vertexBuffer;
+		core::u32 totalVertices{ 0 };
+		core::u32 vertexStride{ 0 };
+		GeometryBehavior behavior{ GeometryBehavior::none };
+	};
+
+	struct AccelerationStructureInstance
+	{
+		glm::mat3x4 transform{};
+		core::u32 index{};
+		core::u8 visibilityMask{};
+		//...
+		Handle<AccelerationStructure> blas;
+	};
 
 	class CommandList
 	{
@@ -153,6 +177,13 @@ namespace toy::renderer
 		/*Handle<SplitBarrier> beginSplitBarrier(const BarrierDescriptor& descriptor);
 		void endSplitBarrier(Handle<SplitBarrier> barrier);*/
 
+		[[nodiscard]] std::vector<Handle<AccelerationStructure>> buildAccelerationStructure(
+			const TriangleGeometry& geometry,
+			const std::vector<AccelerationStructureDescriptor>& descriptors);
+
+		[[nodiscard]] Handle<AccelerationStructure> buildAccelerationStructure(
+				const std::vector<AccelerationStructureInstance>& instances);
+
 		void beginRendering(const RenderingDescriptor& descriptor);
 		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
 		void endRendering();
@@ -160,10 +191,11 @@ namespace toy::renderer
 		void bindPipeline(const Handle<Pipeline>& pipeline);
 		void setScissor(const Scissor& scissor);
 		void setViewport(const Viewport& viewport);
-		void draw(core::u32 vertexCount,
-			core::u32  instanceCount,
-			core::u32  firstVertex,
-			core::u32  firstInstance);
+		void draw(
+			core::u32 vertexCount,
+			core::u32 instanceCount,
+			core::u32 firstVertex,
+			core::u32 firstInstance);
 
 	protected:
 
@@ -174,10 +206,15 @@ namespace toy::renderer
 		virtual void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area) = 0;
 		virtual void endRenderingInternal() = 0;
 
-		virtual void drawInternal(core::u32 vertexCount,
-			core::u32  instanceCount,
-			core::u32  firstVertex,
-			core::u32  firstInstance) = 0;
+		virtual [[nodiscard]] std::vector<Handle<AccelerationStructure>> buildAccelerationStructureInternal(
+			const TriangleGeometry& geometry,
+			const std::vector<AccelerationStructureDescriptor>& descriptors) = 0;
+
+		virtual void drawInternal(
+			core::u32 vertexCount,
+			core::u32 instanceCount,
+			core::u32 firstVertex,
+			core::u32 firstInstance) = 0;
 
 		virtual void bindPipelineInternal(const Handle<Pipeline>& pipeline) = 0;
 
@@ -188,6 +225,6 @@ namespace toy::renderer
 
 	private:
 		validation::CommandListValidator validatorObject_;
-		//DECLARE_VALIDATOR(validation::CommandListValidator);
+		//DECLARE_VALIDATOR(validation::CommandListValidator);TODO:!?
 	};
 }
