@@ -5,7 +5,7 @@ set(MODULE_HEADERS
 	"Source/Vulkan.h"
 	Source/Structs.h
 	Source/UploadBufferRing.h
- "Source/VulkanBindGroupAllocator.h" "Source/VulkanMappings.h")
+ "Source/VulkanBindGroupAllocator.h" "Source/VulkanMappings.h" "Source/FrameAllocator.h")
 
 set(MODULE_SOURCES
 	Source/VulkanRenderInterface.cpp

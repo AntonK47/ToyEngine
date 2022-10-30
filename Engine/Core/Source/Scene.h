@@ -25,11 +25,32 @@ namespace toy::core::scene
 		float z;
 	};
 
+	struct TextureCoordinate
+	{
+		float u;
+		float v;
+	};
+
+	struct Vector
+	{
+		float x;
+		float y;
+		float z;
+	};
+
+	struct TangentFrame
+	{
+		Vector normal;
+		Vector tangent;
+		Vector bitangent;
+	};
+
 	struct Mesh
 	{
-		std::vector<Position> vertices;
-		std::vector<Normal> normals;
 		std::vector<Index> indices;
+		std::vector<Position> positionsVertexStream;
+		std::vector<TextureCoordinate> uvVertexStream;
+		std::vector<TangentFrame> tangentFrameVertexStream;
 	};
 
 
@@ -94,16 +115,20 @@ namespace toy::core::scene
 		u32 totalVertexCount{ 0 };
 	};
 
+	
+
 	struct RuntimeMesh
 	{
 		RuntimeMeshHeader header;
 		std::vector<LodMesh> lods;
-		std::vector<unsigned char> triangles;
+		std::vector<u8> triangles;
 
 		std::vector<Position> positionVertexStream;
+		std::vector<TextureCoordinate> uvVertexStream;
+		std::vector<TangentFrame> tangentFrameVertexStream;
 	};
 
-	using Transform = std::array<float, sizeof(float) * 16>;
+	using Transform = std::array<float, 16>;
 	struct SceneObject
 	{
 		RuntimeMesh mesh;

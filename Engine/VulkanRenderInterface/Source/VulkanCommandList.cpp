@@ -409,7 +409,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 		buildRanges[i] = vk::AccelerationStructureBuildRangeInfoKHR
 		{
 			.primitiveCount = descriptors[i].primitiveCount,
-			.primitiveOffset = descriptors[i].primitiveOffset*sizeof(float)*3,
+			.primitiveOffset = static_cast<u32>(descriptors[i].primitiveOffset * sizeof(float) * 3),
 			.firstVertex = 0,//TODO: it could be easily adapted to per meschlet based tlas 
 			.transformOffset = 0
 		};
@@ -422,6 +422,67 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	return std::vector<Handle<AccelerationStructure>>();
 }
 
+struct RayTracingDrawData
+{
+	Handle<AccelerationStructure> objectAS;
+	glm::mat4 transform;
+	u32 materialIndex;
+};
+
+
+Handle<AccelerationStructure> VulkanCommandList::
+buildAccelerationStructureInternal(
+	const std::vector<AccelerationStructureInstance>& instances)
+{
+	//TODO: scratch buffer can be reused also for TLAS build
+
+	auto instancesHostData = std::vector<vk::AccelerationStructureInstanceKHR>{};
+	instancesHostData.resize(instances.size());
+
+	/*
+	 *
+	 *fill instance data,
+	 *upload to a GPU resident buffer
+	 *			- who defines residency place?
+	 *			- instanceShaderBindingTableRecordOffset is more problematic, because it is strongly depend on used material
+	 *get a buffer handler (vk::DeviceAddress)
+	 *
+	 *should transforms be managed internally or by user? 
+	 *
+	 *
+	 *
+	 */
+
+	Handle<Buffer> instancesBuffer;
+	const auto instancesData = renderInterface_->device_.getBufferAddress(
+		vk::BufferDeviceAddressInfo
+		{
+			.buffer = renderInterface_->bufferStorage_.get(instancesBuffer).buffer
+		});
+
+	const auto accelerationStructureGeometry = vk::AccelerationStructureGeometryKHR
+	{
+		.geometryType = vk::GeometryTypeKHR::eInstances,
+		.geometry =
+		{
+			.instances = vk::AccelerationStructureGeometryInstancesDataKHR
+			{
+				.arrayOfPointers = vk::Bool32{ false },
+				.data = {instancesData}
+			}
+		},
+		.flags = mapGeometryFlags(GeometryBehavior::none)
+	};
+
+	auto properties = vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceAccelerationStructurePropertiesKHR>{};
+	renderInterface_->adapter_.getProperties2(&properties.get());
+
+	const auto accelerationStructureProperties = properties.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
+
+
+
+	return {};
+}
 
 
 VulkanCommandList::VulkanCommandList(

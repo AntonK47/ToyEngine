@@ -90,12 +90,14 @@ namespace toy::renderer
 			const Handle<BindGroup>& bindGroup,
 			const std::initializer_list<BindingDataMapping>& mappings);
 
-		virtual void updateBindGroupInternal(
-			const Handle<BindGroup>& bindGroup,
-			const std::initializer_list<BindingDataMapping>& mappings)= 0;
+		
 
 		//=================
 	protected:
+		virtual void updateBindGroupInternal(
+			const Handle<BindGroup>& bindGroup,
+			const std::initializer_list<BindingDataMapping>& mappings) = 0;
+
 		virtual void initializeInternal(const RendererDescriptor& descriptor) = 0;
 		virtual void deinitializeInternal() = 0;
 

@@ -221,7 +221,7 @@ namespace toy::renderer
 	{
 		Handle<Buffer> buffer;
 		core::u32 offset{};
-		core::u32 size{};
+		core::u64 size{};
 	};
 
 	struct CBV

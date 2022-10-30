@@ -13,15 +13,15 @@ void processNode(const aiNode& node,
 	{
 		for(uint32_t i {}; i < node.mNumChildren; i++)
 		{
-			processNode(*node.mChildren[i],  node.mTransformation * parentAbsoluteTransform, scene, scenePacked);
+			processNode(*node.mChildren[i], parentAbsoluteTransform * node.mTransformation , scene, scenePacked);
 		}
 
 	}
 
-	const auto localTransform = node.mTransformation;
-	if (node.mNumMeshes>0)
+	const auto localTransform = parentAbsoluteTransform*node.mTransformation;
+	for (auto i = uint32_t{}; i < node.mNumMeshes; i++)
 	{
-		const auto pMesh = scene.mMeshes[node.mMeshes[0]];
+		const auto pMesh = scene.mMeshes[node.mMeshes[i]];
 		const auto sceneObject = toy::core::scene::SceneObject
 		{
 			.mesh = process(*pMesh),
@@ -55,7 +55,7 @@ ProcessResult processScene(const aiScene& scene,
 	std::vector<toy::core::scene::SceneObject>& scenePacked)
 {
 	processNode(*scene.mRootNode, aiMatrix4x4{}, scene, scenePacked);
-
+	return  ProcessResult::success;
 	if (scene.HasMaterials())
 	{
 		for (uint32_t i{}; i < scene.mNumMaterials; i++)

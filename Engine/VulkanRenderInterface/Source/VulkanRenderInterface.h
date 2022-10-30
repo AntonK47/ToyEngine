@@ -341,6 +341,16 @@ namespace toy::renderer::api::vulkan
 
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};
 		Pool<BindGroup, VulkanBindGroup> persistentBindGroupStorage_{};//TODO:: bind groups should be removed manual
+
+		
+
+		/*
+		 *
+		 *I need two independent frame allocators, one on the Host site and other living on device
+		 *
+		 */
+
+
 	};
 
 	

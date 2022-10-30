@@ -189,7 +189,7 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	//TODO: this options should be pass from the user land
 	auto options = glslang_spv_options_t
 	{
-		true, false, true, false, false, true
+		true, true, true, false, false, true
 	};
 	glslang_program_SPIRV_generate_with_options(program, stage, &options);
 

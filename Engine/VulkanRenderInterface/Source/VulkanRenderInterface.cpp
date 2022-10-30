@@ -256,11 +256,12 @@ namespace
         auto extensions = std::vector
         {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#ifdef TOY_ENGINE_ENABLE_RAY_TRACING
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
             VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-            
             VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME
+#endif
         };
 
         const auto features = vk::StructureChain
@@ -310,6 +311,7 @@ namespace
                 .dynamicRendering = vk::Bool32{ true},
                 .maintenance4 = vk::Bool32{true}
             },
+#ifdef TOY_ENGINE_ENABLE_RAY_TRACING
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR
             {
                 .accelerationStructure = vk::Bool32{true},
@@ -323,6 +325,7 @@ namespace
             {
                 .rayTracingMaintenance1 = vk::Bool32{true}
             }
+#endif
         };
 
         const auto deviceCreateInfo = vk::DeviceCreateInfo
@@ -993,6 +996,7 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
     TOY_ASSERT(result == vk::Result::eSuccess);
     result = queue.submit2(1, &submitInfo, fence);
     TOY_ASSERT(result == vk::Result::eSuccess);
+    //device_.waitIdle();
 }
 
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(

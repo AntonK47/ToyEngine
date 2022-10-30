@@ -11,6 +11,13 @@
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <thread>
+#include <mutex>
+#include <rigtorp/MPMCQueue.h>
+#include <iostream>
+#include <chrono>
+
+#include "SceneLoader.h"
 
 using namespace toy::renderer;
 using namespace toy::window;
@@ -18,8 +25,14 @@ using namespace compiler;
 
 namespace 
 {
+    void havyWork()
+    {
+        std::cout << "mega heavy job has started!!!!" << std::endl;
+    }
+
 	std::string loadShaderFile(const std::string& filePath)
 	{
+       
         auto fileStream = std::ifstream{ filePath, std::ios::ate };
         assert(fileStream.is_open());
 
@@ -32,17 +45,6 @@ namespace
         fileStream.read(code.data(), length);
         return std::string{ code.data(), length };
 	}
-
-    
-
-    void uploadDataToBuffer(RenderInterface& renderer, const void* uploadData, const size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
-    {
-        void* data;
-        renderer.map(buffer, &data);
-
-        std::memcpy(static_cast<u8*>(data)+byteOffset, uploadData, dataSize);
-        renderer.unmap(buffer);
-    }
 }
 
 int Application::run()
@@ -80,29 +82,13 @@ int Application::run()
 
     auto captureTool = graphicsDebugger.getScopeCapture();
 
-
-    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\dragon.dat";
-    //const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Release\\Tools\\MeshBuilder\\bunny.dat";
-    const auto scene = scene::loadSceneFile(filePath);
-
-    const auto triangleCount = scene[0].mesh.lods[0].header.totalTriangles;
-    const auto indexCount = scene[0].mesh.lods[0].header.totalTriangles * 3;
-    auto indexData = std::vector<u32>{};
-    indexData.resize(indexCount);
-    const auto& meshlets = scene[0].mesh.lods[0].meshlets;
-    for(auto i = u32{}; i < meshlets.size(); i++)
-    {
-	    for(auto j = meshlets[i].triangleOffset; j < meshlets[i].triangleOffset + meshlets[i].triangleCount * 3; j++)
-	    {
-            indexData[j] = scene[0].mesh.triangles[j] + meshlets[i].positionStreamOffset;
-	    }
-    }
     
-    
+    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Debug\\Tools\\MeshBuilder\\newSponza.dat";
+
 
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
-            .size = 1024,
+            .size = 10*1024*10,
             .accessUsage = BufferAccessUsage::uniform,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
@@ -111,39 +97,6 @@ int Application::run()
     renderer.map(frameData, &frameDataPtr);
 
     auto time = 0.0f;
-    
-
-    constexpr auto physicalMemorySize = u32{ 1024 * 1024 };
-
-    /*
-     *
-     *table entry size 32bit = 4 byte
-     *pageAddressable size 7 bit
-     *
-     */
-
-    constexpr auto pageSize = u32{ 256 };
-    [[maybe_unused]] constexpr auto pageCountInPhysicalMemory = u32{ physicalMemorySize / pageSize };
-    constexpr auto totalPageCount = u32{ physicalMemorySize / pageSize };
-    constexpr auto pageTableEntrySize = u32{ 4 };
-    constexpr auto pageTableByteSize = pageTableEntrySize * totalPageCount;
-
-    [[maybe_unused]] const auto unifiedGeometryBufferPhysical = renderer.createBuffer(
-        BufferDescriptor
-        {
-        	.size = physicalMemorySize,
-        	.accessUsage = BufferAccessUsage::storage,
-        	.memoryUsage = MemoryUsage::cpuWrite,
-        });
-
-
-    [[maybe_unused]] const auto unifiedGeometryBufferPageTable = renderer.createBuffer(
-        BufferDescriptor
-        {
-            .size = pageTableByteSize,
-            .accessUsage = BufferAccessUsage::storage,
-            .memoryUsage = MemoryUsage::cpuWrite,
-        });
 
 
     const auto simpleTriangleGroup = BindGroupDescriptor
@@ -157,28 +110,47 @@ int Application::run()
 	    }
     };
 
-    const auto simpleTriangleMeshDataGroup = BindGroupDescriptor
+    const auto simpleTrianglePerInstanceGroup = BindGroupDescriptor
     {
 	    .bindings =
 	    {
 		    {
 			    .binding = 0,
-			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
-		    },
-		    {
-			    .binding = 1,
-			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
-		    },
-		    {
-			    .binding = 2,
-			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			    .descriptor = BindingDescriptor{BindingType::UniformBuffer}
 		    }
 	    }
     };
 
+    const auto simpleTriangleMeshDataGroup = BindGroupDescriptor
+    {
+        .bindings =
+        {
+            {
+                .binding = 0,
+                .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+            },
+            {
+                .binding = 1,
+                .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+            },
+            {
+                .binding = 2,
+                .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+            },
+            {
+                .binding = 3,
+                .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+            },
+            {
+                .binding = 4,
+                .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+            }
+        }
+    };
+
     const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
     const auto simpleTriangleMeshDataGroupLayout = renderer.createBindGroupLayout(simpleTriangleMeshDataGroup);
-
+    const auto simpleTrianglePerInstanceGroupLayout = renderer.createBindGroupLayout(simpleTrianglePerInstanceGroup);
 
 	const auto vertexShaderGlslCode = loadShaderFile("Resources/Triangle.vert");
     const auto fragmentShaderGlslCode = loadShaderFile("Resources/Triangle.frag");
@@ -190,7 +162,7 @@ int Application::run()
 		    .compilationDefines = {},
 		    .shaderStage = compiler::ShaderStage::vertex,
 		    .shaderCode = vertexShaderGlslCode,
-		    .enableDebugCompilation = false
+		    .enableDebugCompilation = true
 	    };
 
     const auto fragmentShaderInfo =
@@ -200,7 +172,7 @@ int Application::run()
 		    .compilationDefines = {},
 		    .shaderStage = compiler::ShaderStage::fragment,
 		    .shaderCode = fragmentShaderGlslCode,
-		    .enableDebugCompilation = false
+		    .enableDebugCompilation = true
 	    };
 
 
@@ -229,7 +201,7 @@ int Application::run()
                 {
                     ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
                 },
-                .depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d16 }
+                .depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
             },
             .state = PipelineState
             {
@@ -238,78 +210,14 @@ int Application::run()
         },
             {
                 SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
-                SetBindGroupMapping{1, simpleTriangleGroupLayout}
+                SetBindGroupMapping{1, simpleTriangleGroupLayout},
+                SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout}
             });
 
-    
-    const auto vertexBufferSize = static_cast<u32>(scene[0].mesh.positionVertexStream.size() * sizeof(
-        scene::Position));
-
-    auto usage = Flags<BufferAccessUsage>{ BufferAccessUsage::vertex };
-    usage |= BufferAccessUsage::storage;
-
-    const auto vertexBuffer = renderer.createBuffer(BufferDescriptor
-        {
-        	.size = vertexBufferSize,
-            .accessUsage = usage,
-            .memoryUsage = MemoryUsage::cpuOnly,
-        });
-
-    uploadDataToBuffer(renderer, (void*)scene[0].mesh.positionVertexStream.data(), vertexBufferSize, vertexBuffer, 0);
-
-
-    const auto triangleBufferSize = static_cast<u32>(scene[0].mesh.triangles.size() * sizeof(
-        u8));
-
-    const auto triangleBuffer = renderer.createBuffer(BufferDescriptor
-        {
-            .size = triangleBufferSize,
-            .accessUsage = BufferAccessUsage::storage,
-            .memoryUsage = MemoryUsage::cpuOnly,
-        });
-
-    uploadDataToBuffer(renderer, (void*)scene[0].mesh.triangles.data(), triangleBufferSize, triangleBuffer, 0);
-
-
-    const auto indexBufferSize = static_cast<u32>(indexCount * sizeof(
-        u32));
-
-    const auto indexBuffer = renderer.createBuffer(BufferDescriptor
-        {
-            .size = indexBufferSize,
-            .accessUsage = BufferAccessUsage::index,
-            .memoryUsage = MemoryUsage::cpuOnly,
-        });
-
-    uploadDataToBuffer(renderer, (void*)indexData.data(), indexBufferSize, indexBuffer, 0);
-
-    const auto meshletBufferSize = static_cast<u32>(scene[0].mesh.lods[0].meshlets.size() * sizeof(
-	    scene::Meshlet));
-
-    const auto meshletBuffer = renderer.createBuffer(BufferDescriptor
-        {
-            .size = meshletBufferSize,
-            .accessUsage = BufferAccessUsage::storage,
-            .memoryUsage = MemoryUsage::cpuOnly,
-        });
-
-    uploadDataToBuffer(renderer, (void*)scene[0].mesh.lods[0].meshlets.data(), meshletBufferSize, meshletBuffer, 0);
-
-    using Entry = u32;
-
-    using PageTable = std::array<Entry, totalPageCount>;
-
-    [[maybe_unused]] auto pageTable = PageTable{};
-
-
-    struct Surface
-    {
-        u32 pageOffset;
-    };
 
     const auto imageDescriptor = ImageDescriptor
 	{
-        .format = Format::d16,
+        .format = Format::d32,
         .extent = Extent{window.width(), window.height()},
         .mips = 1,
         .layers = 1,
@@ -320,7 +228,7 @@ int Application::run()
     const auto depthFramebufferViewDescriptor = ImageViewDescriptor
     {
         .image = depthFramebuffer,
-        .format = Format::d16,
+        .format = Format::d32,
         .type = ImageViewType::_2D,
         .aspect = ImageViewAspect::depth
     };
@@ -357,46 +265,102 @@ int Application::run()
     };
 
 
-    //TODO: make global bind group allocator
-    Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, BindGroupUsageScope::persistent);
-    renderer.updateBindGroup(meshDataBindGroup, {
-
-                {
-                    0, UAV{BufferView{ vertexBuffer, 0, vertexBufferSize}}
-                },
-                {
-                    1, UAV{BufferView{ triangleBuffer, 0, triangleBufferSize}}
-                },
-                {
-                    2, UAV{BufferView{ meshletBuffer, 0, meshletBufferSize}}
-                }
-        });
-
-    /*renderer.nextFrame(); //TODO: command submit should work also without calling nextFrame in a frame async scenario
-    auto commandListTmp = renderer.acquireCommandList(QueueType::graphics);
-
-
-    const auto triangleGeometry = TriangleGeometry
+    struct InstanceData
     {
-        .vertexBuffer = vertexBuffer,
-        .totalVertices = u32{vertexBufferSize / sizeof(scene::Position)},
-        .vertexStride = sizeof(scene::Position),
+        glm::mat4 model;
+        u32 clusterOffset;
+        u32 triangleOffset;
+        u32 positionStreamOffset;
     };
 
-    const auto as = commandListTmp->buildAccelerationStructure(
-        triangleGeometry,
-        {
-        	AccelerationStructureDescriptor
-        	{
-                u32{vertexBufferSize / sizeof(scene::Position)}/3,
-        		0
-        	}
-        });
-    renderer.submitCommandList(std::move(commandListTmp));*/
+    
+    Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, BindGroupUsageScope::persistent);
+    
+
+    //TODO: command submit should work also without calling nextFrame in a frame async scenario
+    
 
     auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
     auto mouseButtonPressed = false;
 
+
+    //Some multi-threading fun
+    struct Job
+    {
+    public:
+
+        Job() = default;
+        Job(const std::function<void()>& jobJunction)
+        {
+            function = jobJunction;
+        }
+        Job(const Job& a) noexcept { function = a.function; }
+        Job& operator=(const Job& a) noexcept { function = a.function; return *this; }
+        Job(Job&&) = delete;
+        std::function<void()> function;
+    };
+
+    auto queue = rigtorp::MPMCQueue<Job>{ 100 };
+
+    auto shouldRun = true;
+
+    const auto s = Scene::loadSceneFromFile(renderer, filePath);
+
+
+
+    renderer.updateBindGroup(meshDataBindGroup, {
+
+                {
+                    0, UAV{BufferView{ s.positionStream_, 0, VK_WHOLE_SIZE}}
+                },
+			{
+                    1, UAV{BufferView{ s.uvStream_, 0, VK_WHOLE_SIZE}}
+                },
+			{
+                    2, UAV{BufferView{ s.tangentFrameStream_, 0, VK_WHOLE_SIZE}}
+                },
+                {
+                    3, UAV{BufferView{ s.triangle_, 0, VK_WHOLE_SIZE}}
+                },
+                {
+                    4, UAV{BufferView{ s.clusters_, 0, VK_WHOLE_SIZE}}
+                }
+        });
+
+
+    auto workerProcessor = [&shouldRun, &queue]()
+    {
+        while(shouldRun)
+        {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1s);
+            std::cout << "thread id: " << std::this_thread::get_id() << std::endl;
+
+        	auto job = Job{};
+            while(queue.try_pop(job))
+            {
+                if(job.function)
+                {
+                    job.function();
+                }
+            }
+        }
+        
+    };
+    
+    auto workerA = std::thread
+    {
+        workerProcessor
+    };
+
+	auto workerB = std::thread
+    {
+        workerProcessor
+    };
+
+    auto jobsPool = std::array<Job, 100>{};
+    u32 objectToRender = s.drawInstances_.size();
+    auto moveCameraFaster = false;
     while (stillRunning)
     {
         window.pollEvents();
@@ -420,21 +384,51 @@ int Application::run()
             }
         }
 
+        if (io.keyboardState.a == toy::io::ButtonState::pressed)
+        {
+            {
+	            auto job = Job{&havyWork};
+				queue.push(job);
+            }
+        }
+
+        if (io.keyboardState.e == toy::io::ButtonState::pressed)
+        {
+            objectToRender += 1;
+            std::cout << "visible objects: " << objectToRender << std::endl;
+        }
+
+        if (io.keyboardState.q == toy::io::ButtonState::pressed)
+        {
+            objectToRender -= 1;
+            std::cout << "visible objects: " << objectToRender << std::endl;
+        }
+
+        if (io.keyboardState.shiftLeft == toy::io::ButtonState::pressed)
+        {
+            moveCameraFaster = true;
+        }
+
+        if (io.keyboardState.shiftLeft == toy::io::ButtonState::unpressed)
+        {
+            moveCameraFaster = false;
+        }
+
         if(io.keyboardState.w == toy::io::ButtonState::pressed)
         {
-            camera.position += camera.forward * camera.movementSpeed;
+            camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? 10.0f:1.0f);
         }
         if (io.keyboardState.s == toy::io::ButtonState::pressed)
         {
-            camera.position -= camera.forward * camera.movementSpeed;
+            camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? 10.0f : 1.0f);
         }
         if (io.keyboardState.a == toy::io::ButtonState::pressed)
         {
-            camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed;
+            camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? 10.0f : 1.0f);
         }
         if (io.keyboardState.d == toy::io::ButtonState::pressed)
         {
-            camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed;
+            camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? 10.0f : 1.0f);
         }
         if(io.mouseState.leftButton == toy::io::ButtonState::pressed && !mouseButtonPressed)
         {
@@ -477,14 +471,13 @@ int Application::run()
 
         	renderer.nextFrame();
 
-            
-
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
+            auto frameDataBeginPtr = static_cast<u8*>(frameDataPtr);
 
             {
                 const auto aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
-                const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 0.001f, 1000.0f);
+                const auto projection = glm::infinitePerspective(glm::radians(60.0f), aspectRatio, 0.001f);
                 const auto view = glm::lookAt(camera.position, camera.position+camera.forward, camera.up);
 
                 const auto viewData = View
@@ -494,7 +487,8 @@ int Application::run()
                     .viewProjection = projection*view
                 };
 
-                std::memcpy(frameDataPtr, &viewData, sizeof(View));
+                std::memcpy(frameDataBeginPtr, &viewData, sizeof(View));
+                frameDataBeginPtr += sizeof(View);
             }
 
             const auto myConstantBufferView = BufferView{ frameData, {}, sizeof(View)};
@@ -511,32 +505,6 @@ int Application::run()
 
             //TODO: maybe I should use ref instead of unique_ptr?
             auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
-
-
-
-            if(frameNumber == 2)
-            {
-                const auto triangleGeometry = TriangleGeometry
-                {
-                    .indexBuffer = indexBuffer,
-                    .vertexBuffer = vertexBuffer,
-                    .totalVertices = u32{vertexBufferSize / sizeof(scene::Position)},
-                    .vertexStride = sizeof(scene::Position)
-                };
-
-                const auto as = commandList->buildAccelerationStructure(
-                    triangleGeometry,
-                    {
-                        AccelerationStructureDescriptor
-                        {
-                            triangleCount,
-                            0
-                        }
-                    });
-            }
-
-
-
 
             commandList->barrier({
                 ImageBarrierDescriptor
@@ -603,7 +571,41 @@ int Application::run()
                 commandList->bindGroup(0, meshDataBindGroup);
                 commandList->bindGroup(1, bindGroup);
 
-                commandList->draw(scene[0].mesh.header.totalTriangles*3, 1, 0, 0);
+                //auto i = 100;
+                for (auto i = u32{}; i < std::clamp(objectToRender, u32{}, (u32)s.drawInstances_.size()); i++)
+                {
+                    const auto& drawInstance = s.drawInstances_[i];
+
+                    Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
+
+                    const auto mesh = s.meshes_[drawInstance.meshIndex];
+                    
+                    const auto instanceData = InstanceData
+                    {
+                        .model = drawInstance.model,
+                        .clusterOffset = mesh.clusterOffset,
+                        .triangleOffset = mesh.triangleOffset,
+                        .positionStreamOffset = mesh.positionStreamOffset
+                    };
+
+                    
+
+                    const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+                    const auto cbv = BufferView{ frameData, { offset }, sizeof(instanceData) };
+
+                    auto ii = (void*)frameDataBeginPtr;
+                    auto si = std::size_t{ 1024 * 10*10 };
+                    frameDataBeginPtr = (u8*)std::align(64, sizeof(instanceData), ii, si);
+
+                    std::memcpy(frameDataBeginPtr, &instanceData, sizeof(instanceData));
+                    frameDataBeginPtr += sizeof(instanceData) + 64- sizeof(instanceData)%64;
+                    
+
+                    renderer.updateBindGroup(perInstanceGroup, { BindingDataMapping{ 0, CBV{ cbv } } });
+
+                    commandList->bindGroup(2, perInstanceGroup);
+                    commandList->draw(mesh.vertexCount, 1, 0, 0);
+                }
             }
 
             commandList->endRendering();
@@ -624,6 +626,10 @@ int Application::run()
             captureTool.stopAndOpenCapture();
         }
     }
+
+    shouldRun = false;
+    workerA.join();
+    workerB.join();
 
     graphicsDebugger.deinitialize();
     renderer.deinitialize();

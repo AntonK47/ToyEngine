@@ -210,6 +210,9 @@ namespace toy::renderer
 			const TriangleGeometry& geometry,
 			const std::vector<AccelerationStructureDescriptor>& descriptors) = 0;
 
+		virtual [[nodiscard]] Handle<AccelerationStructure> buildAccelerationStructureInternal(
+			const std::vector<AccelerationStructureInstance>& instances) = 0;
+
 		virtual void drawInternal(
 			core::u32 vertexCount,
 			core::u32 instanceCount,

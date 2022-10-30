@@ -2,6 +2,7 @@
 
 layout(location = 0) out vec4 outputColor;
 layout(location = 0) in flat uint clusterId;
+layout(location = 1) in vec3 normal;
 uint hash(uint a)
 {
    a = (a+0x7ed55d16) + (a<<12);
@@ -20,5 +21,10 @@ void main()
     uint cc = (hash >> 16) % 256;
 
     vec3 id = vec3(aa/256.0f,bb/256.0f,cc/256.0f);
-    outputColor = vec4(id, 1.0);
+
+    vec3 lightDirection = vec3(1.0,1.0,1.0);
+
+    float a = max(0, dot(lightDirection, normalize(normal)));
+
+    outputColor = vec4(vec3(a), 1.0);
 }

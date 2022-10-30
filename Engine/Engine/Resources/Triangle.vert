@@ -20,17 +20,34 @@ struct Meshlet
     int positionStreamCount;
 };
 
+struct TangentFrame
+{
+    vec3 normal;
+	vec3 tangent;
+	vec3 bitangent;
+};
+
 layout(set = 0, binding = 0, scalar) buffer PositionStreamBlock
 {
     Position positionStream[];
 };
 
-layout(set = 0, binding = 1, scalar) buffer TriangleBlock
+layout(set = 0, binding = 1, scalar) buffer UvStreamBlock
+{
+    vec2 uvStream[];
+};
+
+layout(set = 0, binding = 2, scalar) buffer TangentFrameStreamBlock
+{
+    TangentFrame tangentFrameStream[];
+};
+
+layout(set = 0, binding = 3, scalar) buffer TriangleBlock
 {
     uint8_t triangles[];
 };
 
-layout(set = 0, binding = 2, scalar) buffer MeshletsBlock
+layout(set = 0, binding = 4, scalar) buffer MeshletsBlock
 {
     Meshlet meshlets[];
 };
@@ -47,22 +64,43 @@ layout(set = 1, binding = 0) uniform perFrame
     View view;
 };
 
+struct InstanceData
+{
+    mat4 model;
+    uint clusterOffset;
+    uint triangleOffset;
+    uint positionStreamOffset;
+};
+
+layout(set = 2, binding = 0) uniform perObject
+{
+    InstanceData instance;
+};
+
 layout(location = 0) out uint clusterId;
+layout(location = 1) out vec3 normal;
 
 
 void main()
 {
     
-    int meshletId = gl_VertexIndex/(64*3);
+    int meshletId = int(instance.clusterOffset)+gl_VertexIndex/(64*3);
     int triangleId = gl_VertexIndex % (64*3);
     clusterId = uint(meshletId);
     Meshlet meshlet = meshlets[meshletId];
 
     
 	if(triangleId >= meshlet.triangleCount*3) return;
-    int index = meshlet.positionStreamOffset + int(uint(triangles[meshlet.triangleOffset + triangleId]));
+    int index = int(instance.positionStreamOffset) + meshlet.positionStreamOffset + int(uint(triangles[int(instance.triangleOffset) + meshlet.triangleOffset + triangleId]));
     Position p = positionStream[index];
+
+    normal = tangentFrameStream[index].normal;
     vec4 position = vec4(p.x,p.y,p.z,1.0);
-    float s = 0.5f;
-	gl_Position =  view.viewProjection * position;
+    float s = 0.05f;
+    mat4 scale = mat4(  s, 0.0,0.0,0.0,
+                        0.0, s, 0.0,0.0,
+                        0.0,0.0, s, 0.0,
+                        0.0,0.0,0.0,1.0);
+
+	gl_Position =  view.viewProjection * scale * instance.model * position;
 }

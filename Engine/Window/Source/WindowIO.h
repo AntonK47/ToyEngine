@@ -57,6 +57,7 @@ namespace toy::io
         ButtonState y;
         ButtonState z;
         ButtonState space;
+        ButtonState shiftLeft;
         ButtonState enter;
         ButtonState zero;
         ButtonState one;

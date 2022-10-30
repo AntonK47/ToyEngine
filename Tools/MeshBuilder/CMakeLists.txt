@@ -9,8 +9,20 @@ set(MODULE_SOURCES
 
 set(RESOURCE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Resources")
 
-add_executable(${APPLICATION_NAME}
+
+
+#add_executable(${APPLICATION_NAME}
+#		${MODULE_SOURCES}
+#)
+
+add_library(${APPLICATION_NAME} 
+	STATIC
 		${MODULE_SOURCES}
+)
+
+target_include_directories(${APPLICATION_NAME} 
+	PUBLIC
+		/
 )
 
 find_package(meshoptimizer CONFIG REQUIRED)

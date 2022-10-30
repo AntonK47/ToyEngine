@@ -11,62 +11,6 @@ using namespace toy::core::scene;
 
 void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 {
-	//auto canBeLoded = true;
-	//auto lodLevel = 0;
-	//while(canBeLoded)
-	//{
-	//	//generate meshlets
-	//		//compute cull data
-
-	//	//simplify
-
-	//	const auto indexCount = mesh.indices.size();
-	//	auto targetIndexCount = indexCount >> (lodLevel + 1);
-	//	targetIndexCount -= targetIndexCount % 3;
-	//	const auto targetError = 0.02f;// *powf(1.1f, lodLevel);
-	//	auto resultError = 0.0f;
-
-	//	auto indexBuffer = std::vector<uint32_t>{};
-	//	indexBuffer.resize(indexCount);
-	//	meshopt_simplify(
-	//		indexBuffer.data(),
-	//		mesh.indices.data(),
-	//		indexCount,
-	//		(float*)mesh.vertices.data(),
-	//		mesh.vertices.size(),
-	//		sizeof(Position),
-	//		targetIndexCount,
-	//		targetError,
-	//		&resultError);
-
-	//	auto vertexCount = mesh.vertices.size();
-	//	auto vertexRemap = std::vector<uint32_t>{};
-	//	vertexRemap.resize(vertexCount);
-	//	auto uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
-	//		vertexRemap.data(),
-	//		indexBuffer.data(),
-	//		targetIndexCount,
-	//		vertexCount);
-
-	//	auto vertexBuffer = std::vector<Position>{};
-	//	vertexBuffer.resize(uniqueVertexCount);
-	//	meshopt_remapVertexBuffer(
-	//		vertexBuffer.data(),
-	//		mesh.vertices.data(),
-	//		vertexCount,
-	//		sizeof(Position),
-	//		vertexRemap.data());
-
-
-
-	//	if(targetIndexCount <= 64*3)
-	//	{
-	//		canBeLoded = false;
-	//	}
-	//	lodLevel++;
-	//}
-
-
 	/*
 	 *	foreach mesh in scene
 	 *		generate LODs
@@ -104,8 +48,8 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 			meshletTriangles.data(),
 			mesh.indices.data(),
 			mesh.indices.size(),
-			&mesh.vertices[0].x,
-			mesh.vertices.size(),
+			&mesh.positionsVertexStream[0].x,
+			mesh.positionsVertexStream.size(),
 			sizeof(Position),
 			maxVertices,
 			maxTriangles,
@@ -135,13 +79,13 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 
 			for (auto i = meshlet.vertex_offset; i < meshlet.vertex_offset + meshlet.vertex_count; i++)
 			{
-				min[0] = std::min(min[0], mesh.vertices[meshletVertices[i]].x);
-				min[1] = std::min(min[1], mesh.vertices[meshletVertices[i]].y);
-				min[2] = std::min(min[2], mesh.vertices[meshletVertices[i]].z);
+				min[0] = std::min(min[0], mesh.positionsVertexStream[meshletVertices[i]].x);
+				min[1] = std::min(min[1], mesh.positionsVertexStream[meshletVertices[i]].y);
+				min[2] = std::min(min[2], mesh.positionsVertexStream[meshletVertices[i]].z);
 
-				max[0] = std::max(max[0], mesh.vertices[meshletVertices[i]].x);
-				max[1] = std::max(max[1], mesh.vertices[meshletVertices[i]].y);
-				max[2] = std::max(max[2], mesh.vertices[meshletVertices[i]].z);
+				max[0] = std::max(max[0], mesh.positionsVertexStream[meshletVertices[i]].x);
+				max[1] = std::max(max[1], mesh.positionsVertexStream[meshletVertices[i]].y);
+				max[2] = std::max(max[2], mesh.positionsVertexStream[meshletVertices[i]].z);
 			}
 
 			meshletAABBs[i].min[0] = min[0];
@@ -163,9 +107,6 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 		auto totalTriangles = 0;
 		auto totalVertexCount = 0;
 
-		const auto nextTriangle = (uint32_t)processedMesh.triangles.size();
-		const auto nextPosition = (uint32_t)processedMesh.positionVertexStream.size();
-
 		for (uint32_t i{}; i < meshletCount; i++)
 		{
 
@@ -174,7 +115,7 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 			meshletBounds[i] = meshopt_computeMeshletBounds(
 				&meshletVertices[meshlet.vertex_offset],
 				&meshletTriangles[meshlet.triangle_offset],
-				meshlet.triangle_count, &mesh.vertices[0].x, mesh.vertices.size(), sizeof(Position));
+				meshlet.triangle_count, &mesh.positionsVertexStream[0].x, mesh.positionsVertexStream.size(), sizeof(Position));
 
 
 			meshletInfos[i] = Meshlet{ meshlet.triangle_offset, meshlet.triangle_count,  meshlet.vertex_offset, meshlet.vertex_count };
@@ -218,15 +159,28 @@ void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 		meshlets.resize(meshletCount);
 		auto positionStream = std::vector<Position>{};
 		positionStream.resize(meshletVertices.size());
+
+		auto uvVertexStream = std::vector<TextureCoordinate>{};
+		uvVertexStream.resize(meshletVertices.size());
+
+		auto tangentFrameVertexStream = std::vector<TangentFrame>{};
+		tangentFrameVertexStream.resize(meshletVertices.size());
+
 		for(uint32_t i = 0; i < positionStream.size();i++)
 		{
-			positionStream[i] = mesh.vertices[meshletVertices[i]];
+			positionStream[i] = mesh.positionsVertexStream[meshletVertices[i]];
+			uvVertexStream[i] = mesh.uvVertexStream[meshletVertices[i]];
+			tangentFrameVertexStream[i] = mesh.tangentFrameVertexStream[meshletVertices[i]];
 		}
 
 
 		////TODO: store triangles in other way
 		processedMesh.triangles.insert(processedMesh.triangles.end(), meshletTriangles.begin(), meshletTriangles.end());
 		processedMesh.positionVertexStream.insert(processedMesh.positionVertexStream.end(), positionStream.begin(), positionStream.end());
+
+		processedMesh.uvVertexStream.insert(processedMesh.uvVertexStream.end(), uvVertexStream.begin(), uvVertexStream.end());
+
+		processedMesh.tangentFrameVertexStream.insert(processedMesh.tangentFrameVertexStream.end(), tangentFrameVertexStream.begin(), tangentFrameVertexStream.end());
 
 		auto lodMesh = LodMesh
 		{

@@ -65,7 +65,7 @@ namespace toy::renderer
 	Handle<AccelerationStructure> CommandList::buildAccelerationStructure(
 		const std::vector<AccelerationStructureInstance>& instances)
 	{
-		return {};
+		return buildAccelerationStructureInternal(instances);
 	}
 
 	void CommandList::beginRendering(const RenderingDescriptor& descriptor)

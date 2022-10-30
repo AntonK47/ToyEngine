@@ -43,6 +43,7 @@ void KeyboardState::reset()
     y = ButtonState::unpressed;
     z = ButtonState::unpressed;
     space = ButtonState::unpressed;
+    shiftLeft = ButtonState::unpressed;
     enter = ButtonState::unpressed;
     zero = ButtonState::unpressed;
     one = ButtonState::unpressed;

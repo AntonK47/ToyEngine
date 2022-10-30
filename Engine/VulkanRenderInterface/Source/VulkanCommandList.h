@@ -39,6 +39,10 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]]std::vector<Handle<AccelerationStructure>> buildAccelerationStructureInternal(
 			const TriangleGeometry& geometry,
 			const std::vector<AccelerationStructureDescriptor>& descriptors) override;
+		[[nodiscard]] Handle<AccelerationStructure>
+		buildAccelerationStructureInternal(
+			const std::vector<AccelerationStructureInstance>& instances)
+		override;
 	private:
 		friend VulkanRenderInterface;
 

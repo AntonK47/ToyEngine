@@ -13,7 +13,11 @@
 inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 {
 	assert(aiMesh.mVertices);
-	/*assert(aiMesh.mNormals);
+	assert(aiMesh.mNormals);
+	assert(aiMesh.mTangents);
+	assert(aiMesh.mBitangents);
+	assert(aiMesh.mTextureCoords);
+	/*
 	assert(aiMesh.mAABB.mMin != aiMesh.mAABB.mMax);
 	//optimize
 	const auto faceCount = aiMesh.mNumFaces;
@@ -55,37 +59,64 @@ inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 
 	const auto faceCount = aiMesh.mNumFaces;
 	const auto indexCount = faceCount * 3;
-	auto unindexedVertices = std::vector<toy::core::scene::Position>{};
+	auto unindexedPositions = std::vector<toy::core::scene::Position>{};
+	unindexedPositions.resize(indexCount);
 
+	auto unindexedTextureCoordinates = std::vector<toy::core::scene::TextureCoordinate>{};
+	unindexedTextureCoordinates.resize(indexCount);
 
+	auto unindexedTangentFrames = std::vector<toy::core::scene::TangentFrame>{};
+	unindexedTangentFrames.resize(indexCount);
 
-
-
-	//auto unindexedNormals = std::vector<toy::core::scene::Normal>{};
-
-
-	unindexedVertices.resize(indexCount, toy::core::scene::Position{});
-	//unindexedNormals.resize(indexCount, toy::core::scene::Normal{});
 	auto vertexOffset = uint32_t{};
-
-	const auto aabb = aiMesh.mAABB;
-	const auto aabbCenter = (aabb.mMin + aabb.mMax) * 0.5f;
-	const auto invL = 0.5f / ((aabb.mMax.Length() > aabb.mMin.Length() ? aabb.mMax : aabb.mMin) - aabbCenter).Length();
 	for (unsigned i = 0; i < aiMesh.mNumFaces; i++)
 	{
 		for (unsigned j = 0; j < aiMesh.mFaces[i].mNumIndices; j++)
 		{
-			const auto aiVertex = aiMesh.mVertices[aiMesh.mFaces[i].mIndices[j]]- aabbCenter;
+			const auto uvChannel = uint32_t{ 0 };
+			const auto aiPosition = aiMesh.mVertices[aiMesh.mFaces[i].mIndices[j]];
+			const auto aiNormal = aiMesh.mNormals[aiMesh.mFaces[i].mIndices[j]];
+			const auto aiBitangent = aiMesh.mBitangents[aiMesh.mFaces[i].mIndices[j]];
+			const auto aiTangent = aiMesh.mTangents[aiMesh.mFaces[i].mIndices[j]];
+			const auto aiTextureCoordinate = aiMesh.mTextureCoords[uvChannel][aiMesh.mFaces[i].mIndices[j]];
 			
 
 			const auto v = toy::core::scene::Position
 			{
-				.x = aiVertex.x * invL,
-				.y = aiVertex.y * invL,
-				.z = aiVertex.z * invL
+				.x = aiPosition.x,
+				.y = aiPosition.y,
+				.z = aiPosition.z
 			};
 			
-			unindexedVertices[vertexOffset] = v;
+			unindexedPositions[vertexOffset] = v;
+
+			unindexedTextureCoordinates[vertexOffset] = toy::core::scene::TextureCoordinate
+			{
+				.u = aiTextureCoordinate.x,
+				.v = aiTextureCoordinate.y
+			};
+
+			unindexedTangentFrames[vertexOffset].normal = toy::core::scene::Vector
+			{
+				.x = aiNormal.x,
+				.y = aiNormal.y,
+				.z = aiNormal.z
+			};
+
+			unindexedTangentFrames[vertexOffset].bitangent = toy::core::scene::Vector
+			{
+				.x = aiBitangent.x,
+				.y = aiBitangent.y,
+				.z = aiBitangent.z
+			};
+
+			unindexedTangentFrames[vertexOffset].tangent = toy::core::scene::Vector
+			{
+				.x = aiTangent.x,
+				.y = aiTangent.y,
+				.z = aiTangent.z
+			};
+
 			vertexOffset++;
 		}
 	}
@@ -95,66 +126,51 @@ inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 		&remap[0],
 		nullptr,
 		indexCount,
-		&unindexedVertices[0],
+		&unindexedPositions[0],
 		indexCount,
 		sizeof(toy::core::scene::Position));
 
 
 	auto mesh = toy::core::scene::Mesh
 	{
-		.vertices = std::vector<toy::core::scene::Position>(vertexCount),
-		//std::vector<toy::core::scene::Normal>(vertexCount),
-		.indices = std::vector<toy::core::scene::Index>(indexCount)
+		.indices = std::vector<toy::core::scene::Index>(indexCount),
+		.positionsVertexStream = std::vector<toy::core::scene::Position>(vertexCount),
+		.uvVertexStream = std::vector<toy::core::scene::TextureCoordinate>(vertexCount),
+		.tangentFrameVertexStream = std::vector<toy::core::scene::TangentFrame>(vertexCount)
 	};
 
 
-	
 
+	meshopt_remapIndexBuffer(
+		mesh.indices.data(),
+		nullptr,
+		indexCount,
+		remap.data());
 
-	meshopt_remapIndexBuffer(mesh.indices.data(), nullptr, indexCount, &remap[0]);
-	meshopt_remapVertexBuffer(mesh.vertices.data(), &unindexedVertices[0], indexCount, sizeof(toy::core::scene::Position), &remap[0]);
+	meshopt_remapVertexBuffer(
+		mesh.positionsVertexStream.data(),
+		unindexedPositions.data(),
+		indexCount,
+		sizeof(toy::core::scene::Position),
+		remap.data());
+
+	meshopt_remapVertexBuffer(
+		mesh.uvVertexStream.data(),
+		unindexedTextureCoordinates.data(),
+		indexCount,
+		sizeof(toy::core::scene::TextureCoordinate),
+		remap.data());
+
+	meshopt_remapVertexBuffer(
+		mesh.tangentFrameVertexStream.data(),
+		unindexedTangentFrames.data(),
+		indexCount,
+		sizeof(toy::core::scene::TangentFrame),
+		remap.data());
 
 	MeshletBuilder b;
 	toy::core::scene::RuntimeMesh runtimeMesh;
 	b.process(mesh, runtimeMesh);
-
-
-	/*meshopt_remapVertexBuffer(mesh.normals.data(), &unindexedNormals[0], indexCount, sizeof(Normal), &remap[0]);
-	meshopt_optimizeVertexCache(
-		mesh.indices.data(),
-		mesh.indices.data(),
-		indexCount,
-		vertexCount);
-	meshopt_optimizeOverdraw(
-		mesh.indices.data(),
-		mesh.indices.data(),
-		indexCount,
-		&mesh.vertices.data()[0].x,
-		vertexCount,
-		sizeof(Position),
-		1.05f);*/
-
-
-	/*auto remapVertex = std::vector<unsigned int>(vertexCount);
-	meshopt_optimizeVertexFetchRemap(remapVertex.data(), mesh.indices->data(), mesh.indices->size(), vertexCount);
-
-
-	auto ver = std::make_unique<std::vector<Vertex>>(vertexCount);
-	auto norm = std::make_unique<std::vector<Normal>>(vertexCount);
-
-
-
-	meshopt_remapVertexBuffer(ver->data(), mesh.vertices->data(), vertexCount, sizeof(Vertex), &remapVertex[0]);
-	meshopt_remapVertexBuffer(norm->data(), mesh.normals->data(), vertexCount, sizeof(Normal), &remapVertex[0]);
-
-	mesh.vertices.swap(ver);
-	mesh.normals.swap(norm);*/
-	//meshopt_optimizeVertexFetch(
-	//	mesh.vertices->data(),
-	//	mesh.indices->data(),
-	//	indexCount, mesh.vertices->data(),
-	//	vertexCount,
-	//	sizeof(Vertex));
 
 	return runtimeMesh;
 }
