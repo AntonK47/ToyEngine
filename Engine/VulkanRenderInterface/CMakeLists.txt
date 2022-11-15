@@ -37,9 +37,9 @@ target_link_libraries(${MODULE_NAME}
 		RenderInterface
 	#PRIVATE
 		unofficial::vulkan-memory-allocator::vulkan-memory-allocator
-		
-	
+
 		Vulkan::Vulkan
+	
 		#Vulkan::Headers
 )
 

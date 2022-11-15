@@ -4,6 +4,8 @@
 
 namespace toy::core
 {
+	
+
 	using FlagBits = uint32_t;
 
 	template<typename FlagBits>
@@ -35,7 +37,7 @@ namespace toy::core
 		uint32_t flags{};
 	};
 
-	//TODO: create sfinae friendly operator
+	//TODO: [#1] create sfinae friendly operator
 	/*template<typename T>
 	Flags<T> operator|(const T& lhs, const T& rhs)
 	{
@@ -58,4 +60,39 @@ namespace toy::core
 
 	using f64 = double;
 	using f32 = float;
+
+
+	struct Color
+	{
+		Color(const u8 r, const u8 g, const u8 b):r_(r), g_(g), b_(b)
+		{}
+
+		[[nodiscard]] float r() const
+		{
+			return static_cast<float>(r_) / 255.0f;
+		}
+
+		[[nodiscard]] float g() const
+		{
+			return static_cast<float>(g_) / 255.0f;
+		}
+
+		[[nodiscard]] float b() const
+		{
+			return static_cast<float>(b_) / 255.0f;
+		}
+	private:
+		u8 r_, g_, b_;
+	};
+
+	struct BasicColorsPalette
+	{
+		inline static Color red = { 200, 10, 10 };
+	};
+
+	struct DebugLabel
+	{
+		const char* name{};
+		Color color{0,0,0};
+	};
 }

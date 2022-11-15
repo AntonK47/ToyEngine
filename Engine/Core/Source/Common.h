@@ -11,8 +11,8 @@
 
 #ifndef NOMINMAX
 #define NOMINMAX
-#include <Windows.h>
 #endif
+#include <Windows.h>
 
 struct NativeBackend
 {

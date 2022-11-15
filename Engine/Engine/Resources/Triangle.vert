@@ -79,6 +79,7 @@ layout(set = 2, binding = 0) uniform perObject
 
 layout(location = 0) out uint clusterId;
 layout(location = 1) out vec3 normal;
+layout(location = 2) out vec2 uv;
 
 
 void main()
@@ -95,6 +96,8 @@ void main()
     Position p = positionStream[index];
 
     normal = tangentFrameStream[index].normal;
+    uv = uvStream[index];
+
     vec4 position = vec4(p.x,p.y,p.z,1.0);
     float s = 0.05f;
     mat4 scale = mat4(  s, 0.0,0.0,0.0,

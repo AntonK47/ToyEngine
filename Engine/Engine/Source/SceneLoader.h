@@ -27,11 +27,11 @@ public:
 private:
 	Scene(const std::vector<RuntimeMesh>& meshes,
 		const std::vector<DrawInstance>& drawInstances,
-		const toy::renderer::Handle<toy::renderer::Buffer>& positionStream,
-		const toy::renderer::Handle<toy::renderer::Buffer>& tangentFrameStream,
-		const toy::renderer::Handle<toy::renderer::Buffer>& uvStream,
-		const toy::renderer::Handle<toy::renderer::Buffer>& triangle,
-		const toy::renderer::Handle<toy::renderer::Buffer>& clusters)
+		const toy::renderer::Buffer& positionStream,
+		const toy::renderer::Buffer& tangentFrameStream,
+		const toy::renderer::Buffer& uvStream,
+		const toy::renderer::Buffer& triangle,
+		const toy::renderer::Buffer& clusters)
 		: meshes_(meshes),
 		  drawInstances_(drawInstances),
 		  positionStream_(positionStream),
@@ -46,11 +46,11 @@ public:
 	std::vector<RuntimeMesh> meshes_;
 	std::vector<DrawInstance> drawInstances_;
 
-	toy::renderer::Handle<toy::renderer::Buffer> positionStream_;
-	toy::renderer::Handle<toy::renderer::Buffer> tangentFrameStream_;
-	toy::renderer::Handle<toy::renderer::Buffer> uvStream_;
-	toy::renderer::Handle<toy::renderer::Buffer> triangle_;
-	toy::renderer::Handle<toy::renderer::Buffer> clusters_;
+	toy::renderer::Buffer positionStream_;
+	toy::renderer::Buffer tangentFrameStream_;
+	toy::renderer::Buffer uvStream_;
+	toy::renderer::Buffer triangle_;
+	toy::renderer::Buffer clusters_;
 
-	toy::renderer::Handle<toy::renderer::Buffer> index_;
+	toy::renderer::Buffer index_;
 };

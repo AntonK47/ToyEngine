@@ -23,9 +23,10 @@ using namespace toy::renderer;
 using namespace toy::window;
 using namespace compiler;
 
+
 namespace 
 {
-    void havyWork()
+    void heavyWork()
     {
         std::cout << "mega heavy job has started!!!!" << std::endl;
     }
@@ -49,7 +50,7 @@ namespace
 
 int Application::run()
 {
-    logger::initialize();
+    //logger::initialize();
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
     auto graphicsDebugger = debugger::RenderDocCapture{};
@@ -67,25 +68,69 @@ int Application::run()
             return WindowExtent{ window.width(), window.height()};
         }
     };
-
-
     renderer.initialize(rendererDescriptor);
 
-    
-    
     const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
     {
         .nativeBackend = renderer.getNativeBackend()
     };
-
     graphicsDebugger.initialize(renderDocDescriptor);
 
-    auto captureTool = graphicsDebugger.getScopeCapture();
-
     
-    const auto filePath = "E:\\Develop\\ToyEngine\\out\\build\\x64-Debug\\Tools\\MeshBuilder\\newSponza.dat";
 
 
+#pragma region Multithreading
+    struct Job
+    {
+    public:
+
+        Job() = default;
+        Job(const std::function<void()>& jobJunction)
+        {
+            function = jobJunction;
+        }
+        Job(const Job& a) noexcept { function = a.function; }
+        Job& operator=(const Job& a) noexcept { function = a.function; return *this; }
+        Job(Job&&) = delete;
+        std::function<void()> function;
+    };
+
+    auto queue = rigtorp::MPMCQueue<Job>{ 100 };
+    auto shouldRun = true;
+
+    auto workerProcessor = [&shouldRun, &queue]()
+    {
+        while (shouldRun)
+        {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1s);
+            //std::cout << "thread id: " << std::this_thread::get_id() << std::endl;
+
+            auto job = Job{};
+            while (queue.try_pop(job))
+            {
+                if (job.function)
+                {
+                    job.function();
+                }
+            }
+        }
+
+    };
+
+    auto workerA = std::thread
+    {
+        workerProcessor
+    };
+
+    auto workerB = std::thread
+    {
+        workerProcessor
+    };
+#pragma endregion
+#pragma region FrameRingLinearAllocator
+    //FEATURE: This should moved into a Frame Linear Allocator
+    //================================================================================
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
             .size = 10*1024*10,
@@ -94,11 +139,11 @@ int Application::run()
         });
 
     void* frameDataPtr = nullptr;
-    renderer.map(frameData, &frameDataPtr);
-
-    auto time = 0.0f;
-
-
+    renderer.map(frameData.nativeHandle, &frameDataPtr);
+    //=================================================================================
+#pragma endregion
+#pragma region Material 
+    //R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
     const auto simpleTriangleGroup = BindGroupDescriptor
     {
 	    .bindings =
@@ -214,6 +259,8 @@ int Application::run()
                 SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout}
             });
 
+#pragma endregion
+
 
     const auto imageDescriptor = ImageDescriptor
 	{
@@ -234,11 +281,6 @@ int Application::run()
     };
     auto depthFramebufferView = renderer.createImageView(depthFramebufferViewDescriptor);
 
-    auto frameNumber = u32{};
-
-    bool stillRunning = true;
-
-
     struct Camera
     {
         glm::vec3 position;
@@ -248,22 +290,12 @@ int Application::run()
         float sensitivity{ 1.0f };
     };
 
-    auto camera = Camera
-    {
-        .position = glm::vec3{0.0f,0.0f,1.0f},
-        .forward = glm::vec3{0.0f,0.0f,-1.0f},
-        .up = glm::vec3{0.0f,1.0f,0.0f},
-        .movementSpeed = 0.01f,
-        .sensitivity = 0.2f
-    };
-
     struct View
     {
         glm::mat4 view;
         glm::mat4 projection;
         glm::mat4 viewProjection;
     };
-
 
     struct InstanceData
     {
@@ -273,96 +305,73 @@ int Application::run()
         u32 positionStreamOffset;
     };
 
-    
-    Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, BindGroupUsageScope::persistent);
-    
-
-    //TODO: command submit should work also without calling nextFrame in a frame async scenario
-    
-
+    //REFACTOR: camera control
+    //==============================
+    auto camera = Camera
+    {
+        .position = glm::vec3{0.0f,0.0f,1.0f},
+        .forward = glm::vec3{0.0f,0.0f,-1.0f},
+        .up = glm::vec3{0.0f,1.0f,0.0f},
+        .movementSpeed = 0.01f,
+        .sensitivity = 0.2f
+    };
+    auto moveCameraFaster = false;
     auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
     auto mouseButtonPressed = false;
+    //==============================
 
-
-    //Some multi-threading fun
-    struct Job
-    {
-    public:
-
-        Job() = default;
-        Job(const std::function<void()>& jobJunction)
-        {
-            function = jobJunction;
-        }
-        Job(const Job& a) noexcept { function = a.function; }
-        Job& operator=(const Job& a) noexcept { function = a.function; return *this; }
-        Job(Job&&) = delete;
-        std::function<void()> function;
-    };
-
-    auto queue = rigtorp::MPMCQueue<Job>{ 100 };
-
-    auto shouldRun = true;
-
-    const auto s = Scene::loadSceneFromFile(renderer, filePath);
-
-
-
-    renderer.updateBindGroup(meshDataBindGroup, {
-
-                {
-                    0, UAV{BufferView{ s.positionStream_, 0, VK_WHOLE_SIZE}}
-                },
-			{
-                    1, UAV{BufferView{ s.uvStream_, 0, VK_WHOLE_SIZE}}
-                },
-			{
-                    2, UAV{BufferView{ s.tangentFrameStream_, 0, VK_WHOLE_SIZE}}
-                },
-                {
-                    3, UAV{BufferView{ s.triangle_, 0, VK_WHOLE_SIZE}}
-                },
-                {
-                    4, UAV{BufferView{ s.clusters_, 0, VK_WHOLE_SIZE}}
-                }
-        });
-
-
-    auto workerProcessor = [&shouldRun, &queue]()
-    {
-        while(shouldRun)
-        {
-            using namespace std::chrono_literals;
-            std::this_thread::sleep_for(1s);
-            std::cout << "thread id: " << std::this_thread::get_id() << std::endl;
-
-        	auto job = Job{};
-            while(queue.try_pop(job))
-            {
-                if(job.function)
-                {
-                    job.function();
-                }
-            }
-        }
-        
-    };
+    const auto scene = Scene::loadSceneFromFile(renderer, "");
     
-    auto workerA = std::thread
-    {
-        workerProcessor
-    };
+    Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
+	renderer.updateBindGroup(meshDataBindGroup, {
 
-	auto workerB = std::thread
-    {
-        workerProcessor
-    };
+				{
+					0, UAV{BufferView{ scene.positionStream_.nativeHandle, 0, VK_WHOLE_SIZE}}
+				},
+			{
+					1, UAV{BufferView{ scene.uvStream_.nativeHandle, 0, VK_WHOLE_SIZE}}
+				},
+			{
+					2, UAV{BufferView{ scene.tangentFrameStream_.nativeHandle, 0, VK_WHOLE_SIZE}}
+				},
+				{
+					3, UAV{BufferView{ scene.triangle_.nativeHandle, 0, VK_WHOLE_SIZE}}
+				},
+				{
+					4, UAV{BufferView{ scene.clusters_.nativeHandle, 0, VK_WHOLE_SIZE}}
+				}
+		});
 
-    auto jobsPool = std::array<Job, 100>{};
-    u32 objectToRender = s.drawInstances_.size();
-    auto moveCameraFaster = false;
+    //TODO: [#3] command submit should work also without calling nextFrame in a frame async scenario
+    u32 objectToRender = scene.drawInstances_.size();
+    auto time = 0.0f;
+    auto frameNumber = u32{};
+    bool stillRunning = true;
+    auto captureTool = graphicsDebugger.getScopeCapture();
+
+    {
+        //playing with transfer queue
+
+        auto t1 = renderer.acquireCommandList(QueueType::transfer, CommandListType::primary);
+        auto t2 = renderer.acquireCommandList(QueueType::transfer, CommandListType::primary);
+
+        const auto d1 = renderer.submitCommandList(QueueType::transfer,{ t1.get() }, {});
+
+        const auto d2 = renderer.submitCommandList(QueueType::transfer, { t2.get() }, {d1});
+        
+
+    }
+
+
+    auto frameStartTime = std::chrono::high_resolution_clock::now();
+    auto frameEndTime = std::chrono::high_resolution_clock::now();
+
     while (stillRunning)
     {
+        const auto cpuFrameTime = frameEndTime - frameStartTime;
+        frameStartTime = std::chrono::high_resolution_clock::now();
+        const auto hertz = cpuFrameTime.count() / 1000000.0f;//ns -> s
+        window.setWindowTitle(std::to_string(hertz));
         window.pollEvents();
         const auto& events = window.getEvents();
         const auto& io = window.getIo();
@@ -387,11 +396,12 @@ int Application::run()
         if (io.keyboardState.a == toy::io::ButtonState::pressed)
         {
             {
-	            auto job = Job{&havyWork};
+	            auto job = Job{&heavyWork};
 				queue.push(job);
             }
         }
 
+#pragma region Camera Control
         if (io.keyboardState.e == toy::io::ButtonState::pressed)
         {
             objectToRender += 1;
@@ -451,7 +461,7 @@ int Application::run()
             const auto right = glm::normalize(cross(camera.forward, camera.up));
             const auto up = glm::normalize(cross(right, camera.forward));
 
-            const auto f = glm::normalize(camera.forward + right * delta.y + up * delta.x);//TODO:: swapped x and y??
+            const auto f = glm::normalize(camera.forward + right * delta.y + up * delta.x);//TODO:: [#4] swapped x and y??
 
             auto rotationAxis = glm::normalize(glm::cross(f, camera.forward));
 
@@ -464,6 +474,7 @@ int Application::run()
 
             onMousePressedScreenLocation = mouseScreenLocation;
         }
+#pragma endregion
 
         frameNumber++;
         {
@@ -491,7 +502,7 @@ int Application::run()
                 frameDataBeginPtr += sizeof(View);
             }
 
-            const auto myConstantBufferView = BufferView{ frameData, {}, sizeof(View)};
+            const auto myConstantBufferView = BufferView{ frameData.nativeHandle, {}, sizeof(View)};
 
             renderer.updateBindGroup(bindGroup, {
                 {
@@ -503,9 +514,10 @@ int Application::run()
 
             const auto& swapchainImage = renderer.acquireNextSwapchainImage();
 
-            //TODO: maybe I should use ref instead of unique_ptr?
+            //TODO: [#3] maybe I should use ref instead of unique_ptr?
             auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
-
+            commandList->begin();
+            //TODO: this should performed on initial resource creation
             commandList->barrier({
                 ImageBarrierDescriptor
                 {
@@ -571,14 +583,13 @@ int Application::run()
                 commandList->bindGroup(0, meshDataBindGroup);
                 commandList->bindGroup(1, bindGroup);
 
-                //auto i = 100;
-                for (auto i = u32{}; i < std::clamp(objectToRender, u32{}, (u32)s.drawInstances_.size()); i++)
+                for (auto i = u32{}; i < std::clamp(objectToRender, u32{}, static_cast<u32>(scene.drawInstances_.size())); i++)
                 {
-                    const auto& drawInstance = s.drawInstances_[i];
+                    const auto& drawInstance = scene.drawInstances_[i];
 
                     Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
 
-                    const auto mesh = s.meshes_[drawInstance.meshIndex];
+                    const auto mesh = scene.meshes_[drawInstance.meshIndex];
                     
                     const auto instanceData = InstanceData
                     {
@@ -591,7 +602,7 @@ int Application::run()
                     
 
                     const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-                    const auto cbv = BufferView{ frameData, { offset }, sizeof(instanceData) };
+                    const auto cbv = BufferView{ frameData.nativeHandle, { offset }, sizeof(instanceData) };
 
                     auto ii = (void*)frameDataBeginPtr;
                     auto si = std::size_t{ 1024 * 10*10 };
@@ -619,12 +630,15 @@ int Application::run()
             	}
             });
 
+            commandList->end();
             renderer.submitCommandList(std::move(commandList));
             renderer.present();
 
             time += 0.01f;
             captureTool.stopAndOpenCapture();
         }
+        frameEndTime = std::chrono::high_resolution_clock::now();
+
     }
 
     shouldRun = false;
@@ -634,7 +648,7 @@ int Application::run()
     graphicsDebugger.deinitialize();
     renderer.deinitialize();
     window.deinitialize();
-    logger::deinitialize();
+    //logger::deinitialize();
    
 
     return EXIT_SUCCESS;

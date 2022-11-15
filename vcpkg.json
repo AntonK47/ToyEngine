@@ -15,6 +15,14 @@
     "meshoptimizer",
     "boost-program-options",
     "assimp",
-    "mpmcqueue"
+    "mpmcqueue",
+    {
+      "name": "folly",
+      "default-features": false,
+      "features": [
+        "zstd",
+        "libsodium"
+      ]
+    }
   ]
 }

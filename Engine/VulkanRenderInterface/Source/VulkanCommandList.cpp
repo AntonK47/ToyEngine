@@ -1,5 +1,6 @@
 #include "VulkanCommandList.h"
 #include "VulkanMappings.h"
+#include <folly/small_vector.h>
 
 using namespace toy::renderer;
 using namespace api::vulkan;
@@ -156,14 +157,15 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	{
 		flags |= vk::RenderingFlagBits::eContentsSecondaryCommandBuffers;
 	}
-			
-	auto colorAttachments = std::vector<vk::RenderingAttachmentInfo>(descriptor.colorRenderTargets.size());
+	
+
+	auto colorAttachments = folly::small_vector<vk::RenderingAttachmentInfo>(descriptor.colorRenderTargets.size());
 
 	for (u32 i{}; i< descriptor.colorRenderTargets.size(); i++)
 	{
 		const auto& colorRenderTarget = descriptor.colorRenderTargets[i];
 
-		auto imageView = renderInterface_->imageViewStorage_.get(descriptor.colorRenderTargets[i].imageView).imageView;
+		const auto& imageView = renderInterface_->imageViewStorage_.get(colorRenderTarget.imageView).imageView;
 
 		colorAttachments[i] = vk::RenderingAttachmentInfo
 		{
@@ -180,7 +182,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 
 	if(hasDepthAttachment(descriptor))
 	{
-		auto imageView = renderInterface_->imageViewStorage_.get(descriptor.depthRenderTarget.imageView).imageView;
+		const auto& imageView = renderInterface_->imageViewStorage_.get(descriptor.depthRenderTarget.imageView).imageView;
 		depthAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -195,7 +197,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	auto stencilAttachment = vk::RenderingAttachmentInfo{};
 	if(hasStencilAttachment(descriptor))
 	{
-		auto imageView = renderInterface_->imageViewStorage_.get(descriptor.stencilRenderTarget.imageView).imageView;
+		const auto& imageView = renderInterface_->imageViewStorage_.get(descriptor.stencilRenderTarget.imageView).imageView;
 		stencilAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -373,7 +375,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	{
 		const auto accelerationStructureCreateInfo = vk::AccelerationStructureCreateInfoKHR
 		{
-			.buffer = renderInterface_->bufferStorage_.get(accelerationStructureBuffer).buffer,
+			.buffer = renderInterface_->bufferStorage_.get(accelerationStructureBuffer.nativeHandle).buffer,
 			.offset = accelerationStructureBufferOffsets[i],
 			.size = buildSizes[i].accelerationStructureSize,
 			.type = vk::AccelerationStructureTypeKHR::eBottomLevel
@@ -389,7 +391,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 
 	const auto scratchBufferDeviceAddress = renderInterface_->device_.getBufferAddress(vk::BufferDeviceAddressInfo
 		{
-				.buffer = renderInterface_->bufferStorage_.get(scratchBuffer).buffer
+				.buffer = renderInterface_->bufferStorage_.get(scratchBuffer.nativeHandle).buffer
 		});
 
 	for (auto i = u32{}; i < descriptors.size(); i++)
@@ -482,6 +484,23 @@ buildAccelerationStructureInternal(
 
 
 	return {};
+}
+
+void VulkanCommandList::endInternal()
+{
+	const auto result = cmd_.end();
+	TOY_ASSERT(result == vk::Result::eSuccess);
+}
+
+void VulkanCommandList::beginInternal()
+{
+	const auto beginInfo = vk::CommandBufferBeginInfo
+	{
+		.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+	};
+
+	const auto result = cmd_.begin(beginInfo);
+	TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
 

@@ -33,15 +33,34 @@ namespace toy::renderer
 			QueueType queueType,
 			CommandListType commandListType = CommandListType::primary);
 
+		[[nodiscard]] CommandList& acquireCommandList(
+			QueueType queueType, UsageScope scope = UsageScope::inFrame);
+
 		void submitCommandList(std::unique_ptr<CommandList> commandList);
+
+		struct SubmitDependency
+		{
+			QueueType queueDependency{ QueueType::graphics };
+			u64 value{}; //R&D: this should be opaque, because of different graphics API's
+		};
+
+		
+
+		SubmitDependency submitCommandList(
+			QueueType queueType,
+			const std::initializer_list<CommandList*>& commandLists,
+			const std::initializer_list<SubmitDependency>& dependencies);
 		
 		void nextFrame();
 
 		[[nodiscard]] SwapchainImage acquireNextSwapchainImage();
 		void present();
 
-		[[nodiscard]] Handle<Buffer> createBuffer(
-			const BufferDescriptor& descriptor);
+		[[nodiscard]] Buffer createBuffer(
+			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label = {});
+
+		/*struct ResourceDescriptor{};
+		std::initializer_list<std::initializer_list<Handle<>>> createAliasedResources(std::initializer_list<std::initializer_list<ResourceDescriptor>> aliasedResourceDescriptors);*/
 
 		[[nodiscard]] Handle<Image> createImage(
 			const ImageDescriptor& descriptor);
@@ -57,12 +76,12 @@ namespace toy::renderer
 
 		[[nodiscard]] Handle<BindGroup> allocateBindGroup(
 			const Handle<BindGroupLayout>& bindGroupLayout,
-			const BindGroupUsageScope& scope = BindGroupUsageScope::perFrame);
+			const UsageScope& scope = UsageScope::inFrame);
 
-		[[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroup(
+		[[nodiscard]] folly::small_vector<Handle<BindGroup>> allocateBindGroup(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount, 
-			const BindGroupUsageScope& scope = BindGroupUsageScope::perFrame);
+			const UsageScope& scope = UsageScope::inFrame);
 
 		//this function should be thread save????
 		//Do I need make multi threaded resource creation? It can depend on Frame Graph resource management.
@@ -108,9 +127,16 @@ namespace toy::renderer
 		virtual [[nodiscard]] std::unique_ptr<CommandList> acquireCommandListInternal(
 			QueueType queueType,
 			CommandListType commandListType = CommandListType::primary) = 0;
+		virtual [[nodiscard]] CommandList& acquireCommandListInternal(
+			QueueType queueType, UsageScope scope = UsageScope::inFrame) = 0;
 
 		virtual [[nodiscard]] void submitCommandListInternal(
 			std::unique_ptr<CommandList> commandList) = 0;
+
+		virtual SubmitDependency submitCommandListInternal(
+			QueueType queueType,
+			const std::initializer_list<CommandList*>& commandLists,
+			const std::initializer_list<SubmitDependency>& dependencies) = 0;
 
 		virtual [[nodiscard]] Handle<Pipeline> createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
@@ -134,15 +160,15 @@ namespace toy::renderer
 		virtual [[nodiscard]] Handle<BindGroupLayout> createBindGroupLayoutInternal(
 			const BindGroupDescriptor& descriptor) = 0;
 
-		virtual [[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroupInternal(
+		virtual [[nodiscard]] folly::small_vector<Handle<BindGroup>> allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
-			const BindGroupUsageScope& scope) = 0;
+			const UsageScope& scope) = 0;
 
 
 		//TODO: resource creation can be moved in a separate resource management class 
 		virtual [[nodiscard]] Handle<Buffer> createBufferInternal(
-			const BufferDescriptor& descriptor) = 0;
+			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) = 0;
 
 		virtual [[nodiscard]] Handle<Image> createImageInternal(
 			const ImageDescriptor& descriptor) = 0;
@@ -151,5 +177,9 @@ namespace toy::renderer
 			const ImageViewDescriptor& descriptor) = 0;
 
 		DECLARE_VALIDATOR(validation::RenderInterfaceValidator);
+
+	private:
+
+		NativeBackend* nativeBackend_;
 	};
 }

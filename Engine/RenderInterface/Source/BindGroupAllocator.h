@@ -39,10 +39,10 @@ namespace toy::renderer
 		unboundLast = 1 << 0,
 	};
 
-	enum class BindGroupUsageScope
+	enum class UsageScope
 	{
-		perFrame,
-		persistent //global?
+		inFrame,
+		async
 	};
 
 	struct BindGroupDescriptor
@@ -54,7 +54,7 @@ namespace toy::renderer
 
 	struct BindGroup
 	{
-		BindGroupUsageScope scope;
+		UsageScope scope;
 	};
 
 

@@ -130,7 +130,7 @@ namespace toy::renderer
 
 	struct RenderingDescriptor
 	{
-		std::vector<RenderTargetDescriptor> colorRenderTargets{};
+		folly::small_vector<RenderTargetDescriptor> colorRenderTargets{};
 		RenderTargetDescriptor depthRenderTarget{};
 		RenderTargetDescriptor stencilRenderTarget{};
 	};
@@ -188,6 +188,9 @@ namespace toy::renderer
 		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
 		void endRendering();
 
+		void begin();
+		void end();
+
 		void bindPipeline(const Handle<Pipeline>& pipeline);
 		void setScissor(const Scissor& scissor);
 		void setViewport(const Viewport& viewport);
@@ -197,6 +200,8 @@ namespace toy::renderer
 			core::u32 firstVertex,
 			core::u32 firstInstance);
 
+		[[nodiscard]] QueueType getQueueType() const { return ownedQueueType_; }
+
 	protected:
 
 		virtual void bindGroupInternal(core::u32 set, const Handle<BindGroup>& handle) = 0;
@@ -205,6 +210,9 @@ namespace toy::renderer
 
 		virtual void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area) = 0;
 		virtual void endRenderingInternal() = 0;
+
+		virtual void beginInternal() = 0;
+		virtual void endInternal() = 0;
 
 		virtual [[nodiscard]] std::vector<Handle<AccelerationStructure>> buildAccelerationStructureInternal(
 			const TriangleGeometry& geometry,

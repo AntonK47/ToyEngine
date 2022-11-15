@@ -18,6 +18,9 @@ namespace toy::renderer::api::vulkan
 		                           vk::CommandBufferLevel level,
 		                           QueueType ownedQueueType);
 		~VulkanCommandList() override;
+
+		void flushSubmit();
+
 	protected:
 		void barrierInternal(
 			const std::initializer_list<BarrierDescriptor>& descriptors) override;
@@ -43,6 +46,8 @@ namespace toy::renderer::api::vulkan
 		buildAccelerationStructureInternal(
 			const std::vector<AccelerationStructureInstance>& instances)
 		override;
+		void endInternal() override;
+		void beginInternal() override;
 	private:
 		friend VulkanRenderInterface;
 

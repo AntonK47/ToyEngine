@@ -51,7 +51,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 
 #endif
 
-        currentPolledEvents_ = std::vector<Event>{};
+        currentPolledEvents_ = folly::small_vector<Event>{};
 
         windowIo_.keyboardState.reset();
 		windowIo_.mouseState.reset();
@@ -66,12 +66,17 @@ void SDLWindow::resetPolledEventsAndIo()
     windowIo_.mouseState.reset();*/
 }
 
+void SDLWindow::setWindowTitleInternal(const std::string& title)
+{
+    SDL_SetWindowTitle(window_, title.c_str());
+}
+
 toy::io::WindowIo SDLWindow::getIoInternal()
 {
 	return windowIo_;
 }
 
-std::vector<Event> SDLWindow::getEventsInternal()
+folly::small_vector<Event> SDLWindow::getEventsInternal()
 {
 	return currentPolledEvents_;
 }

@@ -88,7 +88,7 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
             .size = positionStreamBufferSize,
             .accessUsage = usage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        });
+        }, { "PositionStreamBuffer" });
 
     const auto uvStreamBufferSize = static_cast<u32>(totalVertexCount * sizeof(scene::TextureCoordinate));
     const auto uvStreamBuffer = renderer.createBuffer(BufferDescriptor
@@ -96,7 +96,7 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
             .size = uvStreamBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        });
+        }, { "UvStreamBuffer" });
 
     const auto tangentFrameStreamBufferSize = static_cast<u32>(totalVertexCount * sizeof(scene::TangentFrame));
     const auto tangentFrameStreamBuffer = renderer.createBuffer(BufferDescriptor
@@ -104,7 +104,7 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
             .size = tangentFrameStreamBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        });
+        }, { "TangentFrameStreamBuffer" });
 
 
     const auto triangleBufferSize = static_cast<u32>(totalTriangleCount * sizeof(u8));
@@ -113,7 +113,7 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
             .size = triangleBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        });
+        }, { "TrianglesBuffer"});
 
     const auto meshletBufferSize = static_cast<u32>(totalClusterCount * sizeof(scene::Meshlet));
     const auto meshletBuffer = renderer.createBuffer(BufferDescriptor
@@ -121,7 +121,7 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
             .size = meshletBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        });
+        }, { "ClustersBuffer" });
 
     auto meshes = std::vector<RuntimeMesh>{};
     meshes.resize(scene.size());
@@ -132,15 +132,15 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
 
 
     void* positionStreamBufferData;
-    renderer.map(positionStreamBuffer, &positionStreamBufferData);
+    renderer.map(positionStreamBuffer.nativeHandle, &positionStreamBufferData);
     void* uvStreamBufferData;
-    renderer.map(uvStreamBuffer, &uvStreamBufferData);
+    renderer.map(uvStreamBuffer.nativeHandle, &uvStreamBufferData);
     void* tangentFrameStreamData;
-    renderer.map(tangentFrameStreamBuffer, &tangentFrameStreamData);
+    renderer.map(tangentFrameStreamBuffer.nativeHandle, &tangentFrameStreamData);
     void* triangleBufferData;
-    renderer.map(triangleBuffer, &triangleBufferData);
+    renderer.map(triangleBuffer.nativeHandle, &triangleBufferData);
     void* meshletBufferData;
-    renderer.map(meshletBuffer, &meshletBufferData);
+    renderer.map(meshletBuffer.nativeHandle, &meshletBufferData);
 
     for (auto i = u32{}; i < scene.size(); i++)
     {
@@ -160,16 +160,16 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
         };
 
 
-        copyDataToBuffer(positionStreamBufferData, (void*)object.mesh.positionVertexStream.data(), object.mesh.positionVertexStream.size() * sizeof(scene::Position), positionStreamBuffer, vertexBufferOffset * sizeof(scene::Position));
+        copyDataToBuffer(positionStreamBufferData, (void*)object.mesh.positionVertexStream.data(), object.mesh.positionVertexStream.size() * sizeof(scene::Position), positionStreamBuffer.nativeHandle, vertexBufferOffset * sizeof(scene::Position));
 
-        copyDataToBuffer(uvStreamBufferData, (void*)object.mesh.uvVertexStream.data(), object.mesh.uvVertexStream.size() * sizeof(scene::TextureCoordinate), uvStreamBuffer, vertexBufferOffset * sizeof(scene::TextureCoordinate));
+        copyDataToBuffer(uvStreamBufferData, (void*)object.mesh.uvVertexStream.data(), object.mesh.uvVertexStream.size() * sizeof(scene::TextureCoordinate), uvStreamBuffer.nativeHandle, vertexBufferOffset * sizeof(scene::TextureCoordinate));
 
-        copyDataToBuffer(tangentFrameStreamData, (void*)object.mesh.tangentFrameVertexStream.data(), object.mesh.tangentFrameVertexStream.size() * sizeof(scene::TangentFrame), tangentFrameStreamBuffer, vertexBufferOffset * sizeof(scene::TangentFrame));
+        copyDataToBuffer(tangentFrameStreamData, (void*)object.mesh.tangentFrameVertexStream.data(), object.mesh.tangentFrameVertexStream.size() * sizeof(scene::TangentFrame), tangentFrameStreamBuffer.nativeHandle, vertexBufferOffset * sizeof(scene::TangentFrame));
         
-        copyDataToBuffer(triangleBufferData, (void*)object.mesh.triangles.data(), object.mesh.triangles.size() * sizeof(u8), triangleBuffer, triangleBufferOffset * sizeof(u8));
+        copyDataToBuffer(triangleBufferData, (void*)object.mesh.triangles.data(), object.mesh.triangles.size() * sizeof(u8), triangleBuffer.nativeHandle, triangleBufferOffset * sizeof(u8));
         
 
-        copyDataToBuffer(meshletBufferData, (void*)object.mesh.lods[0].meshlets.data(), object.mesh.lods[0].meshlets.size() * sizeof(scene::Meshlet), meshletBuffer, meshletBufferOffset * sizeof(scene::Meshlet));
+        copyDataToBuffer(meshletBufferData, (void*)object.mesh.lods[0].meshlets.data(), object.mesh.lods[0].meshlets.size() * sizeof(scene::Meshlet), meshletBuffer.nativeHandle, meshletBufferOffset * sizeof(scene::Meshlet));
         
 
 
@@ -177,11 +177,11 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
         triangleBufferOffset += objectTriangleBufferSize;
         meshletBufferOffset += objectMeshletBufferSize;
     }
-    renderer.unmap(positionStreamBuffer);
-    renderer.unmap(uvStreamBuffer);
-    renderer.unmap(tangentFrameStreamBuffer);
-    renderer.unmap(triangleBuffer);
-    renderer.unmap(meshletBuffer);
+    renderer.unmap(positionStreamBuffer.nativeHandle);
+    renderer.unmap(uvStreamBuffer.nativeHandle);
+    renderer.unmap(tangentFrameStreamBuffer.nativeHandle);
+    renderer.unmap(triangleBuffer.nativeHandle);
+    renderer.unmap(meshletBuffer.nativeHandle);
 
     auto drawInstances = std::vector<DrawInstance>{};
     drawInstances.resize(scene.size());

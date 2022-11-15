@@ -27,9 +27,24 @@ std::unique_ptr<CommandList> RenderInterface::acquireCommandList(const QueueType
 	return acquireCommandListInternal(queueType, commandListType);
 }
 
+CommandList& RenderInterface::acquireCommandList(
+	const QueueType queueType,
+	const UsageScope scope)
+{
+	return acquireCommandListInternal(queueType, scope);
+}
+
 void RenderInterface::submitCommandList(std::unique_ptr<CommandList> commandList)
 {
 	submitCommandListInternal(std::move(commandList));
+}
+
+RenderInterface::SubmitDependency RenderInterface::submitCommandList(
+	const QueueType queueType,
+	const std::initializer_list<CommandList*>& commandLists,
+	const std::initializer_list<SubmitDependency>& dependencies)
+{
+	return submitCommandListInternal(queueType, commandLists, dependencies);
 }
 
 void RenderInterface::nextFrame()
@@ -47,10 +62,18 @@ void RenderInterface::present()
 	presentInternal();
 }
 
-Handle<Buffer> RenderInterface::createBuffer(
-	const BufferDescriptor& descriptor)
+Buffer RenderInterface::createBuffer(
+	const BufferDescriptor& descriptor,
+	[[maybe_unused]] const DebugLabel label)
 {
-	return createBufferInternal(descriptor);
+	return Buffer
+	{
+		.nativeHandle = createBufferInternal(descriptor, label),
+		.size = descriptor.size,
+#ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
+		.debugLabel = label
+#endif
+	};
 }
 
 Handle<Image> RenderInterface::createImage(
@@ -80,14 +103,14 @@ Handle<BindGroupLayout> RenderInterface::createBindGroupLayout(const BindGroupDe
 }
 
 Handle<BindGroup> RenderInterface::allocateBindGroup(
-	const Handle<BindGroupLayout>& bindGroupLayout, const BindGroupUsageScope& scope)
+	const Handle<BindGroupLayout>& bindGroupLayout, const UsageScope& scope)
 {
 	return allocateBindGroupInternal(bindGroupLayout, 1, scope).front();
 }
 
-std::vector<Handle<BindGroup>> RenderInterface::allocateBindGroup(
+folly::small_vector<Handle<BindGroup>> RenderInterface::allocateBindGroup(
 	const Handle<BindGroupLayout>& bindGroupLayout,
-	const u32 bindGroupCount, const BindGroupUsageScope& scope)
+	const u32 bindGroupCount, const UsageScope& scope)
 {
 	return allocateBindGroupInternal(bindGroupLayout, bindGroupCount, scope);
 }

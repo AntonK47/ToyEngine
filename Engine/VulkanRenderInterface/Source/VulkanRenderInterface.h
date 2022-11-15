@@ -4,11 +4,16 @@
 #include <mutex>
 #include <RenderInterface.h>
 #include <memory>
+#include <memory_resource>
 #include <Hash.h>
+#include <folly/AtomicHashMap.h>
+
 
 #include "Structs.h"
 #include "Vulkan.h"
 #include "VulkanBindGroupAllocator.h"
+#include "rigtorp/MPMCQueue.h"
+
 
 class Application;
 
@@ -41,15 +46,59 @@ namespace toy::renderer::api::vulkan
 		u32 itemsCount{};
 	};
 
+	class LinearAllocator final : public std::pmr::memory_resource
+	{
+	public:
+		explicit LinearAllocator(void* const buffer, const size_t size) noexcept
+			: currentBufferPointer_(buffer), bufferBeginPointer_(buffer), spaceAvailable_(size), maxSize_(size)
+		{}
+		~LinearAllocator() noexcept override = default;
+
+		void release()
+		{
+			currentBufferPointer_ = bufferBeginPointer_;
+			spaceAvailable_ = maxSize_;
+		}
+
+		LinearAllocator(const LinearAllocator&) = delete;
+		LinearAllocator& operator=(const LinearAllocator&) = delete;
+	private:
+
+		[[nodiscard]] bool do_is_equal(const memory_resource& other) const noexcept override
+		{
+			return this == &other;
+		}
+
+		void* do_allocate(const size_t bytes, const size_t align) override
+		{
+			void* result = std::align(align, bytes, currentBufferPointer_, spaceAvailable_);
+
+			if (result == nullptr)
+			{
+				std::_Xbad_alloc();
+			}
+
+			currentBufferPointer_ = static_cast<char*>(result) + bytes;
+
+			spaceAvailable_ = static_cast<char*>(bufferBeginPointer_) + maxSize_ - currentBufferPointer_;
+
+			return result;
+		}
+
+		void do_deallocate([[maybe_unused]] void* ptr, [[maybe_unused]] const size_t bytes, [[maybe_unused]]const size_t align) override {}
+
+		void* currentBufferPointer_ = nullptr;
+		void* bufferBeginPointer_ = nullptr;
+		size_t spaceAvailable_{};
+		size_t maxSize_{};
+	};
+
 	template <typename HandleType, typename Value>
 	class Pool final
 	{
 	public:
 
-		Pool()
-		{
-			pool_.reserve(1000);//TODO: Do something smarter
-		}
+		explicit Pool() = default;
 
 		struct EmptyKey{};
 
@@ -66,19 +115,22 @@ namespace toy::renderer::api::vulkan
 
 
 			const auto hash = Hasher::hash32(a);
-			pool_[hash] = value;
+
+			auto ret = pool_.insert(std::make_pair(hash, value));
+			
+			//pool_[hash] = value;
 
 			return Handle<HandleType>{hash};
 		}
 
 		[[nodiscard]] Value& get(const Handle<HandleType> handle)
 		{
-			return pool_[handle.index];
+			return pool_.find(handle.index)->second;
 		}
 
 		bool contains(const Handle<HandleType> handle)
 		{
-			return pool_.contains(handle.index);
+			return pool_.find(handle.index)!=pool_.end();
 		}
 
 		void remove(const Handle<HandleType> handle)
@@ -88,23 +140,24 @@ namespace toy::renderer::api::vulkan
 
 		void reset()
 		{
+			
 			uniqueValue_ = 0;
 			pool_.clear();
 		}
 
-		std::unordered_map<u32, Value>::iterator begin()
+		typename folly::AtomicHashMap<u32, Value>::iterator begin()
 		{
 			return pool_.begin();
 		}
 
-		std::unordered_map<u32, Value>::iterator end()
+		typename folly::AtomicHashMap<u32, Value>::iterator end()
 		{
 			return pool_.end();
 		}
 
 	private:
 		u32 uniqueValue_{};
-		std::unordered_map<u32, Value> pool_{};
+		folly::AtomicHashMap<u32, Value> pool_{2000};
 	};
 
 
@@ -215,10 +268,10 @@ namespace toy::renderer::api::vulkan
 
 		[[nodiscard]] Handle<BindGroupLayout> createBindGroupLayoutInternal(
 			const BindGroupDescriptor& descriptor) override;
-		[[nodiscard]] std::vector<Handle<BindGroup>> allocateBindGroupInternal(
+		[[nodiscard]] folly::small_vector<Handle<BindGroup>> allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
-			const BindGroupUsageScope& scope) override;
+			const UsageScope& scope) override;
 
 	public:
 		[[nodiscard]] SwapchainImage
@@ -240,7 +293,7 @@ namespace toy::renderer::api::vulkan
 		void resetDescriptorPoolsUntilFrame(const u32 frame);
 	protected:
 		[[nodiscard]] Handle<Buffer> createBufferInternal(
-			const BufferDescriptor& descriptor) override;
+			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) override;
 	public:
 		void updateBindGroupInternal(const Handle<BindGroup>& bindGroup,
 			const std::initializer_list<BindingDataMapping>& mappings) override;
@@ -254,6 +307,13 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]] Handle<ImageView> createImageViewInternal(
 			const ImageViewDescriptor& descriptor) override;
 		NativeBackend getNativeBackendInternal() override;
+		[[nodiscard]] CommandList& acquireCommandListInternal(
+			QueueType queueType,
+			UsageScope scope) override;
+		SubmitDependency submitCommandListInternal(QueueType queueType,
+			const std::initializer_list<CommandList*>& commandLists,
+			const std::initializer_list<SubmitDependency>& dependencies)
+		override;
 	private:
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
@@ -327,6 +387,31 @@ namespace toy::renderer::api::vulkan
 			vk::ImageView imageView;
 		};
 
+
+		static constexpr u32 maxCommandListsPerSubmit_ = 10;
+		static constexpr u32 maxSubmits_ = 100;
+
+		
+		/*struct SubmitQueueSynchronization
+		{
+			vk::Semaphore timeline0{};
+			vk::Semaphore timeline1{};
+			std::atomic<u64> timeline0Value{};
+			std::atomic<u64> timeline2Value{};
+		};*/
+
+		struct Submit
+		{
+			u64 waitGraphicsValue{};
+			u64 waitAsyncComputeValue{};
+			u64 waitTransferValue{};
+			u32 commandBuffersCount{};
+			std::array<vk::CommandBuffer, maxCommandListsPerSubmit_> commandBuffers{};
+		};
+
+
+		u32 submitCount_{};
+		std::vector<Submit> submitQueue_{ maxSubmits_ };
 
 		PipelineCache graphicsPipelineCache_{};
 		PipelineCache computePipelineCache_{};

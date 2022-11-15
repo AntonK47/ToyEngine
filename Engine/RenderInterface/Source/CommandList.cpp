@@ -38,6 +38,16 @@ namespace toy::renderer
 		endRenderingInternal();
 	}
 
+	void CommandList::begin()
+	{
+		beginInternal();
+	}
+
+	void CommandList::end()
+	{
+		endInternal();
+	}
+
 	void CommandList::bindPipeline(const Handle<Pipeline>& pipeline)
 	{
 		bindPipelineInternal(pipeline);

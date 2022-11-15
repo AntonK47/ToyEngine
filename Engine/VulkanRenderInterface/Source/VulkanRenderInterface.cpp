@@ -437,15 +437,92 @@ std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(Q
 
     const auto commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers.front();
 
-    const auto beginInfo = vk::CommandBufferBeginInfo
+    return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);//TODO: switch to Handle based command list, like struct CommandList{ Handle<CommandList> handle; functions...};
+}
+
+CommandList& VulkanRenderInterface::acquireCommandListInternal(
+    QueueType queueType,
+    UsageScope scope)
+{
+    VulkanCommandList* v = nullptr;
+    return *v;
+}
+
+/*void VulkanRenderInterface::flushSubmits()
+{
+    auto commandBufferSubmitInfos = folly::small_vector<vk::CommandBufferSubmitInfo>{};
+    commandBufferSubmitInfos.resize(totalSubmits);
+
+
+    const auto waitInfo = vk::SemaphoreSubmitInfo
     {
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_],
+        .value = max->value,
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+        .deviceIndex = 0
     };
 
-    const auto result = commandBuffer.begin(beginInfo);
-    TOY_ASSERT(result == vk::Result::eSuccess);
+    const auto signalInfo = vk::SemaphoreSubmitInfo
+    {
+        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_], //R&D: just one timeline semaphore should be enough for graphics and async compute queues
+        .value = resultDependency.value,
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //R&D: select something smarter
+        .deviceIndex = 0
+    };
 
-    return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);//TODO: switch to Handle based command list, like struct CommandList{ Handle<CommandList> handle; functions...};
+    const auto submitInfo = vk::SubmitInfo2
+    {
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &waitInfo,
+        .commandBufferInfoCount = static_cast<u32>(std::size(commandBufferSubmitInfos)),
+        .pCommandBufferInfos = std::data(commandBufferSubmitInfos),
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signalInfo
+    };
+}*/
+
+RenderInterface::SubmitDependency VulkanRenderInterface::
+submitCommandListInternal(
+    const QueueType queueType,
+	const std::initializer_list<CommandList*>& commandLists,
+	const std::initializer_list<SubmitDependency>& dependencies)
+{
+    TOY_ASSERT(!std::empty(commandLists));
+    auto hasDependency = std::array{ false, false, false };
+    auto maxValue = std::array{ u64{}, u64{}, u64{} };
+
+    for(const auto& [queue, value] : dependencies)
+    {
+        hasDependency[static_cast<u32>(queue)] = true;
+        maxValue[static_cast<u32>(queue)] = std::max(maxValue[static_cast<u32>(queue)], value);
+    }
+
+    auto graphicsCommandBuffers = folly::small_vector<Submit>{};
+
+    auto submit = Submit
+    {
+        maxValue[static_cast<u32>(QueueType::graphics)],
+        maxValue[static_cast<u32>(QueueType::asyncCompute)],
+        maxValue[static_cast<u32>(QueueType::transfer)],
+        0
+    };
+
+    for(const auto commandList : commandLists)
+    {
+        TOY_ASSERT(commandList->getQueueType() == queueType);
+        const auto vulkanCommandList = static_cast<VulkanCommandList*>(commandList);
+
+        submit.commandBuffers[submit.commandBuffersCount++] = vulkanCommandList->cmd_;
+    }
+
+    TOY_ASSERT(submitCount_ < maxSubmits_);//TODO: can flush and clear submitQueue
+    submitQueue_[submitCount_++] = submit;
+
+    return SubmitDependency
+	{
+		queueType,
+		maxValue[static_cast<u32>(queueType)] + 1
+	};
 }
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
@@ -588,7 +665,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
         .pQueueFamilyIndices = &queues_[QueueType::graphics].familyIndex,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = supportedCompositeAlpha,
-        .presentMode = vk::PresentModeKHR::eFifo,//TODO: this limits to 60fps
+        .presentMode = vk::PresentModeKHR::eMailbox,//vk::PresentModeKHR::eFifo,//TODO: this limits to 60fps
         .clipped = vk::Bool32{true},
         .oldSwapchain = nullptr
     };
@@ -790,17 +867,17 @@ Handle<BindGroupLayout> VulkanRenderInterface::createBindGroupLayoutInternal(con
     return Handle<BindGroupLayout>{hash};
 }
 
-std::vector<Handle<BindGroup>> VulkanRenderInterface::
+folly::small_vector<Handle<BindGroup>> VulkanRenderInterface::
 allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
-	const u32 bindGroupCount, const BindGroupUsageScope& scope)
+	const u32 bindGroupCount, const UsageScope& scope)
 {
     const auto currentPoolsIndex = currentFrame_ % swapchainImagesCount_;
     auto& currentPools = 
-        scope == BindGroupUsageScope::persistent ?
+        scope == UsageScope::async ?
         descriptorPoolsPersistent_ :
 		descriptorPoolsPerFrame_[currentPoolsIndex];
 
-    auto bindGroups = std::vector<Handle<BindGroup>>{};
+    auto bindGroups = folly::small_vector<Handle<BindGroup>>{};
     bindGroups.resize(bindGroupCount);
     auto poolIndex = u32{};
     auto cantAllocateDescriptorSet = true;
@@ -839,10 +916,10 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
         {
             const auto pool = currentPools[poolIndex];
 
-            auto setLayouts = std::vector<vk::DescriptorSetLayout>{};
+            auto setLayouts = folly::small_vector<vk::DescriptorSetLayout>{};
             setLayouts.resize(bindGroupCount);
 
-            auto lastBindVariableSize = std::vector<u32>{};
+            auto lastBindVariableSize = folly::small_vector<u32>{};
             lastBindVariableSize.resize(bindGroupCount);
 
             std::fill(setLayouts.begin(), setLayouts.end(), bindGroupLayoutCache_[bindGroupLayout.index].layout);
@@ -863,21 +940,26 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                     .pDescriptorCounts = lastBindVariableSize.data()
                 }
             };
-            const auto result = device_.allocateDescriptorSets(allocateInfo.get());
 
-            switch (result.result)
+            auto descriptorSets = folly::small_vector<vk::DescriptorSet>{};
+            descriptorSets.resize(bindGroupCount);
+            
+            const auto result = device_.allocateDescriptorSets(&allocateInfo.get(), descriptorSets.data());
+
+            switch (result)
             {
             case vk::Result::eSuccess:
                 for(auto i = u32{}; i < bindGroupCount; i++)
                 {
-
-                    setObjectName(device_, result.value[i], "DS");
-                    if(scope == BindGroupUsageScope::persistent)
+#ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
+                    setObjectName(device_, descriptorSets[i], "DS");
+#endif
+                    if(scope == UsageScope::async)
                     {
                         bindGroups[i] = persistentBindGroupStorage_.add(
                             VulkanBindGroup
                             {
-                            .descriptorSet = result.value[i]
+                            .descriptorSet = descriptorSets[i]
                             }, BindGroup { scope });
                     }
                     else
@@ -885,7 +967,7 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                         bindGroups[i] = bindGroupStorage_.add(
                             VulkanBindGroup
                             {
-                            .descriptorSet = result.value[i]
+                            .descriptorSet = descriptorSets[i]
                             }, BindGroup{ scope });
                     }
                 }
@@ -952,8 +1034,6 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
 {
     const auto& vulkanCommandList = dynamic_cast<VulkanCommandList&>(*commandList);
 
-    auto result = vulkanCommandList.cmd_.end();
-    TOY_ASSERT(result == vk::Result::eSuccess);
 
     const auto queue = queues_[vulkanCommandList.ownedQueueType_].queue;
 
@@ -992,7 +1072,7 @@ void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<Comm
 
     };
     const auto& fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
-    result = device_.resetFences(1, &fence);
+    auto result = device_.resetFences(1, &fence);
     TOY_ASSERT(result == vk::Result::eSuccess);
     result = queue.submit2(1, &submitInfo, fence);
     TOY_ASSERT(result == vk::Result::eSuccess);
@@ -1178,7 +1258,7 @@ void VulkanRenderInterface::resetDescriptorPoolsUntilFrame(const u32 frame)
 }
 
 Handle<Buffer> VulkanRenderInterface::createBufferInternal(
-	const BufferDescriptor& descriptor)
+	const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label)
 {
     
     const auto usage = vulkanMapBufferAccessUsageFlag(descriptor.accessUsage) | vk::BufferUsageFlagBits::eShaderDeviceAddress;
@@ -1232,8 +1312,14 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
 	    reinterpret_cast<VkBuffer*>(&buffer),
 	    &allocation,
 	    nullptr));
-
+    
     TOY_ASSERT(result == vk::Result::eSuccess);
+
+#ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
+    setObjectName(device_, buffer, label.name);
+    vmaSetAllocationName(allocator_, allocation, label.name); //TODO: not sure how it works!
+#endif
+    
 
     const auto handle = bufferStorage_.add(VulkanBuffer{ buffer, allocation }, descriptor);
 
@@ -1255,13 +1341,13 @@ void VulkanRenderInterface::updateBindGroupInternal(
         vulkanBindGroup = bindGroupStorage_.get(bindGroup);
     }
 
-    const auto mappingsVector = std::vector<BindingDataMapping>{ mappings };
+    const auto mappingsVector = folly::small_vector<BindingDataMapping>{ mappings };
 
 
-    auto descriptorWrites = std::vector<vk::WriteDescriptorSet>{};
+    auto descriptorWrites = folly::small_vector<vk::WriteDescriptorSet>{};
     descriptorWrites.reserve(mappings.size());
 
-    auto descriptorInfos = std::vector<std::variant<vk::DescriptorBufferInfo, vk::DescriptorImageInfo>>{};
+    auto descriptorInfos = folly::small_vector<std::variant<vk::DescriptorBufferInfo, vk::DescriptorImageInfo>>{};
     descriptorInfos.resize(mappingsVector.size());
 
     for(auto i = u32{}; i < mappingsVector.size(); i++)
@@ -1502,3 +1588,5 @@ NativeBackend VulkanRenderInterface::getNativeBackendInternal()
 
     return nativeBackend;
 }
+
+
