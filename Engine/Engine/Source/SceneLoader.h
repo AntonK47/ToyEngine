@@ -3,6 +3,8 @@
 #include <vector>
 #include <RenderInterface.h>
 
+#include "VulkanRenderInterface.h"
+
 struct RuntimeMesh
 {
 	toy::core::u32 clusterOffset;
@@ -17,10 +19,12 @@ struct DrawInstance
 	toy::core::u32 meshIndex;
 };
 
+using RenderInterface = toy::renderer::RenderInterface<toy::renderer::api::vulkan::VulkanRenderInterface>;
+
 class Scene
 {
 public:
-	[[nodiscard]] static Scene loadSceneFromFile(toy::renderer::RenderInterface& renderer, const std::string& path);
+	[[nodiscard]] static Scene loadSceneFromFile(::RenderInterface& renderer, const std::string& path);
 
 	void buildAccelerationStructure();
 

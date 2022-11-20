@@ -7,7 +7,6 @@
 #include <RenderDocCapture.h>
 #include <Scene.h>
 #include <SDLWindow.h>
-#include <VulkanRenderInterface.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,6 +16,7 @@
 #include <iostream>
 #include <chrono>
 
+#include <VulkanRenderInterface.h>
 #include "SceneLoader.h"
 
 using namespace toy::renderer;
@@ -352,12 +352,12 @@ int Application::run()
     {
         //playing with transfer queue
 
-        auto t1 = renderer.acquireCommandList(QueueType::transfer, CommandListType::primary);
-        auto t2 = renderer.acquireCommandList(QueueType::transfer, CommandListType::primary);
+        auto t1 = renderer.acquireCommandList(QueueType::transfer);
+        auto t2 = renderer.acquireCommandList(QueueType::transfer);
 
-        const auto d1 = renderer.submitCommandList(QueueType::transfer,{ t1.get() }, {});
+        const auto d1 = renderer.submitCommandList(QueueType::transfer,{ t1 }, {});
 
-        const auto d2 = renderer.submitCommandList(QueueType::transfer, { t2.get() }, {d1});
+        const auto d2 = renderer.submitCommandList(QueueType::transfer, { t2 }, {d1});
         
 
     }
@@ -513,12 +513,11 @@ int Application::run()
 
 
             const auto& swapchainImage = renderer.acquireNextSwapchainImage();
-
-            //TODO: [#3] maybe I should use ref instead of unique_ptr?
-            auto commandList = renderer.acquireCommandList(QueueType::graphics, CommandListType::primary);
-            commandList->begin();
+            
+            auto commandList = renderer.acquireCommandList(QueueType::graphics);
+            commandList.begin();
             //TODO: this should performed on initial resource creation
-            commandList->barrier({
+            commandList.barrier({
                 ImageBarrierDescriptor
                 {
                     .srcLayout = Layout::undefined,
@@ -526,7 +525,7 @@ int Application::run()
                     .image = swapchainImage.image
                 }
                 });
-            commandList->barrier({
+            commandList.barrier({
                 ImageBarrierDescriptor
 	            {
 	                .srcLayout = Layout::undefined,
@@ -537,7 +536,7 @@ int Application::run()
                 });
             
                 
-            commandList->barrier({ 
+            commandList.barrier({ 
                 ImageBarrierDescriptor
             	{
             		.srcLayout = Layout::present,
@@ -570,18 +569,18 @@ int Application::run()
 
             constexpr auto area = RenderArea{ 0,0,1280,720 };
 
-            commandList->beginRendering(renderingDescriptor, area);
+            commandList.beginRendering(renderingDescriptor, area);
 
             {
                 constexpr auto scissor = Scissor{ 0,0,1280, 720};
                 constexpr auto viewport = Viewport{ 0.0,0.0,1280.0,720.0 };
 
 
-                commandList->bindPipeline(simpleTrianglePipeline);
-                commandList->setScissor(scissor);
-                commandList->setViewport(viewport);
-                commandList->bindGroup(0, meshDataBindGroup);
-                commandList->bindGroup(1, bindGroup);
+                commandList.bindPipeline(simpleTrianglePipeline);
+                commandList.setScissor(scissor);
+                commandList.setViewport(viewport);
+                commandList.bindGroup(0, meshDataBindGroup);
+                commandList.bindGroup(1, bindGroup);
 
                 for (auto i = u32{}; i < std::clamp(objectToRender, u32{}, static_cast<u32>(scene.drawInstances_.size())); i++)
                 {
@@ -614,14 +613,14 @@ int Application::run()
 
                     renderer.updateBindGroup(perInstanceGroup, { BindingDataMapping{ 0, CBV{ cbv } } });
 
-                    commandList->bindGroup(2, perInstanceGroup);
-                    commandList->draw(mesh.vertexCount, 1, 0, 0);
+                    commandList.bindGroup(2, perInstanceGroup);
+                    commandList.draw(mesh.vertexCount, 1, 0, 0);
                 }
             }
 
-            commandList->endRendering();
+            commandList.endRendering();
 
-            commandList->barrier({ 
+            commandList.barrier({ 
                 ImageBarrierDescriptor
             	{
             		.srcLayout = Layout::colorRenderTarget,
@@ -630,15 +629,14 @@ int Application::run()
             	}
             });
 
-            commandList->end();
-            renderer.submitCommandList(std::move(commandList));
+            commandList.end();
+            renderer.submitCommandList(commandList);
             renderer.present();
 
             time += 0.01f;
             captureTool.stopAndOpenCapture();
         }
         frameEndTime = std::chrono::high_resolution_clock::now();
-
     }
 
     shouldRun = false;

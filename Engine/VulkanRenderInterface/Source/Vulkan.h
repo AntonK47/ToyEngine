@@ -11,6 +11,8 @@
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
 
+#include "RenderInterfaceCommonTypes.h"
+
 namespace toy::renderer::api::vulkan
 {
 	struct VulkanNativeBackend
@@ -20,4 +22,12 @@ namespace toy::renderer::api::vulkan
 	};
 
 	VulkanNativeBackend getVulkanNativeBackend(const NativeBackend& nativeBackend);
+
+	struct VulkanPipeline final : Pipeline
+	{
+		vk::Pipeline pipeline{};
+		vk::PipelineLayout layout{};
+		vk::PipelineBindPoint bindPoint{};
+	};
+
 }

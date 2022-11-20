@@ -1,14 +1,15 @@
 #include "VulkanRenderInterface.h"
 
 #include <iostream>
-#include <map>
-#include <vector>
-#include <VulkanCommandList.h>
-#include <Windows.h>
-#include <vulkan/vulkan_profiles.hpp>
-
-
-#include "Hash.h"
+//#include <map>
+//#include <vector>
+//#include <VulkanCommandList.h>
+//#include <Windows.h>
+//#include <vulkan/vulkan_profiles.hpp>
+//
+//
+//#include "Hash.h"
+//#include "VulkanCommandList.h"
 #include "g3log/g3log.hpp"
 
 #include "VulkanMappings.h"
@@ -16,6 +17,7 @@
 const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
 using namespace toy::renderer;
 using namespace api::vulkan;
+
 namespace
 {
 #define MAP_FLAG_BIT(srcFlag, srcFlagBit, dstFlag, dstFlagBit) if (srcFlag.containBit(srcFlagBit)) { dstFlag |= dstFlagBit; }
@@ -58,101 +60,6 @@ namespace
     {
         setObjectName(device, handle, name.c_str());
     }
-
-
-    PerThreadCommandPoolData createPerThreadCommandPoolData(vk::Device device,
-                                                            vk::CommandBufferLevel level,
-                                                            u32 maxDeferredFrames,
-                                                            u32 graphicsIndex,
-                                                            u32 asyncComputeIndex,
-                                                            u32 transferIndex,
-                                                            u32 graphicsCommandListPerFrame = 0,
-                                                            u32 asyncComputeCommandListPerFrame = 0,
-                                                            u32 transferCommandListPerFrame = 0
-    )
-    {
-        auto graphicsPerFrame = std::vector<PerFrameCommandPoolData>(maxDeferredFrames);
-        auto asyncComputePerFrame = std::vector <PerFrameCommandPoolData>(maxDeferredFrames);
-        auto transferPerFrame = std::vector <PerFrameCommandPoolData>(maxDeferredFrames);
-        for(u32 i{}; i < maxDeferredFrames; i++)
-        {
-	        if(graphicsCommandListPerFrame != 0)
-	        {
-                const auto commandPoolCreateInfo = vk::CommandPoolCreateInfo
-                {
-                    .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-                    .queueFamilyIndex = graphicsIndex
-                };
-
-                graphicsPerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo).value;
-
-                const auto allocateInfo = vk::CommandBufferAllocateInfo
-                {
-                    .commandPool = graphicsPerFrame[i].commandPool,
-                    .level = level,
-                    .commandBufferCount = graphicsCommandListPerFrame
-                };
-                graphicsPerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo).value;
-	        }
-            if (asyncComputeCommandListPerFrame != 0)
-            {
-                const auto commandPoolCreateInfo = vk::CommandPoolCreateInfo
-                {
-                    .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-                    .queueFamilyIndex = asyncComputeIndex
-                };
-
-                asyncComputePerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo).value;
-
-                const auto allocateInfo = vk::CommandBufferAllocateInfo
-                {
-                    .commandPool = asyncComputePerFrame[i].commandPool,
-                    .level = level,
-                    .commandBufferCount = asyncComputeCommandListPerFrame
-                };
-                asyncComputePerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo).value;
-            }
-            if (transferCommandListPerFrame != 0)
-            {
-                const auto commandPoolCreateInfo = vk::CommandPoolCreateInfo
-                {
-                    .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-                    .queueFamilyIndex = transferIndex
-                };
-
-                transferPerFrame[i].commandPool = device.createCommandPool(commandPoolCreateInfo).value;
-
-                const auto allocateInfo = vk::CommandBufferAllocateInfo
-                {
-                    .commandPool = transferPerFrame[i].commandPool,
-                    .level = level,
-                    .commandBufferCount = transferCommandListPerFrame
-                };
-                transferPerFrame[i].commandBuffers = device.allocateCommandBuffers(allocateInfo).value;
-            }
-        }
-
-
-        PerThreadCommandPoolData perThreadData
-        {
-            .level = level
-        };
-        if(graphicsCommandListPerFrame!=0)
-        {
-            perThreadData.perQueueType[QueueType::graphics] = graphicsPerFrame;
-        }
-        if (asyncComputeCommandListPerFrame != 0)
-        {
-            perThreadData.perQueueType[QueueType::asyncCompute] = asyncComputePerFrame;
-        }
-        if (transferCommandListPerFrame != 0)
-        {
-            perThreadData.perQueueType[QueueType::transfer] = transferPerFrame;
-        }
-
-        return perThreadData;
-    }
-
 
     struct Features
     {
@@ -422,69 +329,52 @@ namespace
     }
 }
 
-RenderThread::RenderThread()
-{
-	instance = this;
-}
 
-VulkanRenderInterface::~VulkanRenderInterface()
-= default;
-
-std::unique_ptr<CommandList> VulkanRenderInterface::acquireCommandListInternal(QueueType queueType,
-	CommandListType commandListType)
+VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const UsageScope& usageScope)
 {
     TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
 
     const auto commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers.front();
 
-    return std::make_unique<VulkanCommandList>(*this, commandBuffer, vk::CommandBufferLevel::ePrimary, queueType);//TODO: switch to Handle based command list, like struct CommandList{ Handle<CommandList> handle; functions...};
+    return CommandListType(queueType, *this, commandBuffer);
 }
 
-CommandList& VulkanRenderInterface::acquireCommandListInternal(
-    QueueType queueType,
-    UsageScope scope)
-{
-    VulkanCommandList* v = nullptr;
-    return *v;
-}
+///*void VulkanRenderInterface::flushSubmits()
+//{
+//    auto commandBufferSubmitInfos = folly::small_vector<vk::CommandBufferSubmitInfo>{};
+//    commandBufferSubmitInfos.resize(totalSubmits);
+//
+//
+//    const auto waitInfo = vk::SemaphoreSubmitInfo
+//    {
+//        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_],
+//        .value = max->value,
+//        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+//        .deviceIndex = 0
+//    };
+//
+//    const auto signalInfo = vk::SemaphoreSubmitInfo
+//    {
+//        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_], //R&D: just one timeline semaphore should be enough for graphics and async compute queues
+//        .value = resultDependency.value,
+//        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //R&D: select something smarter
+//        .deviceIndex = 0
+//    };
+//
+//    const auto submitInfo = vk::SubmitInfo2
+//    {
+//        .waitSemaphoreInfoCount = 1,
+//        .pWaitSemaphoreInfos = &waitInfo,
+//        .commandBufferInfoCount = static_cast<u32>(std::size(commandBufferSubmitInfos)),
+//        .pCommandBufferInfos = std::data(commandBufferSubmitInfos),
+//        .signalSemaphoreInfoCount = 1,
+//        .pSignalSemaphoreInfos = &signalInfo
+//    };
+//}*/
 
-/*void VulkanRenderInterface::flushSubmits()
-{
-    auto commandBufferSubmitInfos = folly::small_vector<vk::CommandBufferSubmitInfo>{};
-    commandBufferSubmitInfos.resize(totalSubmits);
-
-
-    const auto waitInfo = vk::SemaphoreSubmitInfo
-    {
-        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_],
-        .value = max->value,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
-        .deviceIndex = 0
-    };
-
-    const auto signalInfo = vk::SemaphoreSubmitInfo
-    {
-        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_], //R&D: just one timeline semaphore should be enough for graphics and async compute queues
-        .value = resultDependency.value,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //R&D: select something smarter
-        .deviceIndex = 0
-    };
-
-    const auto submitInfo = vk::SubmitInfo2
-    {
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &waitInfo,
-        .commandBufferInfoCount = static_cast<u32>(std::size(commandBufferSubmitInfos)),
-        .pCommandBufferInfos = std::data(commandBufferSubmitInfos),
-        .signalSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &signalInfo
-    };
-}*/
-
-RenderInterface::SubmitDependency VulkanRenderInterface::
-submitCommandListInternal(
+SubmitDependency VulkanRenderInterface::submitCommandListInternal(
     const QueueType queueType,
-	const std::initializer_list<CommandList*>& commandLists,
+	const std::initializer_list<CommandListType>& commandLists,
 	const std::initializer_list<SubmitDependency>& dependencies)
 {
     TOY_ASSERT(!std::empty(commandLists));
@@ -509,10 +399,8 @@ submitCommandListInternal(
 
     for(const auto commandList : commandLists)
     {
-        TOY_ASSERT(commandList->getQueueType() == queueType);
-        const auto vulkanCommandList = static_cast<VulkanCommandList*>(commandList);
-
-        submit.commandBuffers[submit.commandBuffersCount++] = vulkanCommandList->cmd_;
+        TOY_ASSERT(commandList.getQueueType() == queueType);
+        submit.commandBuffers[submit.commandBuffersCount++] = commandList.commandBuffer_;
     }
 
     TOY_ASSERT(submitCount_ < maxSubmits_);//TODO: can flush and clear submitQueue
@@ -524,6 +412,7 @@ submitCommandListInternal(
 		maxValue[static_cast<u32>(queueType)] + 1
 	};
 }
+
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
 {
@@ -708,8 +597,11 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     renderThreadId_ = std::this_thread::get_id();
 
-	renderThreadCommandPoolData_ = createPerThreadCommandPoolData(device_, vk::CommandBufferLevel::ePrimary, maxDeferredFrames_,
-        queues_[QueueType::graphics].familyIndex, queues_[QueueType::asyncCompute].familyIndex, queues_[QueueType::transfer].familyIndex, 1, 1, 1);
+
+    initializePerRenderThreadData();
+
+	/*renderThreadCommandPoolData_ = createPerThreadCommandPoolData(device_, maxDeferredFrames_,
+        queues_[QueueType::graphics].familyIndex, queues_[QueueType::asyncCompute].familyIndex, queues_[QueueType::transfer].familyIndex, 1, 1, 1);*/
 
     graphicsPipelineCache_.initialize(PipelineCacheDescriptor{ device_, 1024 });
     computePipelineCache_.initialize(PipelineCacheDescriptor{ device_, 1024 });
@@ -1030,18 +922,15 @@ void VulkanRenderInterface::presentInternal()
     TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
-void VulkanRenderInterface::submitCommandListInternal(const std::unique_ptr<CommandList> commandList)
+void VulkanRenderInterface::submitCommandListInternal(const CommandListType& commandList)
 {
-    const auto& vulkanCommandList = dynamic_cast<VulkanCommandList&>(*commandList);
-
-
-    const auto queue = queues_[vulkanCommandList.ownedQueueType_].queue;
+    const auto queue = queues_[commandList.getQueueType()].queue;
 
     const auto commandBuffers = std::array
 	{
         vk::CommandBufferSubmitInfo
         {
-            .commandBuffer = vulkanCommandList.cmd_,
+            .commandBuffer = commandList.commandBuffer_,
             .deviceMask = 1
         }
 
@@ -1436,7 +1325,6 @@ void VulkanRenderInterface::mapInternal(const Handle<Buffer>& buffer, void** dat
 }
 
 
-
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const ComputePipelineDescriptor& descriptor,
 	const std::vector<SetBindGroupMapping>& bindGroups)
@@ -1579,14 +1467,107 @@ Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
     return imageViewStorage_.add(VulkanImageView{ result.value }, descriptor);
 }
 
-NativeBackend VulkanRenderInterface::getNativeBackendInternal()
+void VulkanRenderInterface::initializePerRenderThreadData()
 {
-    const auto nativeBackend = NativeBackend
+    auto graphicsPerFrame = std::vector<PerFrameCommandPoolData>(maxDeferredFrames_);
+    auto asyncComputePerFrame = std::vector <PerFrameCommandPoolData>(maxDeferredFrames_);
+    auto transferPerFrame = std::vector <PerFrameCommandPoolData>(maxDeferredFrames_);
+
+    const auto graphicsIndex = queues_[QueueType::graphics].familyIndex;
+    const auto asyncComputeIndex = queues_[QueueType::asyncCompute].familyIndex;
+    const auto transferIndex = queues_[QueueType::transfer].familyIndex;
+
+    constexpr auto graphicsCommandListPerFrame = u32{ 10 };
+    constexpr auto asyncComputeCommandListPerFrame = u32{ 10 };
+    constexpr auto transferCommandListPerFrame = u32{ 10 };
+
+    for (u32 i{}; i < maxDeferredFrames_; i++)
     {
-        .nativeBackend = static_cast<void*>(&nativeBackend_)
-    };
+        if constexpr (graphicsCommandListPerFrame != 0)
+        {
+            const auto commandPoolCreateInfo = vk::CommandPoolCreateInfo
+            {
+                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                .queueFamilyIndex = graphicsIndex
+            };
 
-    return nativeBackend;
+            {
+                const auto result = device_.createCommandPool(commandPoolCreateInfo);
+                TOY_ASSERT(result.result == vk::Result::eSuccess);
+                graphicsPerFrame[i].commandPool = result.value;
+            }
+            const auto allocateInfo = vk::CommandBufferAllocateInfo
+            {
+                .commandPool = graphicsPerFrame[i].commandPool,
+                .level = vk::CommandBufferLevel::ePrimary,
+                .commandBufferCount = graphicsCommandListPerFrame
+            };
+            {
+                const auto result = device_.allocateCommandBuffers(allocateInfo);
+                TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+                for(const auto& buffer : result.value)
+                {
+                    graphicsPerFrame[i].commandBuffers.push_back(buffer);
+                }
+                
+
+                
+            }
+        }
+        if constexpr (asyncComputeCommandListPerFrame != 0)
+        {
+            const auto commandPoolCreateInfo = vk::CommandPoolCreateInfo
+            {
+                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                .queueFamilyIndex = asyncComputeIndex
+            };
+
+            asyncComputePerFrame[i].commandPool = device_.createCommandPool(commandPoolCreateInfo).value;
+
+            const auto allocateInfo = vk::CommandBufferAllocateInfo
+            {
+                .commandPool = asyncComputePerFrame[i].commandPool,
+                .level = vk::CommandBufferLevel::ePrimary,
+                .commandBufferCount = asyncComputeCommandListPerFrame
+            };
+            asyncComputePerFrame[i].commandBuffers = device_.allocateCommandBuffers(allocateInfo).value;
+        }
+        if constexpr (transferCommandListPerFrame != 0)
+        {
+            const auto commandPoolCreateInfo = vk::CommandPoolCreateInfo
+            {
+                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                .queueFamilyIndex = transferIndex
+            };
+
+            transferPerFrame[i].commandPool = device_.createCommandPool(commandPoolCreateInfo).value;
+
+            const auto allocateInfo = vk::CommandBufferAllocateInfo
+            {
+                .commandPool = transferPerFrame[i].commandPool,
+                .level = vk::CommandBufferLevel::ePrimary,
+                .commandBufferCount = transferCommandListPerFrame
+            };
+            transferPerFrame[i].commandBuffers = device_.allocateCommandBuffers(allocateInfo).value;
+        }
+    }
+
+
+    PerThreadCommandPoolData perThreadData
+    {};
+    if constexpr (graphicsCommandListPerFrame != 0)
+    {
+        perThreadData.perQueueType[QueueType::graphics] = graphicsPerFrame;
+    }
+    if constexpr (asyncComputeCommandListPerFrame != 0)
+    {
+        perThreadData.perQueueType[QueueType::asyncCompute] = asyncComputePerFrame;
+    }
+    if constexpr (transferCommandListPerFrame != 0)
+    {
+        perThreadData.perQueueType[QueueType::transfer] = transferPerFrame;
+    }
+
+    renderThreadCommandPoolData_ = perThreadData;
 }
-
-

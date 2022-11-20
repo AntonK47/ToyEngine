@@ -30,11 +30,6 @@ namespace toy::renderer
 		float height;
 	};
 
-	enum class CommandListType
-	{
-		primary,
-		secondary
-	};
 
 	enum class QueueType
 	{
@@ -43,6 +38,7 @@ namespace toy::renderer
 		transfer
 	};
 
+	struct Pipeline {};
 
 	enum class BufferAccessUsage : core::FlagBits
 	{

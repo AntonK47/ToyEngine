@@ -4,78 +4,8 @@
 
 using namespace toy::renderer;
 
-NativeBackend RenderInterface::getNativeBackend()
-{
-	return getNativeBackendInternal();
-}
 
-void RenderInterface::initialize(const RendererDescriptor& descriptor)
-{
-	VALIDATE(validateInitialize(descriptor));
-	initializeInternal(descriptor);
-}
-
-void RenderInterface::deinitialize()
-{
-	VALIDATE(validateDeinitialize());
-	deinitializeInternal();
-}
-
-std::unique_ptr<CommandList> RenderInterface::acquireCommandList(const QueueType queueType,
-                                                                 const CommandListType commandListType)
-{
-	return acquireCommandListInternal(queueType, commandListType);
-}
-
-CommandList& RenderInterface::acquireCommandList(
-	const QueueType queueType,
-	const UsageScope scope)
-{
-	return acquireCommandListInternal(queueType, scope);
-}
-
-void RenderInterface::submitCommandList(std::unique_ptr<CommandList> commandList)
-{
-	submitCommandListInternal(std::move(commandList));
-}
-
-RenderInterface::SubmitDependency RenderInterface::submitCommandList(
-	const QueueType queueType,
-	const std::initializer_list<CommandList*>& commandLists,
-	const std::initializer_list<SubmitDependency>& dependencies)
-{
-	return submitCommandListInternal(queueType, commandLists, dependencies);
-}
-
-void RenderInterface::nextFrame()
-{
-	nextFrameInternal();
-}
-
-SwapchainImage RenderInterface::acquireNextSwapchainImage()
-{
-	return acquireNextSwapchainImageInternal();
-}
-
-void RenderInterface::present()
-{
-	presentInternal();
-}
-
-Buffer RenderInterface::createBuffer(
-	const BufferDescriptor& descriptor,
-	[[maybe_unused]] const DebugLabel label)
-{
-	return Buffer
-	{
-		.nativeHandle = createBufferInternal(descriptor, label),
-		.size = descriptor.size,
-#ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
-		.debugLabel = label
-#endif
-	};
-}
-
+/*
 Handle<Image> RenderInterface::createImage(
 	const ImageDescriptor& descriptor)
 {
@@ -139,4 +69,4 @@ void RenderInterface::updateBindGroup(const Handle<BindGroup>& bindGroup,
 {
 	updateBindGroupInternal(bindGroup, mappings);
 }
-
+*/

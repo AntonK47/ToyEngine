@@ -1,7 +1,11 @@
 #include "VulkanCommandList.h"
 #include "VulkanMappings.h"
-#include <folly/small_vector.h>
-
+#include "VulkanRenderInterface.h"
+//#include <folly/small_vector.h>
+//#include "VulkanCommandList.h"
+//
+//#include "VulkanRenderInterface.h"
+//
 using namespace toy::renderer;
 using namespace api::vulkan;
 
@@ -56,10 +60,6 @@ namespace
 	}
 }
 
-VulkanCommandList::~VulkanCommandList()
-{
-}
-
 void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors)
 {
 	auto imageBarriers = std::vector<vk::ImageMemoryBarrier2>{};
@@ -73,7 +73,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 			auto barrier = vk::ImageMemoryBarrier2{};
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.image = renderInterface_->imageStorage_.get(imageBarrierDescriptor.image).image;
+			barrier.image = renderer_.imageStorage_.get(imageBarrierDescriptor.image).image;
 			barrier.subresourceRange = vk::ImageSubresourceRange
 			{
 				mapViewAspect(imageBarrierDescriptor.aspect), 0, 1, 0, 1
@@ -145,7 +145,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 		.pImageMemoryBarriers = imageBarriers.data()
 	};
 
-	cmd_.pipelineBarrier2(dependency);
+	commandBuffer_.pipelineBarrier2(dependency);
 
 }
 
@@ -165,7 +165,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	{
 		const auto& colorRenderTarget = descriptor.colorRenderTargets[i];
 
-		const auto& imageView = renderInterface_->imageViewStorage_.get(colorRenderTarget.imageView).imageView;
+		const auto& imageView = renderer_.imageViewStorage_.get(colorRenderTarget.imageView).imageView;
 
 		colorAttachments[i] = vk::RenderingAttachmentInfo
 		{
@@ -182,7 +182,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 
 	if(hasDepthAttachment(descriptor))
 	{
-		const auto& imageView = renderInterface_->imageViewStorage_.get(descriptor.depthRenderTarget.imageView).imageView;
+		const auto& imageView = renderer_.imageViewStorage_.get(descriptor.depthRenderTarget.imageView).imageView;
 		depthAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -197,7 +197,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	auto stencilAttachment = vk::RenderingAttachmentInfo{};
 	if(hasStencilAttachment(descriptor))
 	{
-		const auto& imageView = renderInterface_->imageViewStorage_.get(descriptor.stencilRenderTarget.imageView).imageView;
+		const auto& imageView = renderer_.imageViewStorage_.get(descriptor.stencilRenderTarget.imageView).imageView;
 		stencilAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -221,32 +221,31 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 		.pStencilAttachment = hasStencilAttachment(descriptor)?&stencilAttachment:nullptr
 	};
 
-	cmd_.beginRendering(renderingInfo);
+	commandBuffer_.beginRendering(renderingInfo);
 }
 
 void VulkanCommandList::endRenderingInternal()
 {
-	cmd_.endRendering();
+	commandBuffer_.endRendering();
 }
 
 void VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCount, const u32 firstVertex, const u32 firstInstance)
 {
 	
-	cmd_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
+	commandBuffer_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
 void VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
 {
-	const auto& vulkanPipeline = renderInterface_->pipelineStorage_.get(pipeline);
-	currentPipeline_ = vulkanPipeline;
-	cmd_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
+	currentPipeline_ = renderer_.pipelineStorage_.get(pipeline);
+	commandBuffer_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
 }
 
 void VulkanCommandList::setScissorInternal(const Scissor& scissor)
 {
 	const auto vulkanScissor = vk::Rect2D{ {scissor.x,scissor.y},{scissor.width, scissor.height}};
 	
-	cmd_.setScissor(0, 1, &vulkanScissor);
+	commandBuffer_.setScissor(0, 1, &vulkanScissor);
 }
 
 void VulkanCommandList::setViewportInternal(
@@ -257,7 +256,7 @@ void VulkanCommandList::setViewportInternal(
 
 	//TODO:: Whats about depth value?
 
-	cmd_.setViewport(0, 1, &vulkanViewport);
+	commandBuffer_.setViewport(0, 1, &vulkanViewport);
 }
 
 void VulkanCommandList::bindGroupInternal(
@@ -266,35 +265,35 @@ void VulkanCommandList::bindGroupInternal(
 {
 	auto vulkanBindGroup = VulkanBindGroup{};
 	//TODO: do something clever
-	if (renderInterface_->persistentBindGroupStorage_.contains(handle))
+	if (renderer_.persistentBindGroupStorage_.contains(handle))
 	{
-		vulkanBindGroup = renderInterface_->persistentBindGroupStorage_.get(handle);
+		vulkanBindGroup = renderer_.persistentBindGroupStorage_.get(handle);
 	}
 	else
 	{
-		vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
+		vulkanBindGroup = renderer_.bindGroupStorage_.get(handle);
 	}
 	//const auto& vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
-	const auto& vulkanPipeline = currentPipeline_;
+	
 
 
-	cmd_.bindDescriptorSets(vulkanPipeline.bindPoint, vulkanPipeline.layout, set, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
+	commandBuffer_.bindDescriptorSets(currentPipeline_.bindPoint, currentPipeline_.layout, set, 1, &vulkanBindGroup.descriptorSet, 0, nullptr);
 }
 
 std::vector<Handle<AccelerationStructure>> VulkanCommandList::
 buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	const std::vector<AccelerationStructureDescriptor>& descriptors)
 {
-	const auto vertexData = renderInterface_->device_.getBufferAddress(
+	const auto vertexData = renderer_.device_.getBufferAddress(
 		vk::BufferDeviceAddressInfo
 		{
-			.buffer = renderInterface_->bufferStorage_.get(geometry.vertexBuffer).buffer
+			.buffer = renderer_.bufferStorage_.get(geometry.vertexBuffer).buffer
 		});
 
-	const auto indexData = renderInterface_->device_.getBufferAddress(
+	const auto indexData = renderer_.device_.getBufferAddress(
 		vk::BufferDeviceAddressInfo
 		{
-			.buffer = renderInterface_->bufferStorage_.get(geometry.indexBuffer).buffer
+			.buffer = renderer_.bufferStorage_.get(geometry.indexBuffer).buffer
 		});
 
 	const auto accelerationStructureGeometry = vk::AccelerationStructureGeometryKHR
@@ -317,7 +316,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	};
 
 	auto properties = vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceAccelerationStructurePropertiesKHR>{};
-	renderInterface_->adapter_.getProperties2(&properties.get());
+	renderer_.adapter_.getProperties2(&properties.get());
 
 	const auto accelerationStructureProperties = properties.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
 
@@ -354,7 +353,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 
 		TOY_ASSERT_BREAK(maxPrimitiveCount <= accelerationStructureProperties.maxInstanceCount);
 
-		buildSizes[i] = renderInterface_->device_.getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfos[i], maxPrimitiveCount);
+		buildSizes[i] = renderer_.device_.getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfos[i], maxPrimitiveCount);
 
 
 		scratchBufferOffsets[i] = totalScratchBufferSize;
@@ -364,9 +363,14 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 		totalScratchBufferSize += buildSizes[i].buildScratchSize + accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment - buildSizes[i].buildScratchSize % accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 	}
 
-	const auto accelerationStructureBuffer = renderInterface_->createBuffer(BufferDescriptor{ totalAccelerationStructureBufferSize, BufferAccessUsage::accelerationStructure, MemoryUsage::gpuOnly });
+	const auto accelerationStructureBuffer = renderer_.createBuffer(
+		BufferDescriptor{
+			totalAccelerationStructureBufferSize,
+			BufferAccessUsage::accelerationStructure,
+			MemoryUsage::gpuOnly
+		});
 
-	const auto scratchBuffer = renderInterface_->createBuffer(BufferDescriptor{ totalScratchBufferSize, BufferAccessUsage::storage, MemoryUsage::gpuOnly });
+	const auto scratchBuffer = renderer_.createBuffer(BufferDescriptor{ totalScratchBufferSize, BufferAccessUsage::storage, MemoryUsage::gpuOnly });
 
 	auto accelerationStructures = std::vector<vk::AccelerationStructureKHR>{};
 	accelerationStructures.resize(descriptors.size());
@@ -375,13 +379,13 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	{
 		const auto accelerationStructureCreateInfo = vk::AccelerationStructureCreateInfoKHR
 		{
-			.buffer = renderInterface_->bufferStorage_.get(accelerationStructureBuffer.nativeHandle).buffer,
+			.buffer = renderer_.bufferStorage_.get(accelerationStructureBuffer.nativeHandle).buffer,
 			.offset = accelerationStructureBufferOffsets[i],
 			.size = buildSizes[i].accelerationStructureSize,
 			.type = vk::AccelerationStructureTypeKHR::eBottomLevel
 		};
 
-		const auto result = renderInterface_->device_.createAccelerationStructureKHR(accelerationStructureCreateInfo);
+		const auto result = renderer_.device_.createAccelerationStructureKHR(accelerationStructureCreateInfo);
 
 		TOY_ASSERT(result.result == vk::Result::eSuccess);
 
@@ -389,9 +393,9 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	}
 
 
-	const auto scratchBufferDeviceAddress = renderInterface_->device_.getBufferAddress(vk::BufferDeviceAddressInfo
+	const auto scratchBufferDeviceAddress = renderer_.device_.getBufferAddress(vk::BufferDeviceAddressInfo
 		{
-				.buffer = renderInterface_->bufferStorage_.get(scratchBuffer.nativeHandle).buffer
+				.buffer = renderer_.bufferStorage_.get(scratchBuffer.nativeHandle).buffer
 		});
 
 	for (auto i = u32{}; i < descriptors.size(); i++)
@@ -418,7 +422,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 		buildRangeInfos[i] = &buildRanges[i];
 	}
 
-	cmd_.buildAccelerationStructuresKHR(buildInfos, buildRangeInfos);
+	commandBuffer_.buildAccelerationStructuresKHR(buildInfos, buildRangeInfos);
 
 
 	return std::vector<Handle<AccelerationStructure>>();
@@ -434,10 +438,9 @@ struct RayTracingDrawData
 
 Handle<AccelerationStructure> VulkanCommandList::
 buildAccelerationStructureInternal(
-	const std::vector<AccelerationStructureInstance>& instances)
+	const std::initializer_list<AccelerationStructureInstance>& instances)
 {
 	//TODO: scratch buffer can be reused also for TLAS build
-
 	auto instancesHostData = std::vector<vk::AccelerationStructureInstanceKHR>{};
 	instancesHostData.resize(instances.size());
 
@@ -456,10 +459,10 @@ buildAccelerationStructureInternal(
 	 */
 
 	Handle<Buffer> instancesBuffer;
-	const auto instancesData = renderInterface_->device_.getBufferAddress(
+	const auto instancesData = renderer_.device_.getBufferAddress(
 		vk::BufferDeviceAddressInfo
 		{
-			.buffer = renderInterface_->bufferStorage_.get(instancesBuffer).buffer
+			.buffer = renderer_.bufferStorage_.get(instancesBuffer).buffer
 		});
 
 	const auto accelerationStructureGeometry = vk::AccelerationStructureGeometryKHR
@@ -477,7 +480,7 @@ buildAccelerationStructureInternal(
 	};
 
 	auto properties = vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceAccelerationStructurePropertiesKHR>{};
-	renderInterface_->adapter_.getProperties2(&properties.get());
+	renderer_.adapter_.getProperties2(&properties.get());
 
 	const auto accelerationStructureProperties = properties.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
 
@@ -488,7 +491,7 @@ buildAccelerationStructureInternal(
 
 void VulkanCommandList::endInternal()
 {
-	const auto result = cmd_.end();
+	const auto result = commandBuffer_.end();
 	TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
@@ -499,18 +502,6 @@ void VulkanCommandList::beginInternal()
 		.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
 	};
 
-	const auto result = cmd_.begin(beginInfo);
+	const auto result = commandBuffer_.begin(beginInfo);
 	TOY_ASSERT(result == vk::Result::eSuccess);
 }
-
-
-VulkanCommandList::VulkanCommandList(
-	VulkanRenderInterface& parent,
-	const vk::CommandBuffer commandBuffer,
-	const vk::CommandBufferLevel level,
-	const QueueType ownedQueueType) :
-	CommandList(ownedQueueType),
-	renderInterface_(&parent),
-	cmd_(commandBuffer),
-	level_(level)
-{}

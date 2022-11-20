@@ -9,17 +9,23 @@
 #include <folly/AtomicHashMap.h>
 
 
-#include "Structs.h"
-#include "Vulkan.h"
 #include "VulkanBindGroupAllocator.h"
 #include "rigtorp/MPMCQueue.h"
-
+#include "VulkanCommandList.h"
 
 class Application;
 
+namespace toy::renderer
+{
+	template<>
+	struct CommandListType<api::vulkan::VulkanRenderInterface>
+	{
+		using type = api::vulkan::VulkanCommandList;
+	};
+}
+
 namespace toy::renderer::api::vulkan
 {
-	class VulkanCommandList;
 	struct LinkedLinearAllocator;
 	struct RingAllocator;
 
@@ -160,9 +166,6 @@ namespace toy::renderer::api::vulkan
 		folly::AtomicHashMap<u32, Value> pool_{2000};
 	};
 
-
-	class VulkanRenderInterface;
-
 	struct VulkanShaderModule final : ShaderModule
 	{
 		vk::ShaderModule module;
@@ -176,16 +179,10 @@ namespace toy::renderer::api::vulkan
 
 	struct PerThreadCommandPoolData
 	{
-		vk::CommandBufferLevel level;
 		std::map<QueueType, std::vector<PerFrameCommandPoolData>> perQueueType;
 	};
 
-	struct VulkanPipeline final : Pipeline
-	{
-		vk::Pipeline pipeline;
-		vk::PipelineLayout layout;
-		vk::PipelineBindPoint bindPoint;
-	};
+	
 
 	struct PipelineCacheDescriptor
 	{
@@ -231,93 +228,93 @@ namespace toy::renderer::api::vulkan
 		}
 	};
 
-	struct UploadBufferRing;
 
 	
-
 	
 
-	class VulkanRenderInterface final : public RenderInterface
+	class VulkanRenderInterface final : public RenderInterface<VulkanRenderInterface>
 	{
+		friend class RenderInterface<VulkanRenderInterface>;
+		friend class VulkanCommandList;
 	public:
-		VulkanRenderInterface(const VulkanRenderInterface& other) = delete;
-		VulkanRenderInterface(VulkanRenderInterface&& other) noexcept = default;
-		VulkanRenderInterface& operator=(const VulkanRenderInterface& other)
-		= default;
-		VulkanRenderInterface& operator=(VulkanRenderInterface&& other) noexcept
-		= default;
+		using CommandListType = VulkanCommandList;
 
-		explicit VulkanRenderInterface() = default;
-		~VulkanRenderInterface() override;
-
-
-		void upload();
-		void upload(const Handle<Buffer>& dstBuffer,
-		            uint64_t dstOffset,
-		            void* data,
-		            uint64_t size);
-		
 	private:
-		std::unique_ptr<CommandList> acquireCommandListInternal(
+		auto initializeInternal(const RendererDescriptor& descriptor) -> void;
+		auto deinitializeInternal() -> void;
+
+
+		[[nodiscard]] auto acquireCommandListInternal(
 			QueueType queueType,
-			CommandListType commandListType) override;
+			const UsageScope& usageScope) -> CommandListType;
 
-		void initializeInternal(const RendererDescriptor& descriptor) override;
-		void deinitializeInternal() override;
-		void nextFrameInternal() override;
+		auto submitCommandListInternal(
+			const CommandListType& commandList) -> void;
 
-		[[nodiscard]] Handle<BindGroupLayout> createBindGroupLayoutInternal(
-			const BindGroupDescriptor& descriptor) override;
-		[[nodiscard]] folly::small_vector<Handle<BindGroup>> allocateBindGroupInternal(
+		[[nodiscard]] auto submitCommandListInternal(
+			QueueType queueType,
+			const std::initializer_list<CommandListType>& commandLists,
+			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitDependency;
+
+		auto nextFrameInternal() -> void;
+
+		[[nodiscard]] auto acquireNextSwapchainImageInternal() -> SwapchainImage;
+
+		auto presentInternal() -> void;
+
+		[[nodiscard]] auto getNativeBackendInternal() -> NativeBackend
+		{
+			return NativeBackend{ &nativeBackend_ };
+		}
+
+
+		
+
+		[[nodiscard]] auto createBindGroupLayoutInternal(
+			const BindGroupDescriptor& descriptor) -> Handle<BindGroupLayout>;
+
+		[[nodiscard]] auto allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
-			const UsageScope& scope) override;
+			const UsageScope& scope) -> folly::small_vector<Handle<BindGroup>>;
 
-	public:
-		[[nodiscard]] SwapchainImage
-		acquireNextSwapchainImageInternal() override;
-		void presentInternal() override;
-		void submitCommandListInternal(
-			const std::unique_ptr<CommandList> commandList) override;
-
-	protected:
-		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
+		[[nodiscard]] auto createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups) override;
+			const std::vector<SetBindGroupMapping>& bindGroups) -> Handle<
+			Pipeline>;
 
-		[[nodiscard]] Handle<ShaderModule> createShaderModuleInternal(
+		[[nodiscard]] auto createShaderModuleInternal(
 			ShaderStage stage,
-			const ShaderCode& code) override;
-	private:
+			const ShaderCode& code) -> Handle<ShaderModule>;
 
 		void resetDescriptorPoolsUntilFrame(const u32 frame);
-	protected:
-		[[nodiscard]] Handle<Buffer> createBufferInternal(
-			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) override;
-	public:
-		void updateBindGroupInternal(const Handle<BindGroup>& bindGroup,
-			const std::initializer_list<BindingDataMapping>& mappings) override;
-	protected:
-		void mapInternal(const Handle<Buffer>& buffer, void** data) override;
-		[[nodiscard]] Handle<Pipeline> createPipelineInternal(
-			const ComputePipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups) override;
-		[[nodiscard]] Handle<Image> createImageInternal(
-			const ImageDescriptor& descriptor) override;
-		[[nodiscard]] Handle<ImageView> createImageViewInternal(
-			const ImageViewDescriptor& descriptor) override;
-		NativeBackend getNativeBackendInternal() override;
-		[[nodiscard]] CommandList& acquireCommandListInternal(
-			QueueType queueType,
-			UsageScope scope) override;
-		SubmitDependency submitCommandListInternal(QueueType queueType,
-			const std::initializer_list<CommandList*>& commandLists,
-			const std::initializer_list<SubmitDependency>& dependencies)
-		override;
-	private:
-		std::unordered_map<QueueType, DeviceQueue> queues_;
 
-		friend VulkanCommandList;
+		[[nodiscard]] auto createBufferInternal(
+			const BufferDescriptor& descriptor,
+			[[maybe_unused]] const DebugLabel label) -> Handle<Buffer>;
+
+		auto updateBindGroupInternal(const Handle<BindGroup>& bindGroup,
+		                             const std::initializer_list<
+			                             BindingDataMapping>& mappings) -> void;
+
+		auto mapInternal(const Handle<Buffer>& buffer, void** data) -> void;
+
+		[[nodiscard]] auto createPipelineInternal(
+			const ComputePipelineDescriptor& descriptor,
+			const std::vector<SetBindGroupMapping>& bindGroups) -> Handle<
+			Pipeline>;
+
+		[[nodiscard]] auto createImageInternal(
+			const ImageDescriptor& descriptor) -> Handle<Image>;
+		[[nodiscard]] auto createImageViewInternal(
+			const ImageViewDescriptor& descriptor) -> Handle<ImageView>;
+		
+		
+
+		void initializePerRenderThreadData();
+
+
+		std::unordered_map<QueueType, DeviceQueue> queues_;
 
 		DeviceQueue presentQueue_{};
 		vk::Semaphore readyToPresentSemaphore_;
@@ -408,7 +405,7 @@ namespace toy::renderer::api::vulkan
 			u32 commandBuffersCount{};
 			std::array<vk::CommandBuffer, maxCommandListsPerSubmit_> commandBuffers{};
 		};
-
+		
 
 		u32 submitCount_{};
 		std::vector<Submit> submitQueue_{ maxSubmits_ };
@@ -426,7 +423,7 @@ namespace toy::renderer::api::vulkan
 
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};
 		Pool<BindGroup, VulkanBindGroup> persistentBindGroupStorage_{};//TODO:: bind groups should be removed manual
-
+	
 		
 
 		/*

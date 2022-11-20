@@ -5,13 +5,17 @@
 #include "CommandListValidator.h"
 #include "RenderInterfaceCommonTypes.h"
 #include "Resource.h"
+#include "ValidationCommon.h"
+#include <initializer_list>
 
 namespace toy::renderer
 {
 	struct BindGroup;
 	struct ImageResource;
 	enum class QueueType;
-	struct Pipeline {};
+
+	
+
 	template <typename T>
 	class Ref
 	{
@@ -161,80 +165,162 @@ namespace toy::renderer
 		Handle<AccelerationStructure> blas;
 	};
 
+	
+
+	/*template <typename T>
+	concept CommandListConcept = requires(T cmd) {
+		cmd.beginRenderingInternal(RenderingDescriptor{}, RenderArea{});
+		cmd.endRenderingInternal();
+		cmd.barrierInternal({ BarrierDescriptor{}, BarrierDescriptor{} });
+		cmd.drawInternal(core::u32{}, core::u32{}, core::u32{}, core::u32{});
+		cmd.bindPipelineInternal(Handle<Pipeline>{});
+		cmd.setScissorInternal(Scissor{});
+		cmd.setViewportInternal(Viewport{});
+		cmd.bindGroupInternal(core::u32{}, Handle<BindGroup>{});
+		{cmd.buildAccelerationStructureInternal(
+			TriangleGeometry{},
+			{ AccelerationStructureDescriptor{} })} -> std::convertible_to< std::vector<Handle<AccelerationStructure>>>;
+		{cmd.buildAccelerationStructureInternal({ AccelerationStructureInstance{} })}->std::convertible_to<Handle<AccelerationStructure>>;
+
+		cmd.beginInternal();
+		cmd.endInternal();
+	};
+
+	template <CommandListConcept CommandListModel>
+	class CommandList;
+
+	
+
+	template <typename T>
+	concept RenderInterfaceConcept = CommandListConcept<typename T::CommandListType> &&
+		requires(T renderer, CommandList<typename T::CommandListType> cmd)
+	{
+		renderer.initializeInternal(RendererDescriptor{});
+		renderer.deinitializeInternal();
+		{renderer.acquireCommandListInternal(QueueType{}, UsageScope{})} -> std::convertible_to<CommandList<typename T::CommandListType>>;
+		renderer.submitCommandListInternal(cmd);
+		{renderer.submitCommandListInternal(QueueType{},
+			{ cmd },
+			{ SubmitDependency{} })} -> std::convertible_to<SubmitDependency>;
+		renderer.nextFrameInternal();
+		{renderer.acquireNextSwapchainImageInternal()} -> std::convertible_to<SwapchainImage>;
+		renderer.presentInternal();
+		{renderer.getNativeBackendInternal()} -> std::convertible_to<NativeBackend>;
+	};
+
+	template <RenderInterfaceConcept RenderInterfaceModel>
+	class RenderInterface;
+	*/
+
+	template <typename RenderInterfaceImplementation>
+	class RenderInterface;
+
+	template <typename CommandListImplementation, typename RenderInterfaceImplementation>
 	class CommandList
 	{
+	private:
+		CommandListImplementation& implementation()
+		{
+			return static_cast<CommandListImplementation&>(*this);
+		}
+	protected:
+		CommandList(const QueueType queueType, RenderInterfaceImplementation& renderInterface) : queueType_(queueType), renderer_(renderInterface){}
 	public:
-		CommandList(const CommandList& other) = delete;
+		
+
+		CommandList(const CommandList& other) = default;
 		CommandList(CommandList&& other) noexcept = default;
 		CommandList& operator=(const CommandList& other) = default;
 		CommandList& operator=(CommandList&& other) noexcept = default;
-		void bindGroup(core::u32 set, const Handle<BindGroup>& handle);
 
-		explicit CommandList(QueueType queueType);
+		/*explicit CommandList(const QueueType queueType, CommandListHandle& nativeCommandListHandle);*/
 		virtual ~CommandList() = default;
 
-		void barrier(const std::initializer_list<BarrierDescriptor>& descriptors);
+		auto barrier(
+			const std::initializer_list<BarrierDescriptor>& descriptors) -> void
+		{
+			VALIDATE(validateBarrier(descriptors));
+			implementation().barrierInternal(descriptors);
+		}
 		/*Handle<SplitBarrier> beginSplitBarrier(const BarrierDescriptor& descriptor);
 		void endSplitBarrier(Handle<SplitBarrier> barrier);*/
 
-		[[nodiscard]] std::vector<Handle<AccelerationStructure>> buildAccelerationStructure(
+		[[nodiscard]] auto buildAccelerationStructure(
 			const TriangleGeometry& geometry,
-			const std::vector<AccelerationStructureDescriptor>& descriptors);
+			const std::vector<AccelerationStructureDescriptor>& descriptors) ->
+		std::vector<Handle<AccelerationStructure>>
+		{
+			return implementation().buildAccelerationStructureInternal(geometry, descriptors);
+		}
 
-		[[nodiscard]] Handle<AccelerationStructure> buildAccelerationStructure(
-				const std::vector<AccelerationStructureInstance>& instances);
+		[[nodiscard]] auto buildAccelerationStructure(
+			const std::initializer_list<AccelerationStructureInstance>&
+			instances) -> Handle<AccelerationStructure>
+		{
+			return implementation().buildAccelerationStructureInternal(instances);
+		}
 
-		void beginRendering(const RenderingDescriptor& descriptor);
-		void beginRendering(const RenderingDescriptor& descriptor, const RenderArea& area);
-		void endRendering();
+		//void beginRendering(const RenderingDescriptor& descriptor);
+		auto beginRendering(const RenderingDescriptor& descriptor,
+		                    const RenderArea& area) -> void
+		{
+			VALIDATE(validateBeginRendering(descriptor, area));
+			implementation().beginRenderingInternal(descriptor, area);
+		}
+		auto endRendering() -> void
+		{
+			VALIDATE(validateEndRendering());
+			implementation().endRenderingInternal();
+		}
 
-		void begin();
-		void end();
+		auto begin() -> void
+		{
+			implementation().beginInternal();
+		}
 
-		void bindPipeline(const Handle<Pipeline>& pipeline);
-		void setScissor(const Scissor& scissor);
-		void setViewport(const Viewport& viewport);
-		void draw(
+		auto end() -> void
+		{
+			implementation().endInternal();
+		}
+
+		auto bindGroup(core::u32 set, const Handle<BindGroup>& handle) -> void
+		{
+			implementation().bindGroupInternal(set, handle);
+		}
+
+		auto bindPipeline(const Handle<Pipeline>& pipeline) -> void
+		{
+			implementation().bindPipelineInternal(pipeline);
+		}
+
+		auto setScissor(const Scissor& scissor) -> void
+		{
+			VALIDATE(validateSetScissor(scissor));
+			implementation().setScissorInternal(scissor);
+		}
+
+		auto setViewport(const Viewport& viewport) -> void
+		{
+			VALIDATE(validateSetViewport(viewport));
+			implementation().setViewportInternal(viewport);
+		}
+
+		auto draw(
 			core::u32 vertexCount,
 			core::u32 instanceCount,
 			core::u32 firstVertex,
-			core::u32 firstInstance);
+			core::u32 firstInstance) -> void
+		{
+			//TODO: When scissor or viewport state was not set before, than make and set a fullscreen scissor and viewport (or match render area)
+			VALIDATE(validateDraw(vertexCount, instanceCount, firstVertex, firstInstance));
+			implementation().drawInternal(vertexCount, instanceCount, firstVertex, firstInstance);
+		}
 
-		[[nodiscard]] QueueType getQueueType() const { return ownedQueueType_; }
+		[[nodiscard]] auto getQueueType() const -> QueueType { return queueType_; }
 
 	protected:
-
-		virtual void bindGroupInternal(core::u32 set, const Handle<BindGroup>& handle) = 0;
-
-		virtual void barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors) = 0;
-
-		virtual void beginRenderingInternal(const RenderingDescriptor& descriptor, const RenderArea& area) = 0;
-		virtual void endRenderingInternal() = 0;
-
-		virtual void beginInternal() = 0;
-		virtual void endInternal() = 0;
-
-		virtual [[nodiscard]] std::vector<Handle<AccelerationStructure>> buildAccelerationStructureInternal(
-			const TriangleGeometry& geometry,
-			const std::vector<AccelerationStructureDescriptor>& descriptors) = 0;
-
-		virtual [[nodiscard]] Handle<AccelerationStructure> buildAccelerationStructureInternal(
-			const std::vector<AccelerationStructureInstance>& instances) = 0;
-
-		virtual void drawInternal(
-			core::u32 vertexCount,
-			core::u32 instanceCount,
-			core::u32 firstVertex,
-			core::u32 firstInstance) = 0;
-
-		virtual void bindPipelineInternal(const Handle<Pipeline>& pipeline) = 0;
-
-		virtual void setScissorInternal(const Scissor& scissor) = 0;
-		virtual void setViewportInternal(const Viewport& viewport) = 0;
-
-		QueueType ownedQueueType_{};
-
-	private:
+		QueueType queueType_{};
+		RenderInterfaceImplementation& renderer_;
 		validation::CommandListValidator validatorObject_;
 		//DECLARE_VALIDATOR(validation::CommandListValidator);TODO:!?
 	};

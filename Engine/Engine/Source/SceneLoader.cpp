@@ -27,9 +27,8 @@ namespace
         return std::string{ code.data(), length };
     }
 
-
-
-    void uploadDataToBuffer(RenderInterface& renderer, const void* uploadData, const size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
+    
+    void uploadDataToBuffer(::RenderInterface& renderer, const void* uploadData, const size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
     {
         void* data;
         renderer.map(buffer, &data);
@@ -44,8 +43,8 @@ namespace
     }
 }
 
-Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
-	const std::string& sceneFilePath)
+Scene Scene::loadSceneFromFile(::RenderInterface& renderer,
+    const std::string& path)
 {
     //const auto scene = scene::loadSceneFile(sceneFilePath);
     Assimp::Importer importer;
@@ -211,6 +210,7 @@ Scene Scene::loadSceneFromFile(toy::renderer::RenderInterface& renderer,
     	triangleBuffer,
     	meshletBuffer };
 }
+
 
 void Scene::buildAccelerationStructure()
 {

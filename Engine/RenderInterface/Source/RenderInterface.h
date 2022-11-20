@@ -3,183 +3,210 @@
 #include <optional>
 
 #include "BindGroupAllocator.h"
-#include "CommandList.h"
+#include "RenderInterfaceCommonTypes.h"
+
 #include "Resource.h"
 #include "RenderInterfaceValidator.h"
+#include <CommandList.h>
 
 namespace toy::renderer
 {
 	using namespace core;
-	class CommandList;
 
+	struct SubmitDependency
+	{
+		QueueType queueDependency{ QueueType::graphics };
+		core::u64 value{}; //R&D: this should be opaque, because of different graphics API's
+	};
+
+	template<typename T>
+	struct CommandListType
+	{
+		using type = typename T;
+	};
+
+	template <typename RenderInterfaceImplementation>
 	class RenderInterface
 	{
+
+		using CommandListType = typename CommandListType<RenderInterfaceImplementation>::type;
+	private:
+		RenderInterfaceImplementation& implementation()
+		{
+			return static_cast<RenderInterfaceImplementation&>(*this);
+		}
 	public:
 		RenderInterface(const RenderInterface& other) = delete;
 		RenderInterface(RenderInterface&& other) noexcept = default;
 
 		RenderInterface& operator=(const RenderInterface& other) = default;
 		RenderInterface& operator=(RenderInterface&& other) noexcept = default;
+		
+		RenderInterface(){}
+		~RenderInterface() = default;
 
-		NativeBackend getNativeBackend();
-
-		RenderInterface() = default;
-		virtual ~RenderInterface() = default;
-
-		void initialize(const RendererDescriptor& descriptor);
-		void deinitialize();
-
-		[[nodiscard]] std::unique_ptr<CommandList> acquireCommandList(
-			QueueType queueType,
-			CommandListType commandListType = CommandListType::primary);
-
-		[[nodiscard]] CommandList& acquireCommandList(
-			QueueType queueType, UsageScope scope = UsageScope::inFrame);
-
-		void submitCommandList(std::unique_ptr<CommandList> commandList);
-
-		struct SubmitDependency
+		[[nodiscard]] auto getNativeBackend() -> NativeBackend
 		{
-			QueueType queueDependency{ QueueType::graphics };
-			u64 value{}; //R&D: this should be opaque, because of different graphics API's
-		};
+			return implementation().getNativeBackendInternal();
+		}
 
+		auto initialize(const RendererDescriptor& descriptor)
+		{
+			VALIDATE(validateInitialize(descriptor));
+			implementation().initializeInternal(descriptor);
+		}
+		auto deinitialize()
+		{
+			VALIDATE(validateDeinitialize());
+			implementation().deinitializeInternal();
+		}
+
+		[[nodiscard]] auto acquireCommandList(
+			QueueType queueType, const UsageScope& usageScope = UsageScope::inFrame) -> CommandListType
+		{
+			return implementation().acquireCommandListInternal(queueType, usageScope);
+		}
 		
 
-		SubmitDependency submitCommandList(
+		auto submitCommandList(const CommandListType& commandList)
+		{
+			implementation().submitCommandListInternal(commandList);
+		}
+		
+		[[nodiscard]] auto submitCommandList(
 			QueueType queueType,
-			const std::initializer_list<CommandList*>& commandLists,
-			const std::initializer_list<SubmitDependency>& dependencies);
+			const std::initializer_list<CommandListType>& commandLists,
+			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitDependency
+		{
+			return implementation().submitCommandListInternal(queueType, commandLists, dependencies);
+		}
 		
-		void nextFrame();
+		void nextFrame()
+		{
+			implementation().nextFrameInternal();
+		}
 
-		[[nodiscard]] SwapchainImage acquireNextSwapchainImage();
-		void present();
+		[[nodiscard]] auto acquireNextSwapchainImage() -> SwapchainImage
+		{
+			return implementation().acquireNextSwapchainImageInternal();
+		}
+
+		void present()
+		{
+			implementation().presentInternal();
+		}
+
+
+		//TODO:: move create functions in resource manager
+		//TODO: resource creation can be moved in a separate resource management class
 
 		[[nodiscard]] Buffer createBuffer(
-			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label = {});
+			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label = {})
+		{
+			return Buffer
+			{
+				.nativeHandle = implementation().createBufferInternal(descriptor, label),
+				.size = descriptor.size,
+		#ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
+				.debugLabel = label
+		#endif
+			};
+		}
 
 		/*struct ResourceDescriptor{};
 		std::initializer_list<std::initializer_list<Handle<>>> createAliasedResources(std::initializer_list<std::initializer_list<ResourceDescriptor>> aliasedResourceDescriptors);*/
 
-		[[nodiscard]] Handle<Image> createImage(
-			const ImageDescriptor& descriptor);
+		[[nodiscard]] auto createImage(
+			const ImageDescriptor& descriptor) -> Handle<Image>
+		{
+			return implementation().createImageInternal(descriptor);
+		}
 
-		[[nodiscard]] Handle<ImageView> createImageView(
-			const ImageViewDescriptor& descriptor);
+		[[nodiscard]] auto createImageView(
+			const ImageViewDescriptor& descriptor) -> Handle<ImageView>
+		{
+			return implementation().createImageViewInternal(descriptor);
+		}
 
-		void map(const Handle<Buffer>& buffer, void** data);
-		void unmap(const Handle<Buffer>& buffer);
+		auto map(const Handle<Buffer>& buffer, void** data) -> void
+		{
+			implementation().mapInternal(buffer, data);
+		}
 
-		[[nodiscard]] Handle<BindGroupLayout> createBindGroupLayout(
-			const BindGroupDescriptor& descriptor);
+		auto unmap(const Handle<Buffer>& buffer) -> void
+		{
+		}
 
-		[[nodiscard]] Handle<BindGroup> allocateBindGroup(
+		[[nodiscard]] auto createBindGroupLayout(
+			const BindGroupDescriptor& descriptor) -> Handle<BindGroupLayout>
+		{
+			return implementation().createBindGroupLayoutInternal(descriptor);
+		}
+
+		[[nodiscard]] auto allocateBindGroup(
 			const Handle<BindGroupLayout>& bindGroupLayout,
-			const UsageScope& scope = UsageScope::inFrame);
+			const UsageScope& scope = UsageScope::inFrame) -> Handle<BindGroup>
+		{
+			return implementation().allocateBindGroupInternal(bindGroupLayout, 1, scope).front();
+		}
 
-		[[nodiscard]] folly::small_vector<Handle<BindGroup>> allocateBindGroup(
+		[[nodiscard]] auto allocateBindGroup(
 			const Handle<BindGroupLayout>& bindGroupLayout,
-			u32 bindGroupCount, 
-			const UsageScope& scope = UsageScope::inFrame);
+			u32 bindGroupCount,
+			const UsageScope& scope = UsageScope::inFrame) ->
+		folly::small_vector<Handle<BindGroup>>
+		{
+			return implementation().allocateBindGroupInternal(bindGroupLayout, bindGroupCount, scope);
+		}
 
 		//this function should be thread save????
 		//Do I need make multi threaded resource creation? It can depend on Frame Graph resource management.
 		//virtual Handle<RenderTarget> createRenderTarget(RenderTargetDescriptor) = 0;
 
 		//draft for pipeline creation
-		[[nodiscard]] Handle<Pipeline> createPipeline(
-			const GraphicsPipelineDescriptor& graphicsPipelineDescriptor, const std::vector<SetBindGroupMapping>& bindGroups = {});
+		[[nodiscard]] auto createPipeline(
+			const GraphicsPipelineDescriptor& graphicsPipelineDescriptor,
+			const std::vector<SetBindGroupMapping>& bindGroups = {}) -> Handle<
+			Pipeline>
+		{
+			return implementation().createPipelineInternal(graphicsPipelineDescriptor, bindGroups);
+		}
 
-		[[nodiscard]] Handle<Pipeline> createPipeline(
+		[[nodiscard]] auto createPipeline(
 			const ComputePipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups = {}); //TODO: Why do not move bindGroups into a descriptor
+			const std::vector<SetBindGroupMapping>& bindGroups = {}) -> Handle<
+			Pipeline>
+		{
+			return implementation().createPipelineInternal(descriptor, bindGroups);
+		}
 
-		[[nodiscard]] Handle<Pipeline> createPipeline(
+		//TODO: Why do not move bindGroups into a descriptor
+
+		[[nodiscard]] auto createPipeline(
 			const RayTracingPipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups = {});
+			const std::vector<SetBindGroupMapping>& bindGroups = {}) -> Handle<
+			Pipeline>
+		{
+			return {};
+		}
 
-		[[nodiscard]] Handle<ShaderModule> createShaderModule(
+		[[nodiscard]] auto createShaderModule(
 			ShaderStage stage,
-			const ShaderCode& code);
+			const ShaderCode& code) -> Handle<ShaderModule>
+		{
+			return implementation().createShaderModuleInternal(stage, code);
+		}
 
 
 		//TODO This function should be thread safe
-		void updateBindGroup(
+		auto updateBindGroup(
 			const Handle<BindGroup>& bindGroup,
-			const std::initializer_list<BindingDataMapping>& mappings);
-
-		
-
-		//=================
-	protected:
-		virtual void updateBindGroupInternal(
-			const Handle<BindGroup>& bindGroup,
-			const std::initializer_list<BindingDataMapping>& mappings) = 0;
-
-		virtual void initializeInternal(const RendererDescriptor& descriptor) = 0;
-		virtual void deinitializeInternal() = 0;
-
-		virtual NativeBackend getNativeBackendInternal() = 0;
-
-		virtual [[nodiscard]] SwapchainImage acquireNextSwapchainImageInternal() = 0;
-
-		virtual [[nodiscard]] std::unique_ptr<CommandList> acquireCommandListInternal(
-			QueueType queueType,
-			CommandListType commandListType = CommandListType::primary) = 0;
-		virtual [[nodiscard]] CommandList& acquireCommandListInternal(
-			QueueType queueType, UsageScope scope = UsageScope::inFrame) = 0;
-
-		virtual [[nodiscard]] void submitCommandListInternal(
-			std::unique_ptr<CommandList> commandList) = 0;
-
-		virtual SubmitDependency submitCommandListInternal(
-			QueueType queueType,
-			const std::initializer_list<CommandList*>& commandLists,
-			const std::initializer_list<SubmitDependency>& dependencies) = 0;
-
-		virtual [[nodiscard]] Handle<Pipeline> createPipelineInternal(
-			const GraphicsPipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups) = 0;
-
-		virtual [[nodiscard]] Handle<Pipeline> createPipelineInternal(
-			const ComputePipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups) = 0;
-
-		virtual [[nodiscard]] Handle<ShaderModule> createShaderModuleInternal(
-			ShaderStage stage,
-			const ShaderCode& code) = 0;
-
-		virtual void nextFrameInternal() = 0;
-		virtual void presentInternal() = 0;
-
-		virtual void mapInternal(
-			const Handle<Buffer>& buffer,
-			void** data) = 0;
-
-		virtual [[nodiscard]] Handle<BindGroupLayout> createBindGroupLayoutInternal(
-			const BindGroupDescriptor& descriptor) = 0;
-
-		virtual [[nodiscard]] folly::small_vector<Handle<BindGroup>> allocateBindGroupInternal(
-			const Handle<BindGroupLayout>& bindGroupLayout,
-			u32 bindGroupCount,
-			const UsageScope& scope) = 0;
-
-
-		//TODO: resource creation can be moved in a separate resource management class 
-		virtual [[nodiscard]] Handle<Buffer> createBufferInternal(
-			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) = 0;
-
-		virtual [[nodiscard]] Handle<Image> createImageInternal(
-			const ImageDescriptor& descriptor) = 0;
-
-		virtual [[nodiscard]] Handle<ImageView> createImageViewInternal(
-			const ImageViewDescriptor& descriptor) = 0;
-
-		DECLARE_VALIDATOR(validation::RenderInterfaceValidator);
+			const std::initializer_list<BindingDataMapping>& mappings) -> void
+		{
+			implementation().updateBindGroupInternal(bindGroup, mappings);
+		}
 
 	private:
-
-		NativeBackend* nativeBackend_;
+		DECLARE_VALIDATOR(validation::RenderInterfaceValidator);
 	};
 }
