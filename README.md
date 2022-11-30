@@ -12,22 +12,22 @@ The project is developed in my spare time, and currently following features are 
 ## Showcase
 Even though it is far from being finished, I have some renderings to share:
 
-|![First Mesh](Docs/FirstMesh.png){ width=100% } |
+|![First Mesh](Docs/FirstMesh.png)|
 |:-|
 |*The first visible mesh on a screen uses vertex fetching techniques and a mesh has a clustered structure.*|
 
 
-|![Dense Mesh](Docs/DenseMesh.png){ width=100% } |
+|![Dense Mesh](Docs/DenseMesh.png)|
 |:-|
 |*Same as before but with a model with over 2 million vertices.*|
 
 
-|![TLAS](Docs/Tlas.png){ width=100% } |
+|![TLAS](Docs/Tlas.png)|
 |:-|
 |*Here I played a little bit with an acceleration structure building for a Raytraycing. This screenshot is taken from the NSight graphics debugging tool.*|
 
 
-|![New Sponza](Docs/NewSponza.png){ width=100% } |
+|![New Sponza](Docs/NewSponza.png)|
 |:-|
 |*New Sponza Scene. Same technics as before with different lit shader and a more complex scene.*|
 
