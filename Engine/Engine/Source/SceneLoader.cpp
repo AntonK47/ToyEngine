@@ -11,7 +11,7 @@ using namespace toy::core;
 using namespace toy::renderer;
 namespace
 {
-    std::string loadShaderFile(const std::string& filePath)
+    /*inline std::string loadShaderFile(const std::string& filePath)
     {
 
         auto fileStream = std::ifstream{ filePath, std::ios::ate };
@@ -25,7 +25,7 @@ namespace
 
         fileStream.read(code.data(), length);
         return std::string{ code.data(), length };
-    }
+    }*/
 
     
     void uploadDataToBuffer(::RenderInterface& renderer, const void* uploadData, const size_t dataSize, const Handle<Buffer>& buffer, const u32 byteOffset)
@@ -48,13 +48,18 @@ Scene Scene::loadSceneFromFile(::RenderInterface& renderer,
 {
     //const auto scene = scene::loadSceneFile(sceneFilePath);
     Assimp::Importer importer;
-    const auto sceneAssimp = importer.ReadFile("C:\\Users\\AntonKi8\\Downloads\\main_sponza\\NewSponza_Main_glTF_002.gltf", aiProcess_GenBoundingBoxes /*,
+    //"C:\\Users\\AntonKi8\\Downloads\\main_sponza\\NewSponza_Main_glTF_002.gltf"
+    //"C:\\Users\\AntonKi8\\Downloads\\gltf\\hotgirl1\\scene.gltf"
+    //"C:\\Users\\AntonKi8\\Downloads\\gltf\\gtr\\scene.gltf"
+    //"C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
+    const auto sceneAssimp = importer.ReadFile("C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
+        , aiProcess_GenBoundingBoxes | aiProcess_Triangulate | aiProcess_GenSmoothNormals /*,
                                          aiProcess_GenSmoothNormals |
-                                         aiProcess_Triangulate |
+                                          |
                                          aiProcess_GenBoundingBoxes |
                                          aiProcess_JoinIdenticalVertices |
                                          aiProcess_SortByPType*/);
-                                         //importer.ApplyPostProcessing(aiPostProcessSteps::aiProcess_CalcTangentSpace);
+                                         importer.ApplyPostProcessing(aiPostProcessSteps::aiProcess_CalcTangentSpace);
     const auto error = importer.GetErrorString();
     assert(sceneAssimp && error);
     //const auto mesh = loadMeshFile("aa.mesh");

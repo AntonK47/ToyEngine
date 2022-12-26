@@ -339,40 +339,127 @@ VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandList
     return CommandListType(queueType, *this, commandBuffer);
 }
 
-///*void VulkanRenderInterface::flushSubmits()
-//{
-//    auto commandBufferSubmitInfos = folly::small_vector<vk::CommandBufferSubmitInfo>{};
-//    commandBufferSubmitInfos.resize(totalSubmits);
-//
-//
-//    const auto waitInfo = vk::SemaphoreSubmitInfo
-//    {
-//        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_],
-//        .value = max->value,
-//        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
-//        .deviceIndex = 0
-//    };
-//
-//    const auto signalInfo = vk::SemaphoreSubmitInfo
-//    {
-//        .semaphore = timelineSemaphorePerFrame_[currentFrame_ % maxDeferredFrames_], //R&D: just one timeline semaphore should be enough for graphics and async compute queues
-//        .value = resultDependency.value,
-//        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //R&D: select something smarter
-//        .deviceIndex = 0
-//    };
-//
-//    const auto submitInfo = vk::SubmitInfo2
-//    {
-//        .waitSemaphoreInfoCount = 1,
-//        .pWaitSemaphoreInfos = &waitInfo,
-//        .commandBufferInfoCount = static_cast<u32>(std::size(commandBufferSubmitInfos)),
-//        .pCommandBufferInfos = std::data(commandBufferSubmitInfos),
-//        .signalSemaphoreInfoCount = 1,
-//        .pSignalSemaphoreInfos = &signalInfo
-//    };
-//}*/
+void VulkanRenderInterface::submitBatchesInternal(const QueueType queueType,
+    const std::initializer_list<SubmitBatchType>& batches)
+{
+    auto totalCommandBuffers = u32{};
 
-SubmitDependency VulkanRenderInterface::submitCommandListInternal(
+    for(const auto& batch : batches)
+    {
+        totalCommandBuffers += batch.batch_.commandBuffersCount;
+    }
+
+    auto commandBufferSubmitInfos = folly::small_vector<vk::CommandBufferSubmitInfo>{};
+    commandBufferSubmitInfos.resize(totalCommandBuffers);
+
+    auto minGraphicsValue = u64{ std::numeric_limits<u64>::max() };
+    auto minAsyncComputeValue = u64{ std::numeric_limits<u64>::max() };
+    auto minTransferValue = u64{ std::numeric_limits<u64>::max() };
+
+    auto value = u64{};
+
+    auto index = u32{};
+    for (const auto& batch : batches)
+    {
+	    for(auto i = u32{}; i < batch.batch_.commandBuffersCount; i++)
+	    {
+
+            minGraphicsValue = std::min(minGraphicsValue, batch.batch_.waitGraphicsValue);
+            minAsyncComputeValue = std::min(minAsyncComputeValue, batch.batch_.waitAsyncComputeValue);
+            minTransferValue = std::min(minTransferValue, batch.batch_.waitTransferValue);
+
+            switch (queueType)
+            {
+            case QueueType::graphics:
+                value = batch.batch_.waitGraphicsValue;
+                break;
+            case QueueType::asyncCompute:
+                value = batch.batch_.waitAsyncComputeValue;
+                break;
+            case QueueType::transfer:
+                value = batch.batch_.waitTransferValue;
+                break;
+            }
+
+            commandBufferSubmitInfos[index].commandBuffer = batch.batch_.commandBuffers[i];
+            index++;
+	    }
+    }
+
+    auto waitInfos = folly::small_vector<vk::SemaphoreSubmitInfo>{};
+    waitInfos.reserve(3);
+
+    if(minGraphicsValue!=0)
+    {
+        waitInfos.push_back
+        (
+            vk::SemaphoreSubmitInfo
+            {
+                .semaphore = timelineSemaphorePerQueue_[QueueType::graphics],
+                .value = minGraphicsValue,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+                .deviceIndex = 0
+            }
+        );
+    }
+
+    if (minAsyncComputeValue != 0)
+    {
+        waitInfos.push_back
+        (
+            vk::SemaphoreSubmitInfo
+            {
+                .semaphore = timelineSemaphorePerQueue_[QueueType::asyncCompute],
+                .value = minAsyncComputeValue,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+                .deviceIndex = 0
+            }
+        );
+    }
+
+    if (minTransferValue != 0)
+    {
+        waitInfos.push_back
+        (
+            vk::SemaphoreSubmitInfo
+            {
+                .semaphore = timelineSemaphorePerQueue_[QueueType::transfer],
+                .value = minTransferValue,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+                .deviceIndex = 0
+            }
+        );
+    }
+
+    const auto signalInfo = vk::SemaphoreSubmitInfo
+    {
+        .semaphore = timelineSemaphorePerQueue_[queueType],
+        .value = value + 1,
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+        .deviceIndex = 0
+    };
+
+    const auto submitInfo = vk::SubmitInfo2
+    {
+        .waitSemaphoreInfoCount = static_cast<u32>(std::size(waitInfos)),
+        .pWaitSemaphoreInfos = std::data(waitInfos),
+        .commandBufferInfoCount = static_cast<u32>(std::size(commandBufferSubmitInfos)),
+        .pCommandBufferInfos = std::data(commandBufferSubmitInfos),
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signalInfo
+    };
+
+    const auto& fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    auto result = device_.resetFences(1, &fence);
+    TOY_ASSERT(result == vk::Result::eSuccess);
+
+    const auto queue = queues_[queueType].queue;
+    result = queue.submit2(1, &submitInfo, fence);
+    TOY_ASSERT(result == vk::Result::eSuccess);
+    device_.waitIdle();
+}
+
+VulkanRenderInterface::SubmitBatchType VulkanRenderInterface::submitCommandListInternal(
     const QueueType queueType,
 	const std::initializer_list<CommandListType>& commandLists,
 	const std::initializer_list<SubmitDependency>& dependencies)
@@ -394,30 +481,24 @@ SubmitDependency VulkanRenderInterface::submitCommandListInternal(
         maxValue[static_cast<u32>(QueueType::graphics)],
         maxValue[static_cast<u32>(QueueType::asyncCompute)],
         maxValue[static_cast<u32>(QueueType::transfer)],
-        0
+        u32{}
     };
 
     for(const auto commandList : commandLists)
     {
         TOY_ASSERT(commandList.getQueueType() == queueType);
-        submit.commandBuffers[submit.commandBuffersCount++] = commandList.commandBuffer_;
+        submit.commandBuffers[submit.commandBuffersCount] = commandList.commandBuffer_;
+        submit.commandBuffersCount++;
     }
-
-    TOY_ASSERT(submitCount_ < maxSubmits_);//TODO: can flush and clear submitQueue
-    submitQueue_[submitCount_++] = submit;
-
-    return SubmitDependency
-	{
-		queueType,
-		maxValue[static_cast<u32>(queueType)] + 1
-	};
+    
+    return VulkanSubmitBatch{ submit, queueType };
 }
 
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
 {
     auto extensions = std::vector<const char*>{};
-    
+
     auto layers = std::vector<const char*>{};
 #ifdef TOY_ENGINE_ENABLE_VULKAN_VALIDATION
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -456,10 +537,10 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
     //TODO: find matching profile with ray tracing support
     /*auto isSupported = vk::Bool32{};
     auto profileProperties = VpProfileProperties
-	{
+    {
         .profileName = VP_LUNARG_DESKTOP_PORTABILITY_2021_NAME,
         .specVersion = VP_LUNARG_DESKTOP_PORTABILITY_2021_SPEC_VERSION
-	};
+    };
     vpGetInstanceProfileSupport(nullptr, &profileProperties, &isSupported);*/
 
     //TOY_ASSERT(isSupported);
@@ -469,7 +550,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
         .pCreateInfo = reinterpret_cast<const VkInstanceCreateInfo*>(&instanceInfo),
         .pProfile = &profileProperties
     };
-    
+
     vpCreateInstance(&instanceCreateInfo, nullptr, reinterpret_cast<VkInstance*>(&instance_));*/
 
     const auto result = vk::createInstance(instanceInfo);
@@ -563,14 +644,14 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     swapchainImageAfterPresentFences_.resize(swapchainImagesCount_);
     auto swapchainImageViews = std::vector<vk::ImageView>{};
-	swapchainImageViews.resize(swapchainImagesCount_);
+    swapchainImageViews.resize(swapchainImagesCount_);
 
     auto swapchainImages = device_.getSwapchainImagesKHR(swapchain_).value;
     for (u32 i{}; i < swapchainImagesCount_; i++)
     {
         const auto imageViewCreateInfo = vk::ImageViewCreateInfo
         {
-        	.image = swapchainImages[i],
+            .image = swapchainImages[i],
             .viewType = vk::ImageViewType::e2D,
             .format = supportedFormat.format,
             .subresourceRange = vk::ImageSubresourceRange
@@ -578,22 +659,39 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
                 vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
             }
         };
-    	swapchainImageViews[i] = device_.createImageView(imageViewCreateInfo).value;
+        swapchainImageViews[i] = device_.createImageView(imageViewCreateInfo).value;
 
-        swapchainImageAfterPresentFences_[i] = device_.createFence(vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled}).value;
+        swapchainImageAfterPresentFences_[i] = device_.createFence(vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled }).value;
     }
 
-    for (auto i = u32{}; i<swapchainImages.size(); i++)
+    for (auto i = u32{}; i < swapchainImages.size(); i++)
     {
         swapchainImages_.push_back(imageStorage_.add(VulkanImage{ swapchainImages[i], {},false, true }));
-        swapchainImageViews_.push_back(imageViewStorage_.add(VulkanImageView{ swapchainImageViews[i]}));
+        swapchainImageViews_.push_back(imageViewStorage_.add(VulkanImageView{ swapchainImageViews[i] }));
     }
 
-    
+
     readyToPresentSemaphore_ = device_.createSemaphore(vk::SemaphoreCreateInfo{}).value;
 
     readyToRenderSemaphore_ = device_.createSemaphore(vk::SemaphoreCreateInfo{}).value;
 
+
+
+    const auto timelineSemaphoreCreateInfo = vk::StructureChain
+    {
+        vk::SemaphoreCreateInfo{},
+        vk::SemaphoreTypeCreateInfo
+        {
+            .semaphoreType = vk::SemaphoreType::eTimeline,
+            .initialValue = u64{}
+        }
+    };
+
+    timelineSemaphorePerQueue_[QueueType::graphics] = device_.createSemaphore(timelineSemaphoreCreateInfo.get()).value;
+    timelineSemaphorePerQueue_[QueueType::asyncCompute] = device_.createSemaphore(timelineSemaphoreCreateInfo.get()).value;
+    timelineSemaphorePerQueue_[QueueType::transfer] = device_.createSemaphore(timelineSemaphoreCreateInfo.get()).value;
+    
+    
 
     renderThreadId_ = std::this_thread::get_id();
 
@@ -709,6 +807,12 @@ void VulkanRenderInterface::deinitializeInternal()
     {
         device_.destroyFence(swapchainImageAfterPresentFences_[i]);
     }
+
+    for(const auto& [key, timeline] : timelineSemaphorePerQueue_)
+    {
+        device_.destroySemaphore(timeline);
+    }
+    timelineSemaphorePerQueue_.clear();
 
     device_.destroySwapchainKHR(swapchain_);
     instance_.destroy(surface_);
@@ -965,7 +1069,7 @@ void VulkanRenderInterface::submitCommandListInternal(const CommandListType& com
     TOY_ASSERT(result == vk::Result::eSuccess);
     result = queue.submit2(1, &submitInfo, fence);
     TOY_ASSERT(result == vk::Result::eSuccess);
-    //device_.waitIdle();
+    device_.waitIdle();
 }
 
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
@@ -1242,35 +1346,45 @@ void VulkanRenderInterface::updateBindGroupInternal(
     for(auto i = u32{}; i < mappingsVector.size(); i++)
     {
         const auto& binding = mappingsVector[i];
+
+        std::visit(
+            Overloaded
+            {
+	            [&](const CBV& cbv)
+	            {
+            		const auto bufferView = std::get<CBV>(binding.view);
+					const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
+					const auto descriptorBufferInfo = vk::DescriptorBufferInfo
+		            {
+		                .buffer = vulkanBuffer.buffer,
+		                .offset = bufferView.bufferView.offset,
+		                .range = bufferView.bufferView.size
+		            };
+					descriptorInfos[i] = descriptorBufferInfo;
+	            },
+	            [&](const UAV& uav)
+	            {
+	                const auto bufferView = std::get<UAV>(binding.view);
+		            const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
+		            const auto descriptorBufferInfo = vk::DescriptorBufferInfo
+		            {
+		                .buffer = vulkanBuffer.buffer,
+		                .offset = bufferView.bufferView.offset,
+		                .range = bufferView.bufferView.size
+		            };
+		            descriptorInfos[i] = descriptorBufferInfo;
+	            }
+            },
+            binding.view);
         if(std::holds_alternative<CBV>(binding.view))
         {
             TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
-            const auto bufferView = std::get<CBV>(binding.view);
-            const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
-
-            const auto descriptorBufferInfo = vk::DescriptorBufferInfo
-            {
-                .buffer = vulkanBuffer.buffer,
-                .offset = bufferView.bufferView.offset,
-                .range = bufferView.bufferView.size
-            };
-
-            descriptorInfos[i] = descriptorBufferInfo;
+            
         }
         if (std::holds_alternative<UAV>(binding.view))
         {
             TOY_ASSERT(std::holds_alternative<UAV>(binding.view));
-            const auto bufferView = std::get<UAV>(binding.view);
-            const auto& vulkanBuffer = bufferStorage_.get(bufferView.bufferView.buffer);
-
-            const auto descriptorBufferInfo = vk::DescriptorBufferInfo
-            {
-                .buffer = vulkanBuffer.buffer,
-                .offset = bufferView.bufferView.offset,
-                .range = bufferView.bufferView.size
-            };
-
-            descriptorInfos[i] = descriptorBufferInfo;
+            
         }
     }
 
@@ -1466,6 +1580,8 @@ Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
 
     return imageViewStorage_.add(VulkanImageView{ result.value }, descriptor);
 }
+
+
 
 void VulkanRenderInterface::initializePerRenderThreadData()
 {

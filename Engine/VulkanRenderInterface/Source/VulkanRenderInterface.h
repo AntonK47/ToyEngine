@@ -22,6 +22,13 @@ namespace toy::renderer
 	{
 		using type = api::vulkan::VulkanCommandList;
 	};
+
+	template<>
+	struct SubmitBatchType<api::vulkan::VulkanRenderInterface>
+	{
+		using type = api::vulkan::VulkanSubmitBatch;
+	};
+	
 }
 
 namespace toy::renderer::api::vulkan
@@ -238,6 +245,7 @@ namespace toy::renderer::api::vulkan
 		friend class VulkanCommandList;
 	public:
 		using CommandListType = VulkanCommandList;
+		using SubmitBatchType = VulkanSubmitBatch;
 
 	private:
 		auto initializeInternal(const RendererDescriptor& descriptor) -> void;
@@ -254,7 +262,7 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]] auto submitCommandListInternal(
 			QueueType queueType,
 			const std::initializer_list<CommandListType>& commandLists,
-			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitDependency;
+			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitBatchType;
 
 		auto nextFrameInternal() -> void;
 
@@ -308,8 +316,9 @@ namespace toy::renderer::api::vulkan
 			const ImageDescriptor& descriptor) -> Handle<Image>;
 		[[nodiscard]] auto createImageViewInternal(
 			const ImageViewDescriptor& descriptor) -> Handle<ImageView>;
-		
-		
+
+
+		void submitBatchesInternal(const QueueType queueType, const std::initializer_list<SubmitBatchType>& batches);
 
 		void initializePerRenderThreadData();
 
@@ -340,6 +349,8 @@ namespace toy::renderer::api::vulkan
 
 
 		std::vector<vk::Semaphore> timelineSemaphorePerFrame_{};
+
+		std::map<QueueType, vk::Semaphore> timelineSemaphorePerQueue_{};
 
 		vk::SurfaceKHR surface_;
 		vk::SwapchainKHR swapchain_;
@@ -388,27 +399,6 @@ namespace toy::renderer::api::vulkan
 		static constexpr u32 maxCommandListsPerSubmit_ = 10;
 		static constexpr u32 maxSubmits_ = 100;
 
-		
-		/*struct SubmitQueueSynchronization
-		{
-			vk::Semaphore timeline0{};
-			vk::Semaphore timeline1{};
-			std::atomic<u64> timeline0Value{};
-			std::atomic<u64> timeline2Value{};
-		};*/
-
-		struct Submit
-		{
-			u64 waitGraphicsValue{};
-			u64 waitAsyncComputeValue{};
-			u64 waitTransferValue{};
-			u32 commandBuffersCount{};
-			std::array<vk::CommandBuffer, maxCommandListsPerSubmit_> commandBuffers{};
-		};
-		
-
-		u32 submitCount_{};
-		std::vector<Submit> submitQueue_{ maxSubmits_ };
 
 		PipelineCache graphicsPipelineCache_{};
 		PipelineCache computePipelineCache_{};

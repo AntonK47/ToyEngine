@@ -2,12 +2,36 @@
 #include <CommandList.h>
 #include "Structs.h"
 #include "Vulkan.h"
-
+#include <array>
 
 namespace toy::renderer::api::vulkan
 {
 
 	class VulkanRenderInterface;
+
+
+	struct Submit
+	{
+		u64 waitGraphicsValue{};
+		u64 waitAsyncComputeValue{};
+		u64 waitTransferValue{};
+		u32 commandBuffersCount{};
+		std::array<vk::CommandBuffer, 10> commandBuffers{};
+	};
+
+	class VulkanSubmitBatch final : public SubmitBatch<VulkanSubmitBatch>
+	{
+	public:
+		friend class SubmitBatch<VulkanSubmitBatch>;
+		friend class RenderInterface<VulkanRenderInterface>;
+		friend class VulkanRenderInterface;
+		explicit VulkanSubmitBatch(const Submit submit, const QueueType type) : SubmitBatch(type), batch_(submit){}
+
+	private:
+		[[nodiscard]] auto barrierInternal() -> SubmitDependency;
+
+		Submit batch_;
+	};
 
 	class VulkanCommandList final : public CommandList<VulkanCommandList, VulkanRenderInterface>
 	{

@@ -7,55 +7,43 @@
 
 #include "MeshletBuilder.h"
 
+enum class Result
+{
+	success,
+	error
+};
+
+template< typename T>
+struct ResultValue
+{
+	explicit ResultValue(const T resultValue) : value(resultValue), result(Result::success)
+	{}
+
+	explicit ResultValue(const Result resultCode = Result::error) : result(resultCode)
+	{}
+
+	Result result;
+	T value;
+};
 
 
-
-inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
+inline ResultValue<toy::core::scene::RuntimeMesh> process(const aiMesh& aiMesh)
 {
 	assert(aiMesh.mVertices);
-	assert(aiMesh.mNormals);
-	assert(aiMesh.mTangents);
-	assert(aiMesh.mBitangents);
-	assert(aiMesh.mTextureCoords);
-	/*
-	assert(aiMesh.mAABB.mMin != aiMesh.mAABB.mMax);
-	//optimize
-	const auto faceCount = aiMesh.mNumFaces;
-	const auto indexCount = faceCount * 3;
-	auto unindexedVertices = std::vector<toy::core::scene::Position>{};
-	auto unindexedNormals = std::vector<toy::core::scene::Normal>{};
+	//assert(aiMesh.mNormals);
+	//assert(aiMesh.mTangents);
+	//assert(aiMesh.mBitangents);
+	//assert(aiMesh.mTextureCoords);
 
+	bool hasNormals = aiMesh.mNormals;
+	bool hasTangents = aiMesh.mTangents;
+	bool hasBitangents = aiMesh.mBitangents;
+	bool hasTextureCoords = aiMesh.mTextureCoords;
 
-	unindexedVertices.resize(indexCount, toy::core::scene::Position{});
-	unindexedNormals.resize(indexCount, toy::core::scene::Normal{});
-	auto vertexOffset = uint32_t{};
-
-	const auto aabb = aiMesh.mAABB;
-	const auto aabbCenter = (aabb.mMin + aabb.mMax) * 0.5f;
-	const auto invL = 0.5f / ((aabb.mMax.Length() > aabb.mMin.Length() ? aabb.mMax : aabb.mMin)-aabbCenter).Length();
-	for (unsigned i = 0; i < aiMesh.mNumFaces; i++)
+	if(!hasNormals || !hasTangents || !hasBitangents || !hasTextureCoords)
 	{
-		for (unsigned j = 0; j < aiMesh.mFaces[i].mNumIndices; j++)
-		{
-			const auto aiVertex = aiMesh.mVertices[aiMesh.mFaces[i].mIndices[j]]-aabbCenter;
-
-			const auto aiNormal = aiMesh.mNormals[aiMesh.mFaces[i].mIndices[j]];
-
-			const auto v = toy::core::scene::Position
-			{
-				.x = aiVertex.x * invL,
-				.y = aiVertex.y * invL,
-				.z = aiVertex.z * invL
-			};
-
-			const auto n = toy::core::scene::Normal{ aiNormal.x, aiNormal.y , aiNormal.z};
-
-			unindexedVertices[vertexOffset] = v;
-			unindexedNormals[vertexOffset] = n;
-			vertexOffset++;
-		}
+		return ResultValue< toy::core::scene::RuntimeMesh>{};
 	}
-	*/
 
 	const auto faceCount = aiMesh.mNumFaces;
 	const auto indexCount = faceCount * 3;
@@ -73,6 +61,10 @@ inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 	{
 		for (unsigned j = 0; j < aiMesh.mFaces[i].mNumIndices; j++)
 		{
+			if(aiMesh.mFaces[i].mNumIndices != 3)
+			{
+				return ResultValue< toy::core::scene::RuntimeMesh>{};
+			}
 			const auto uvChannel = uint32_t{ 0 };
 			const auto aiPosition = aiMesh.mVertices[aiMesh.mFaces[i].mIndices[j]];
 			const auto aiNormal = aiMesh.mNormals[aiMesh.mFaces[i].mIndices[j]];
@@ -172,5 +164,5 @@ inline toy::core::scene::RuntimeMesh process(const aiMesh& aiMesh)
 	toy::core::scene::RuntimeMesh runtimeMesh;
 	b.process(mesh, runtimeMesh);
 
-	return runtimeMesh;
+	return ResultValue{ runtimeMesh };
 }

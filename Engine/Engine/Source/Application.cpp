@@ -18,6 +18,12 @@
 
 #include <VulkanRenderInterface.h>
 #include "SceneLoader.h"
+#include <glm/ext/matrix_transform.hpp>
+//#include <ozz/base/io/archive.h>
+//#include <ozz/animation/offline/fbx/fbx_skeleton.h>
+//#include <ozz/animation/offline/fbx/fbx.h>
+
+
 
 using namespace toy::renderer;
 using namespace toy::window;
@@ -50,7 +56,27 @@ namespace
 
 int Application::run()
 {
-    //logger::initialize();
+    /*using namespace ozz::animation::offline::fbx;
+    using namespace ozz::animation::offline;
+    auto instanceManager = FbxManagerInstance{};
+    auto fbxIoSettings = FbxDefaultIOSettings{ instanceManager };
+
+    const auto file = std::string{ "C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx" };
+    const auto pwd = std::string{ "" };
+
+    auto sceneLoader = ozz::animation::offline::fbx::FbxSceneLoader
+	{
+		file.c_str(),
+		pwd.c_str(),
+		instanceManager,
+		fbxIoSettings
+	};
+
+    RawSkeleton* skeleton;
+    OzzImporter::NodeType type;
+    ozz::animation::offline::fbx::ExtractSkeleton(sceneLoader, type, skeleton);*/
+
+    logger::initialize();
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
     auto graphicsDebugger = debugger::RenderDocCapture{};
@@ -133,7 +159,7 @@ int Application::run()
     //================================================================================
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
-            .size = 10*1024*10,
+            .size = 1024*1024*100,
             .accessUsage = BufferAccessUsage::uniform,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
@@ -312,7 +338,7 @@ int Application::run()
         .position = glm::vec3{0.0f,0.0f,1.0f},
         .forward = glm::vec3{0.0f,0.0f,-1.0f},
         .up = glm::vec3{0.0f,1.0f,0.0f},
-        .movementSpeed = 0.01f,
+        .movementSpeed = 0.001f,
         .sensitivity = 0.2f
     };
     auto moveCameraFaster = false;
@@ -344,6 +370,23 @@ int Application::run()
 
     //TODO: [#3] command submit should work also without calling nextFrame in a frame async scenario
     u32 objectToRender = scene.drawInstances_.size();
+
+    const auto gridSize = u32{ 1 };
+    auto myTestObjects = std::vector<glm::vec3>{};
+    myTestObjects.reserve(gridSize* gridSize* gridSize);
+    const auto scale = 200.0f;
+    for(auto i = u32{}; i < gridSize; i++)
+    {
+	    for(auto j = u32{}; j < gridSize; j++)
+	    {
+		    for(auto k = u32{}; k < gridSize; k++)
+		    {
+                myTestObjects.push_back(glm::vec3{ i * scale, j * scale, k * scale });
+		    }
+	    }
+    }
+
+
     auto time = 0.0f;
     auto frameNumber = u32{};
     bool stillRunning = true;
@@ -355,9 +398,9 @@ int Application::run()
         auto t1 = renderer.acquireCommandList(QueueType::transfer);
         auto t2 = renderer.acquireCommandList(QueueType::transfer);
 
-        const auto d1 = renderer.submitCommandList(QueueType::transfer,{ t1 }, {});
+        auto d1 = renderer.submitCommandList(QueueType::transfer,{ t1 }, {});
 
-        const auto d2 = renderer.submitCommandList(QueueType::transfer, { t2 }, {d1});
+        auto d2 = renderer.submitCommandList(QueueType::transfer, { t2 }, {d1.barrier()});
         
 
     }
@@ -582,39 +625,49 @@ int Application::run()
                 commandList.bindGroup(0, meshDataBindGroup);
                 commandList.bindGroup(1, bindGroup);
 
-                for (auto i = u32{}; i < std::clamp(objectToRender, u32{}, static_cast<u32>(scene.drawInstances_.size())); i++)
+                for(auto i = u32{}; i < myTestObjects.size(); i++)
                 {
-                    const auto& drawInstance = scene.drawInstances_[i];
-
-                    Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
-
-                    const auto mesh = scene.meshes_[drawInstance.meshIndex];
-                    
-                    const auto instanceData = InstanceData
+                    for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(scene.drawInstances_.size())); j++)
                     {
-                        .model = drawInstance.model,
-                        .clusterOffset = mesh.clusterOffset,
-                        .triangleOffset = mesh.triangleOffset,
-                        .positionStreamOffset = mesh.positionStreamOffset
-                    };
+                        const auto& drawInstance = scene.drawInstances_[j];
 
-                    
+                        Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
 
-                    const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-                    const auto cbv = BufferView{ frameData.nativeHandle, { offset }, sizeof(instanceData) };
+                        const auto mesh = scene.meshes_[drawInstance.meshIndex];
 
-                    auto ii = (void*)frameDataBeginPtr;
-                    auto si = std::size_t{ 1024 * 10*10 };
-                    frameDataBeginPtr = (u8*)std::align(64, sizeof(instanceData), ii, si);
 
-                    std::memcpy(frameDataBeginPtr, &instanceData, sizeof(instanceData));
-                    frameDataBeginPtr += sizeof(instanceData) + 64- sizeof(instanceData)%64;
-                    
 
-                    renderer.updateBindGroup(perInstanceGroup, { BindingDataMapping{ 0, CBV{ cbv } } });
+                        const auto instanceData = InstanceData
+                        {
+                            .model = glm::translate(drawInstance.model, myTestObjects[i]),
+                            .clusterOffset = mesh.clusterOffset,
+                            .triangleOffset = mesh.triangleOffset,
+                            .positionStreamOffset = mesh.positionStreamOffset
+                        };
 
-                    commandList.bindGroup(2, perInstanceGroup);
-                    commandList.draw(mesh.vertexCount, 1, 0, 0);
+                        const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+                        const auto cbv = BufferView{ frameData.nativeHandle, { offset }, sizeof(instanceData) };
+
+                        auto ii = (void*)frameDataBeginPtr;
+                        auto si = std::size_t{ 1024 * 10 * 10 };
+                        frameDataBeginPtr = (u8*)std::align(64, sizeof(instanceData), ii, si);
+
+                        std::memcpy(frameDataBeginPtr, &instanceData, sizeof(instanceData));
+                        frameDataBeginPtr += sizeof(instanceData) + 64 - sizeof(instanceData) % 64;
+
+
+                        renderer.updateBindGroup(perInstanceGroup, 
+                            {
+                            	BindingDataMapping
+                            	{
+                            		.binding = 0,
+                            		.view = CBV{ cbv}
+                            	}
+                            });
+
+                        commandList.bindGroup(2, perInstanceGroup);
+                        commandList.draw(mesh.vertexCount, 1, 0, 0);
+                    }
                 }
             }
 
@@ -630,7 +683,14 @@ int Application::run()
             });
 
             commandList.end();
+
+            
             renderer.submitCommandList(commandList);
+
+            //TODO: need somehow pass frame begin and end token as semaphore for present
+            /*auto batch = renderer.submitCommandList(QueueType::graphics, { commandList }, {});
+            renderer.submitBatches(QueueType::graphics, { batch });*/
+
             renderer.present();
 
             time += 0.01f;
@@ -646,7 +706,7 @@ int Application::run()
     graphicsDebugger.deinitialize();
     renderer.deinitialize();
     window.deinitialize();
-    //logger::deinitialize();
+    logger::deinitialize();
    
 
     return EXIT_SUCCESS;

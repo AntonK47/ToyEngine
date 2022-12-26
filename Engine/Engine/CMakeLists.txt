@@ -21,6 +21,8 @@ target_include_directories(${MODULE_NAME}
 
 find_package(glm CONFIG REQUIRED)
 find_package(MPMCQueue CONFIG REQUIRED)
+
+
 target_link_libraries(${MODULE_NAME}
 	PRIVATE
 		Core
@@ -31,6 +33,9 @@ target_link_libraries(${MODULE_NAME}
 		GraphicsDebugger
 		MPMCQueue::MPMCQueue
 		MeshBuilder
+		#ozz_animation
+		#ozz_animation_fbx
+		#ozz_animation_offline
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

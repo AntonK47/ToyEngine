@@ -85,4 +85,6 @@ namespace toy::renderer::api::vulkan
 
 		inline static RenderThread* instance{ nullptr };
 	};
+
+	template<class... Ts> struct Overloaded : Ts... { using Ts::operator()...; };
 }

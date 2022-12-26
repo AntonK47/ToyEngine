@@ -17,14 +17,21 @@ void processNode(const aiNode& node,
 		}
 
 	}
-
+	
 	const auto localTransform = parentAbsoluteTransform*node.mTransformation;
 	for (auto i = uint32_t{}; i < node.mNumMeshes; i++)
 	{
 		const auto pMesh = scene.mMeshes[node.mMeshes[i]];
+		auto result = process(*pMesh);
+
+		if(result.result == Result::error)
+		{
+			continue;
+		}
+
 		const auto sceneObject = toy::core::scene::SceneObject
 		{
-			.mesh = process(*pMesh),
+			.mesh = result.value,
 			.transform = {
 				localTransform.a1,
 				localTransform.a2,
@@ -155,7 +162,7 @@ ProcessResult process(const std::string& input,
 
 int MeshBuilderApplication::run(int argc, char* argv[])
 {
-	namespace po = boost::program_options;
+	/*namespace po = boost::program_options;
 
 
 
@@ -214,6 +221,6 @@ int MeshBuilderApplication::run(int argc, char* argv[])
 	}
 
 	std::cout << "Usage: meshBuilder [option]... [src file] [dst file]" << std::endl;
-	std::cout << desc << std::endl;
+	std::cout << desc << std::endl;*/
 	return EXIT_SUCCESS;
 }

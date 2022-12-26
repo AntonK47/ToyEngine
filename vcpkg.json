@@ -13,16 +13,12 @@
     "glslang",
     "vulkan-memory-allocator",
     "meshoptimizer",
-    "boost-program-options",
     "assimp",
     "mpmcqueue",
     {
       "name": "folly",
-      "default-features": false,
-      "features": [
-        "zstd",
-        "libsodium"
-      ]
-    }
+      "default-features": false
+    },
+    "g3log"
   ]
 }

@@ -27,7 +27,6 @@ target_include_directories(${APPLICATION_NAME}
 
 find_package(meshoptimizer CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-find_package(Boost REQUIRED COMPONENTS program_options)
 
 target_link_libraries(${APPLICATION_NAME}
 	PRIVATE
@@ -35,5 +34,4 @@ target_link_libraries(${APPLICATION_NAME}
 		Engine
 		meshoptimizer::meshoptimizer
 		assimp::assimp
-		Boost::program_options
 )

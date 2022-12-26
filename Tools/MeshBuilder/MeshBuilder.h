@@ -2,7 +2,6 @@
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
-#include <boost/program_options.hpp>
 #include "Scene.h"
 
 constexpr float defaultFormat = 0.1f;
@@ -18,6 +17,8 @@ enum class ProcessResult
 	success,
 	error
 };
+
+
 
 void processNode(const aiNode& node, const aiMatrix4x4& parentAbsoluteTransform, const aiScene& scene, std::vector<toy::core::scene::SceneObject>& scenePacked);
 

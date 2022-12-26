@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.23)
 project(ToyEngine)
 
+set(CMAKE_CXX_STANDARD 20)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#set(CMAKE_BUILD_TYPE Release) #Debug, Release, RelWithDebInfo and MinSizeRel
+
 
 option(BUILD_TOY_ENGINE_MODULE_TESTS "Build module tests." on)
 option(TOY_ENGINE_ENABLE_VULKAN_VALIDATION "Enable Vulkan validation layer." on)
@@ -32,18 +36,11 @@ endforeach()
  find_package(Vulkan REQUIRED)
  find_package(GTest CONFIG REQUIRED)
  find_package(cityhash CONFIG REQUIRED)
+ find_package(g3log CONFIG REQUIRED)
  
- include(FetchContent)
-FetchContent_Declare(
-  g3log
-  GIT_REPOSITORY https://github.com/KjellKod/g3log.git
-)
-set(G3_SHARED_RUNTIME OFF)
-set(G3_SHARED_LIB OFF)
-FetchContent_MakeAvailable(g3log)
+ 
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 add_subdirectory(Engine)
 add_subdirectory(Application)
 add_subdirectory(Tools)

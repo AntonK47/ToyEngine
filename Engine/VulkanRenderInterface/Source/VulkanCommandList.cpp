@@ -60,6 +60,31 @@ namespace
 	}
 }
 
+auto VulkanSubmitBatch::barrierInternal() -> SubmitDependency
+{
+	auto value = u64{};
+	switch(queueType_)
+	{
+	case QueueType::graphics: 
+		value = batch_.waitGraphicsValue;
+		break;
+	case QueueType::asyncCompute:
+		value = batch_.waitAsyncComputeValue;
+		break;
+	case QueueType::transfer:
+		value = batch_.waitTransferValue;
+		break;
+	default: ;
+	}
+
+	return SubmitDependency
+	{
+		queueType_,
+		value + 1
+	};
+}
+
+
 void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescriptor>& descriptors)
 {
 	auto imageBarriers = std::vector<vk::ImageMemoryBarrier2>{};

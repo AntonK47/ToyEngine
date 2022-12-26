@@ -19,8 +19,35 @@ namespace toy::renderer
 		core::u64 value{}; //R&D: this should be opaque, because of different graphics API's
 	};
 
+	template <typename SubmitBatchImplementation>
+	class SubmitBatch
+	{
+	public:
+		[[nodiscard]] auto barrier() -> SubmitDependency
+		{
+			return implementation().barrierInternal();
+		}
+
+	protected:
+		explicit SubmitBatch(const QueueType type)
+			: queueType_(type)
+		{}
+
+		auto implementation() -> SubmitBatchImplementation&
+		{
+			return static_cast<SubmitBatchImplementation&>(*this);
+		}
+		QueueType queueType_;
+	};
+
 	template<typename T>
 	struct CommandListType
+	{
+		using type = typename T;
+	};
+
+	template<typename T>
+	struct SubmitBatchType
 	{
 		using type = typename T;
 	};
@@ -30,8 +57,9 @@ namespace toy::renderer
 	{
 
 		using CommandListType = typename CommandListType<RenderInterfaceImplementation>::type;
+		using SubmitBatchType = typename SubmitBatchType<RenderInterfaceImplementation>::type;
 	private:
-		RenderInterfaceImplementation& implementation()
+		auto implementation() -> RenderInterfaceImplementation&
 		{
 			return static_cast<RenderInterfaceImplementation&>(*this);
 		}
@@ -76,9 +104,14 @@ namespace toy::renderer
 		[[nodiscard]] auto submitCommandList(
 			QueueType queueType,
 			const std::initializer_list<CommandListType>& commandLists,
-			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitDependency
+			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitBatchType
 		{
 			return implementation().submitCommandListInternal(queueType, commandLists, dependencies);
+		}
+
+		void submitBatches(const QueueType queueType, const std::initializer_list<SubmitBatchType>& batches)
+		{
+			implementation().submitBatchesInternal(queueType, batches);
 		}
 		
 		void nextFrame()
