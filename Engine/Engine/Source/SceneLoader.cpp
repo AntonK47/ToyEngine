@@ -52,7 +52,10 @@ Scene Scene::loadSceneFromFile(::RenderInterface& renderer,
     //"C:\\Users\\AntonKi8\\Downloads\\gltf\\hotgirl1\\scene.gltf"
     //"C:\\Users\\AntonKi8\\Downloads\\gltf\\gtr\\scene.gltf"
     //"C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
-    const auto sceneAssimp = importer.ReadFile("C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
+    //"C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
+    //const auto p = "C:\\Users\\AntonKi8\\Downloads\\postwar_city.glb";
+    const auto p = "C:\\Users\\AntonKi8\\Downloads\\crystal_palace.glb";
+    const auto sceneAssimp = importer.ReadFile(p
         , aiProcess_GenBoundingBoxes | aiProcess_Triangulate | aiProcess_GenSmoothNormals /*,
                                          aiProcess_GenSmoothNormals |
                                           |

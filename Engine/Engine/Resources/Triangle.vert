@@ -80,6 +80,7 @@ layout(set = 2, binding = 0) uniform perObject
 layout(location = 0) out uint clusterId;
 layout(location = 1) out vec3 normal;
 layout(location = 2) out vec2 uv;
+layout(location = 3) out vec3 positionWorldSpace;
 
 
 void main()
@@ -104,6 +105,7 @@ void main()
                         0.0, s, 0.0,0.0,
                         0.0,0.0, s, 0.0,
                         0.0,0.0,0.0,1.0);
-
-	gl_Position =  view.viewProjection * scale * instance.model * position;
+    vec4 positionWS = scale * instance.model * position;
+	gl_Position =  view.viewProjection * positionWS;
+    positionWorldSpace  = positionWS.xyz/position.w;
 }

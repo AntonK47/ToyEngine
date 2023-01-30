@@ -167,7 +167,7 @@ namespace
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
             VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-            VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME
+            VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME,
 #endif
         };
 
@@ -217,6 +217,10 @@ namespace
                 .synchronization2 = vk::Bool32{ true},
                 .dynamicRendering = vk::Bool32{ true},
                 .maintenance4 = vk::Bool32{true}
+            },
+            vk::PhysicalDeviceDescriptorBufferFeaturesEXT
+            {
+                .descriptorBuffer = vk::Bool32{true}
             },
 #ifdef TOY_ENGINE_ENABLE_RAY_TRACING
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR

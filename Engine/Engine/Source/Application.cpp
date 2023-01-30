@@ -427,6 +427,7 @@ int Application::run()
             }
         }
 
+
         if(io.keyboardState.one == toy::io::ButtonState::pressed)
         {
             if(captureTool.isRenderDocInjected())
@@ -434,16 +435,17 @@ int Application::run()
                 captureTool.captureNextMarkedScope();
                 LOG(INFO) << "capturing frame " << frameNumber << "...";
             }
-        }
+        } 
 
-        if (io.keyboardState.a == toy::io::ButtonState::pressed)
+#pragma region Job Push
+        /*if (io.keyboardState.a == toy::io::ButtonState::pressed)
         {
             {
 	            auto job = Job{&heavyWork};
 				queue.push(job);
             }
-        }
-
+        }*/
+#pragma endregion
 #pragma region Camera Control
         if (io.keyboardState.e == toy::io::ButtonState::pressed)
         {
