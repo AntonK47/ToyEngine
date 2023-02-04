@@ -1,10 +1,12 @@
 set(MODULE_NAME Engine)
 set(MODULE_SOURCES 
 	Source/Application.cpp
- "Source/SceneLoader.cpp")
+	Source/SceneLoader.cpp
+	Source/DDSLoader.cpp)
 set(MODULE_HEADERS 
 	Source/Application.h
- "Source/SceneLoader.h")
+	Source/SceneLoader.h
+	Source/DDSLoader.h)
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -39,4 +41,9 @@ target_link_libraries(${MODULE_NAME}
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+endif()
+
+if(BUILD_TOY_ENGINE_MODULE_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tests" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tests/CMakeLists.txt")
+    message(STATUS "Build tests for module ${MODULE_NAME}")
+    add_subdirectory(Tests)   
 endif()
