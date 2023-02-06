@@ -2,7 +2,7 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 
-#include "CommonTypes.h"
+#include <CommonTypes.h>
 
 namespace toy::renderer::compiler
 {

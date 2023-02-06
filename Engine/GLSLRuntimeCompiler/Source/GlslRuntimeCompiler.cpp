@@ -189,10 +189,30 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	//TODO: this options should be pass from the user land
 	auto options = glslang_spv_options_t
 	{
-		true, true, true, false, false, true
+		.generate_debug_info = true,
+		.strip_debug_info = false,
+		.disable_optimizer = true,
+		.optimize_size = false,
+		.disassemble = true,
+		.validate = true,
+		.emit_nonsemantic_shader_debug_info = false,
+		.emit_nonsemantic_shader_debug_source = false
+	};
+
+	//BUG: createModule function results an validation error
+	auto optionsOptimized = glslang_spv_options_t
+	{
+		.generate_debug_info = false,
+		.strip_debug_info = false,
+		.disable_optimizer = false,
+		.optimize_size = false,
+		.disassemble = true,
+		.validate = true,
+		.emit_nonsemantic_shader_debug_info = true,
+		.emit_nonsemantic_shader_debug_source = true
 	};
 	glslang_program_SPIRV_generate_with_options(program, stage, &options);
-
+	
 	byteCode.resize(glslang_program_SPIRV_get_size(program));
 	glslang_program_SPIRV_get(program, byteCode.data());
 

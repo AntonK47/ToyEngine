@@ -7,7 +7,7 @@ void Window::pollEvents()
     pollEventsInternal();
 }
 
-folly::small_vector<Event> Window::getEvents()
+std::vector<Event> Window::getEvents()
 {
     return getEventsInternal();
 }

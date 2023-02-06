@@ -1,7 +1,7 @@
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <gtest/gtest.h>
-#include "CommonTypes.h"
+#include <CommonTypes.h>
 
 using namespace toy::core;
 using namespace toy::renderer::compiler;

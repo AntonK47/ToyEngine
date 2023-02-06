@@ -6,11 +6,16 @@
 #include <memory>
 #include <memory_resource>
 #include <Hash.h>
-#include <folly/AtomicHashMap.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+//#include <folly/AtomicHashMap.h>
+#include <unordered_map>
 
 
 #include "VulkanBindGroupAllocator.h"
-#include "rigtorp/MPMCQueue.h"
+#include <rigtorp/MPMCQueue.h>
 #include "VulkanCommandList.h"
 
 class Application;
@@ -158,19 +163,19 @@ namespace toy::renderer::api::vulkan
 			pool_.clear();
 		}
 
-		typename folly::AtomicHashMap<u32, Value>::iterator begin()
+		auto begin()
 		{
 			return pool_.begin();
 		}
 
-		typename folly::AtomicHashMap<u32, Value>::iterator end()
+		auto end()
 		{
 			return pool_.end();
 		}
 
 	private:
 		u32 uniqueValue_{};
-		folly::AtomicHashMap<u32, Value> pool_{2000};
+		std::unordered_map<u32, Value> pool_{2000}; //TODO: make atomic hash map
 	};
 
 	struct VulkanShaderModule final : ShaderModule
@@ -284,7 +289,7 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]] auto allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
-			const UsageScope& scope) -> folly::small_vector<Handle<BindGroup>>;
+			const UsageScope& scope) -> std::vector<Handle<BindGroup>>; //TODO: smallvector
 
 		[[nodiscard]] auto createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,

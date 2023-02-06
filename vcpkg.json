@@ -15,10 +15,6 @@
     "meshoptimizer",
     "assimp",
     "mpmcqueue",
-    {
-      "name": "folly",
-      "default-features": false
-    },
     "g3log"
   ]
 }

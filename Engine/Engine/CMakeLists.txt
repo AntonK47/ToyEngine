@@ -1,4 +1,6 @@
 set(MODULE_NAME Engine)
+
+
 set(MODULE_SOURCES 
 	Source/Application.cpp
 	Source/SceneLoader.cpp
@@ -6,7 +8,8 @@ set(MODULE_SOURCES
 set(MODULE_HEADERS 
 	Source/Application.h
 	Source/SceneLoader.h
-	Source/DDSLoader.h)
+	Source/DDSLoader.h
+	Source/TexturePageExtractor.h)
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -20,11 +23,6 @@ target_include_directories(${MODULE_NAME}
 		Source/
 )
 
-
-find_package(glm CONFIG REQUIRED)
-find_package(MPMCQueue CONFIG REQUIRED)
-
-
 target_link_libraries(${MODULE_NAME}
 	PRIVATE
 		Core
@@ -35,9 +33,6 @@ target_link_libraries(${MODULE_NAME}
 		GraphicsDebugger
 		MPMCQueue::MPMCQueue
 		MeshBuilder
-		#ozz_animation
-		#ozz_animation_fbx
-		#ozz_animation_offline
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

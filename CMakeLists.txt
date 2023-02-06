@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(ToyEngine)
 
-set(CMAKE_CXX_STANDARD 20)
+#set(CMAKE_CXX_STANDARD 20)
 #set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_BUILD_TYPE Release) #Debug, Release, RelWithDebInfo and MinSizeRel
 
@@ -33,12 +33,15 @@ foreach(TOY_DEFINE_ENTRY ${TOY_ADDITIONAL_DEFINES})
     endif()
 endforeach()
 
- find_package(Vulkan REQUIRED)
- find_package(GTest CONFIG REQUIRED)
- find_package(cityhash CONFIG REQUIRED)
- find_package(g3log CONFIG REQUIRED)
- 
- 
+find_package(Vulkan REQUIRED)
+find_package(GTest CONFIG REQUIRED)
+find_package(cityhash CONFIG REQUIRED)
+find_package(g3log CONFIG REQUIRED)
+find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(MPMCQueue CONFIG REQUIRED)
+find_package(glslang CONFIG REQUIRED)
+find_package(SDL2 CONFIG REQUIRED)
 
 
 add_subdirectory(Engine)

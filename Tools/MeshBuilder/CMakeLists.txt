@@ -9,12 +9,6 @@ set(MODULE_SOURCES
 
 set(RESOURCE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Resources")
 
-
-
-#add_executable(${APPLICATION_NAME}
-#		${MODULE_SOURCES}
-#)
-
 add_library(${APPLICATION_NAME} 
 	STATIC
 		${MODULE_SOURCES}
@@ -35,3 +29,5 @@ target_link_libraries(${APPLICATION_NAME}
 		meshoptimizer::meshoptimizer
 		assimp::assimp
 )
+
+set_property(TARGET ${APPLICATION_NAME} PROPERTY CXX_STANDARD 20)

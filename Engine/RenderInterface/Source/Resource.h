@@ -35,4 +35,9 @@ namespace toy::renderer
 		core::DebugLabel debugLabel;
 #endif
 	};
+
+	struct VirtualTexture
+	{
+		Handle<VirtualTexture> nativeHandle;
+	};
 }

@@ -7,7 +7,7 @@
 
 #include "Resource.h"
 #include "RenderInterfaceValidator.h"
-#include <CommandList.h>
+#include "CommandList.h"
 
 namespace toy::renderer
 {
@@ -155,6 +155,11 @@ namespace toy::renderer
 			return implementation().createImageInternal(descriptor);
 		}
 
+		[[nodiscard]] auto createVirtualTexture(const VirtualTextureDescriptor& descriptor) -> Handle<VirtualTexture>
+		{
+			return implementation().createVirtualTextureInternal(descriptor);
+		}
+
 		[[nodiscard]] auto createImageView(
 			const ImageViewDescriptor& descriptor) -> Handle<ImageView>
 		{
@@ -187,7 +192,7 @@ namespace toy::renderer
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
 			const UsageScope& scope = UsageScope::inFrame) ->
-		folly::small_vector<Handle<BindGroup>>
+		std::vector<Handle<BindGroup>>//TODO: smallvector
 		{
 			return implementation().allocateBindGroupInternal(bindGroupLayout, bindGroupCount, scope);
 		}

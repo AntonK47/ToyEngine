@@ -1,11 +1,13 @@
 #define GLM_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
+
 #include "Application.h"
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
 #include <RenderDocCapture.h>
 #include <Scene.h>
+
 #include <SDLWindow.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_common.hpp>
@@ -345,8 +347,10 @@ int Application::run()
     auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
     auto mouseButtonPressed = false;
     //==============================
-
-    const auto scene = Scene::loadSceneFromFile(renderer, "");
+    const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
+    const auto p2 = "E:\\Develop\\ToyEngineContent\\crystal_palace.glb";
+    
+    const auto scene = Scene::loadSceneFromFile(renderer, p2);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, {

@@ -83,17 +83,9 @@ TEST(DDSLoaderTest, lastMipLevelValue)
 
 }
 
-//TEST(DDSLoaderTest, lodSizesInBytesCompressed)
-//{
-//    auto dataSource = FilestreamTextureDataSourceDescriptor{ "Resources/test_image_bc7.DDS" };
-//
-//    auto info = dataSource.getTextureInfo();
-//
-//    const auto testValues = std::array{ 65536 * 4, 16384 * 4, 4096 * 4, 1024 * 4, 256 * 4, 64 * 4, 16 * 4, 4 * 4, 4 };
-//
-//    for (auto i = 0; i < info.mipCount; i++)
-//    {
-//        const auto bytes = lodSizeInBytes(info, i);
-//        EXPECT_EQ(bytes, testValues[i]);
-//    }
-//}
+TEST(DDSLoaderTest, readTextureInfoCompressed)
+{
+    auto dataSource = FilestreamTextureDataSourceDescriptor{ "Resources/test_image_bc7.DDS" };
+
+    auto info = dataSource.getTextureInfo();
+}

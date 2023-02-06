@@ -215,7 +215,7 @@ namespace toy::io::loaders::dds
 	TextureInfo readTextureInfo(std::fstream& file)
 	{
 		const DWORD magicValue = 0x20534444;
-		const DWORD dx10 = (DWORD)std::array<char, 4>{ 'D','X','1','0' }.data();
+		const DWORD dx10 = 808540228;
 
 		auto magic = DWORD{};
 		auto header = DDS_HEADER{};

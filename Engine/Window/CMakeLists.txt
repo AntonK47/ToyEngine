@@ -6,7 +6,7 @@ set(MODULE_HEADERS
 )
 set(MODULE_SOURCES
 	Source/IOStateReset.cpp 
-	"Source/Window.cpp")
+	Source/Window.cpp)
 
 add_library(${MODULE_NAME} 
 	STATIC
@@ -18,7 +18,6 @@ target_include_directories(${MODULE_NAME}
 	PUBLIC
 		Source/
 )
-
 target_link_libraries(${MODULE_NAME}
 	PRIVATE
 		Core

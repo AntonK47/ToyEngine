@@ -1,15 +1,15 @@
 #include "RenderDocCapture.h"
-#include "Vulkan.h"
+#include <Vulkan.h>
 
 #include <array>
 #include <mutex>
 
-#include "renderdoc_app.h"
+#include <renderdoc_app.h>
 #include <cstdlib>
 #include <Logger.h>
 #include <filesystem>
 
-#include "ValidationCommon.h"
+#include <ValidationCommon.h>
 
 namespace 
 {
@@ -65,8 +65,8 @@ void RenderDocCapture::initialize(const RenderDocCaptureDescriptor& descriptor)
     auto allNeededFilesExists = std::filesystem::exists(path);
 
 #ifdef WIN32
-    const auto executable = std::filesystem::path{ path }.append("qrenderdoc.exe");
-    const auto dynamicLibrary = std::filesystem::path{ path }.append("renderdoc.dll");
+    const auto& executable = std::filesystem::path{ path }.append("qrenderdoc.exe");
+    const auto& dynamicLibrary = std::filesystem::path{ path }.append("renderdoc.dll");
 #endif
 
     allNeededFilesExists |= std::filesystem::exists(executable);

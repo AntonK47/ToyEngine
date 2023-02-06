@@ -2,11 +2,14 @@ set(MODULE_NAME Core)
 
 set(MODULE_SOURCES 
 	Source/Hash.cpp
- "Source/Logger.cpp" "Source/Scene.cpp")
+	Source/Logger.cpp
+	Source/Scene.cpp)
 set(MODULE_HEADERS 
 	Source/CommonTypes.h
 	Source/Hash.h
- "Source/Common.h" "Source/Logger.h" "Source/Scene.h")
+	Source/Common.h
+	Source/Logger.h
+	Source/Scene.h)
 
 
 add_library(${MODULE_NAME}
@@ -20,11 +23,9 @@ target_include_directories(${MODULE_NAME}
 		Source/ 
 )
 
-find_package(folly CONFIG REQUIRED)
 
 target_link_libraries(${MODULE_NAME}
-	PUBLIC
+	PRIVATE
 		cityhash
 		g3log
-		Folly::folly
 )

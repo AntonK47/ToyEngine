@@ -134,7 +134,7 @@ namespace toy::renderer
 
 	struct RenderingDescriptor
 	{
-		folly::small_vector<RenderTargetDescriptor> colorRenderTargets{};
+		std::vector<RenderTargetDescriptor> colorRenderTargets{};//TODO: smallvector
 		RenderTargetDescriptor depthRenderTarget{};
 		RenderTargetDescriptor stencilRenderTarget{};
 	};

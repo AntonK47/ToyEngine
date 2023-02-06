@@ -11,6 +11,8 @@ foreach(MODULE
 	GLSLRuntimeCompiler
 	GraphicsDebugger
 )
+	
 	message(STATUS "Prepare module ${MODULE}")
 	add_subdirectory(${MODULE} EXCLUDE_FROM_ALL)
+	set_property(TARGET ${MODULE} PROPERTY CXX_STANDARD 20)
 endforeach()

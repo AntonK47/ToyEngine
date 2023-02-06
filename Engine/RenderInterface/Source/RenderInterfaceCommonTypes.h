@@ -6,8 +6,8 @@
 
 #include "BindGroupAllocator.h"
 #include "Resource.h"
-#include "Window.h"
-#include "glm/fwd.hpp"
+#include <Window.h>
+#include <glm/fwd.hpp>
 
 namespace toy::renderer
 {
@@ -269,5 +269,10 @@ namespace toy::renderer
 		Format format{}; //TODO: it will cause lot of vulkan errors, maybe it can be derived
 		ImageViewType type{};
 		ImageViewAspect aspect{ ImageViewAspect::color };
+	};
+
+	struct VirtualTextureDescriptor
+	{
+
 	};
 }

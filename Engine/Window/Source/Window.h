@@ -1,10 +1,10 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 #include "Common.h"
 #include "WindowIO.h"
-#include "folly/small_vector.h"
 
 namespace toy::window
 {
@@ -40,7 +40,7 @@ namespace toy::window
         virtual ~Window() = default;
 
         void pollEvents();
-        [[nodiscard]] folly::small_vector<Event> getEvents();
+        [[nodiscard]] std::vector<Event> getEvents(); //TODO: smallvector
         [[nodiscard]] io::WindowIo getIo();
         void resize(core::u32 width, core::u32 height);
 
@@ -71,7 +71,7 @@ namespace toy::window
         virtual void deinitializeInternal() = 0;
 
         virtual void pollEventsInternal() = 0;
-        virtual [[nodiscard]] folly::small_vector<Event> getEventsInternal() = 0;
+        virtual [[nodiscard]] std::vector<Event> getEventsInternal() = 0;//TODO: smallvector
         virtual [[nodiscard]] io::WindowIo getIoInternal() = 0;
         virtual void resizeInternal(core::u32 width, core::u32 height) = 0;
         virtual void setWindowTitleInternal(const std::string& title) = 0;

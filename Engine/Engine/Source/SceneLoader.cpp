@@ -3,8 +3,8 @@
 #include <fstream>
 
 #include "Scene.h"
-#include "assimp/Importer.hpp"
-#include "assimp/postprocess.h"
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
 #include <MeshBuilder.h>
 
 using namespace toy::core;
@@ -55,7 +55,8 @@ Scene Scene::loadSceneFromFile(::RenderInterface& renderer,
     //"C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
     //const auto p = "C:\\Users\\AntonKi8\\Downloads\\postwar_city.glb";
     const auto p = "C:\\Users\\AntonKi8\\Downloads\\crystal_palace.glb";
-    const auto sceneAssimp = importer.ReadFile(p
+    const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
+    const auto sceneAssimp = importer.ReadFile(path
         , aiProcess_GenBoundingBoxes | aiProcess_Triangulate | aiProcess_GenSmoothNormals /*,
                                          aiProcess_GenSmoothNormals |
                                           |
@@ -64,7 +65,7 @@ Scene Scene::loadSceneFromFile(::RenderInterface& renderer,
                                          aiProcess_SortByPType*/);
                                          importer.ApplyPostProcessing(aiPostProcessSteps::aiProcess_CalcTangentSpace);
     const auto error = importer.GetErrorString();
-    assert(sceneAssimp && error);
+    //assert(sceneAssimp && error);
     //const auto mesh = loadMeshFile("aa.mesh");
 
 

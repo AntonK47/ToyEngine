@@ -1,11 +1,7 @@
 #include "VulkanCommandList.h"
 #include "VulkanMappings.h"
 #include "VulkanRenderInterface.h"
-//#include <folly/small_vector.h>
-//#include "VulkanCommandList.h"
-//
-//#include "VulkanRenderInterface.h"
-//
+
 using namespace toy::renderer;
 using namespace api::vulkan;
 
@@ -155,7 +151,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 				break;
 			}
 			
-			imageBarriers.push_back(barrier);
+			imageBarriers.push_back(barrier);  //TODO: << memory allocation
 		}
 	}
 
@@ -170,7 +166,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 		.pImageMemoryBarriers = imageBarriers.data()
 	};
 
-	commandBuffer_.pipelineBarrier2(dependency);
+	commandBuffer_.pipelineBarrier2(dependency);  //TODO: vulan driver waits???
 
 }
 
@@ -184,7 +180,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	}
 	
 
-	auto colorAttachments = folly::small_vector<vk::RenderingAttachmentInfo>(descriptor.colorRenderTargets.size());
+	auto colorAttachments = std::vector<vk::RenderingAttachmentInfo>(descriptor.colorRenderTargets.size());//TODO: smallvector
 
 	for (u32 i{}; i< descriptor.colorRenderTargets.size(); i++)
 	{

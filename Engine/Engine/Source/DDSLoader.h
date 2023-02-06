@@ -158,8 +158,8 @@ namespace toy::io::loaders::dds
 	{
 		const auto hasCompression = hasCompressedFormat(info.format);
 		const auto bytes = bytesPerTexel(info.format);
-		assert(std::holds_alternative<Texture2DDimensionInfo>(info.dimensionInfo));
-		const auto dimension = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
+		TOY_ASSERT(std::holds_alternative<Texture2DDimensionInfo>(info.dimensionInfo));
+		const auto& dimension = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
 		const auto w = dimension.width >> lodLevel;
 		const auto h = dimension.height >> lodLevel;
 		const auto size = lodSize(w, h, hasCompression);
@@ -230,5 +230,4 @@ namespace toy::io::loaders::dds
 		}
 		dataSource.copyDataTo(offset, dataDestination);
 	}
-
 }

@@ -2,7 +2,7 @@
 
 #include <Window.h>
 #include <SDL2/SDL.h>
-#include <folly/small_vector.h>
+#include <vector>
 struct SDL_Window;
 
 namespace toy::window
@@ -15,7 +15,7 @@ namespace toy::window
         ~SDLWindow() override {}
     private:
         [[nodiscard]] io::WindowIo getIoInternal() override;
-        [[nodiscard]] folly::small_vector<Event> getEventsInternal() override;
+        [[nodiscard]] std::vector<Event> getEventsInternal() override;//TODO: smallvector
         void pollEventsInternal() override;
         void initializeInternal(const WindowDescriptor& descriptor) override;
         void deinitializeInternal() override;
@@ -26,7 +26,7 @@ namespace toy::window
         void setWindowTitleInternal(const std::string& title) override;
     private:
         SDL_Window* window_ = nullptr;
-        folly::small_vector<Event> currentPolledEvents_{};
+        std::vector<Event> currentPolledEvents_{};//TODO: smallvector
         io::WindowIo windowIo_{};
     };
 }

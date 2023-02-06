@@ -1,5 +1,5 @@
-#include "SDLWindow.h"
-#include "SDL_events.h"
+#include <SDLWindow.h>
+#include <SDL_events.h>
 
 using namespace toy::window;
 
