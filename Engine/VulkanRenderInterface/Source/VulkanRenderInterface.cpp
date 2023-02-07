@@ -268,17 +268,31 @@ namespace
 
         return device;
     }
-
     
+    __declspec(no_sanitize_address)
+    vk::CompositeAlphaFlagBitsKHR getSupportedCompositeAlphaFlag(vk::CompositeAlphaFlagsKHR flag)
+    {
+       
+            const auto supportedCompositeAlpha =
+                flag & vk::CompositeAlphaFlagBitsKHR::eOpaque
+            ? vk::CompositeAlphaFlagBitsKHR::eOpaque
+            : flag & vk::CompositeAlphaFlagBitsKHR::ePreMultiplied
+            ? vk::CompositeAlphaFlagBitsKHR::ePreMultiplied
+            : flag & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied
+            ? vk::CompositeAlphaFlagBitsKHR::ePostMultiplied
+            : vk::CompositeAlphaFlagBitsKHR::eInherit;
+            return supportedCompositeAlpha;
+    }
 
     vk::PhysicalDevice selectAdapter(vk::Instance instance, const Features& requestedFeatures)
     {
         
 
         const auto& adapters = instance.enumeratePhysicalDevices().value;
+        TOY_ASSERT(!adapters.empty());
         const auto& adapter = adapters.front();
 
-        const auto& properties = adapter.enumerateDeviceExtensionProperties().value;
+        //const auto& properties = adapter.enumerateDeviceExtensionProperties().value;
 
         return adapter;
     }
@@ -610,42 +624,37 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
         .hwnd = descriptor.handler.hwnd
     };
     surface_ = instance_.createWin32SurfaceKHR(surfaceCreateInfo).value;
-
-    const auto& surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_).value;
-    auto supportedCompositeAlpha =
-        surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eOpaque
-        ? vk::CompositeAlphaFlagBitsKHR::eOpaque
-        : surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::ePreMultiplied
-        ? vk::CompositeAlphaFlagBitsKHR::ePreMultiplied
-        : surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied
-        ? vk::CompositeAlphaFlagBitsKHR::ePostMultiplied
-        : vk::CompositeAlphaFlagBitsKHR::eInherit;
-
     const auto& formats = adapter_.getSurfaceFormatsKHR(surface_).value;
     const auto& supportedFormat = formats.front();
 
-    const auto extent = descriptor.windowExtentGetter();
-
-    const auto swapchainCreateInfo = vk::SwapchainCreateInfoKHR
     {
-        .surface = surface_,
-        .minImageCount = swapchainImagesCount_,
-        .imageFormat = supportedFormat.format,
-        .imageColorSpace = supportedFormat.colorSpace,
-        .imageExtent = vk::Extent2D{ extent.width, extent.height },
-        .imageArrayLayers = 1,
-        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-        .imageSharingMode = vk::SharingMode::eExclusive,
-        .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices = &queues_[QueueType::graphics].familyIndex,
-        .preTransform = surfaceCapabilities.currentTransform,
-        .compositeAlpha = supportedCompositeAlpha,
-        .presentMode = vk::PresentModeKHR::eMailbox,//vk::PresentModeKHR::eFifo,//TODO: this limits to 60fps
-        .clipped = vk::Bool32{true},
-        .oldSwapchain = nullptr
-    };
+        const auto& surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_).value;
+        
+        const auto supportedCompositeAlpha = getSupportedCompositeAlphaFlag(surfaceCapabilities.supportedCompositeAlpha);
 
-    swapchain_ = device_.createSwapchainKHR(swapchainCreateInfo).value;
+        const auto extent = descriptor.windowExtentGetter();
+
+        const auto swapchainCreateInfo = vk::SwapchainCreateInfoKHR
+        {
+            .surface = surface_,
+            .minImageCount = swapchainImagesCount_,
+            .imageFormat = supportedFormat.format,
+            .imageColorSpace = supportedFormat.colorSpace,
+            .imageExtent = vk::Extent2D{ extent.width, extent.height },
+            .imageArrayLayers = 1,
+            .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+            .imageSharingMode = vk::SharingMode::eExclusive,
+            .queueFamilyIndexCount = 1,
+            .pQueueFamilyIndices = &queues_[QueueType::graphics].familyIndex,
+            .preTransform = surfaceCapabilities.currentTransform,
+            .compositeAlpha = supportedCompositeAlpha,
+            .presentMode = vk::PresentModeKHR::eMailbox,//vk::PresentModeKHR::eFifo,//TODO: this limits to 60fps
+            .clipped = vk::Bool32{true},
+            .oldSwapchain = nullptr
+        };
+
+        swapchain_ = device_.createSwapchainKHR(swapchainCreateInfo).value;
+    }
 
     swapchainImageAfterPresentFences_.resize(swapchainImagesCount_);
     auto swapchainImageViews = std::vector<vk::ImageView>{};

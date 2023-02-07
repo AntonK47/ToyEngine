@@ -65,13 +65,13 @@ void RenderDocCapture::initialize(const RenderDocCaptureDescriptor& descriptor)
     auto allNeededFilesExists = std::filesystem::exists(path);
 
 #ifdef WIN32
-    const auto& executable = std::filesystem::path{ path }.append("qrenderdoc.exe");
-    const auto& dynamicLibrary = std::filesystem::path{ path }.append("renderdoc.dll");
-#endif
+    const auto& executable = std::filesystem::path{ path }.append("qrenderdoc.exe").string();
+    const auto& dynamicLibrary = std::filesystem::path{ path }.append("renderdoc.dll").string();
 
+    
     allNeededFilesExists |= std::filesystem::exists(executable);
     allNeededFilesExists |= std::filesystem::exists(dynamicLibrary);
-
+#endif
     if(!allNeededFilesExists)
     {
         LOG(WARNING) << "RenderDoc path seams to be corrupted. Check RENDERDOC_PATH or try to reinstall RenderDoc.";
