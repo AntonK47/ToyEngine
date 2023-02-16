@@ -269,7 +269,7 @@ namespace
         return device;
     }
     
-    __declspec(no_sanitize_address)
+    //TODO: if enable synitizer __declspec(no_sanitize_address)
     vk::CompositeAlphaFlagBitsKHR getSupportedCompositeAlphaFlag(vk::CompositeAlphaFlagsKHR flag)
     {
        
@@ -1331,6 +1331,198 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
     const auto handle = bufferStorage_.add(VulkanBuffer{ buffer, allocation }, descriptor);
 
 	return handle;
+}
+
+auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDescriptor& descriptor, const DebugLabel label) -> Handle<VirtualTexture>
+{
+    const auto imageType = vk::ImageType::e2D;
+    const auto format = vk::Format::eB8G8R8A8Unorm;
+    const auto extent = vk::Extent3D{ 8192, 8192, 1 };
+    const auto mipLeveles = 13;
+    const auto arrayLayers = 1;
+    const auto usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
+    const auto tiling = vk::ImageTiling::eOptimal;
+    const auto samples = vk::SampleCountFlagBits::e1;
+
+    const auto queueFamalies = std::array{ VK_QUEUE_FAMILY_IGNORED };
+
+    const auto createInfo = vk::ImageCreateInfo
+    {
+        .flags = vk::ImageCreateFlagBits::eSparseBinding | vk::ImageCreateFlagBits::eSparseResidency, //DODO: alos sparse aliasing?
+        .imageType = imageType,
+        .format = format,
+        .extent = extent,
+        .mipLevels = mipLeveles,
+        .arrayLayers = arrayLayers,
+        .samples = samples,
+        .tiling = tiling,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive, //TODO: it could be wrong
+        /*.queueFamilyIndexCount = static_cast<u32>(queueFamalies.size()),
+        .pQueueFamilyIndices = queueFamalies.data(),*/
+        .initialLayout = vk::ImageLayout::eUndefined
+    };
+    const auto result = device_.createImage(createInfo);
+
+    const auto image = result.value;
+    assert(image);
+    const auto imageSparseMemoryRequirementsInfo = vk::ImageSparseMemoryRequirementsInfo2
+    {
+        .image = image
+    };
+
+
+    const auto sparseRequirements = device_.getImageSparseMemoryRequirements2(imageSparseMemoryRequirementsInfo);
+
+    const auto formatInfo = vk::PhysicalDeviceSparseImageFormatInfo2
+    {
+        .format = format,
+        .type = imageType,
+        .samples = samples,
+        .usage = usage,
+        .tiling = tiling
+    };
+
+    const auto sparseFormatProperties = adapter_.getSparseImageFormatProperties2(formatInfo);
+
+    const auto imageMemoryRequirementsInfo = vk::ImageMemoryRequirementsInfo2
+    {
+        .image = image
+    };
+    const auto imageMamoryRequirement = device_.getImageMemoryRequirements2(imageMemoryRequirementsInfo).memoryRequirements;
+
+    const auto pageSize = imageMamoryRequirement.alignment;
+    const auto pageCount = std::ceil<u32>((u32)(imageMamoryRequirement.size/(float)pageSize));
+
+    auto pageMemoryRequirements = imageMamoryRequirement;
+    pageMemoryRequirements.size = pageSize;
+    
+
+    const auto allocationCreateInfo = VmaAllocationCreateInfo
+    {
+        .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    };
+
+    auto allocations = std::vector<VmaAllocation>{};
+    allocations.resize(pageCount);
+    
+    auto allocationInfos = std::vector<VmaAllocationInfo>{};
+    allocationInfos.resize(pageCount);
+
+
+    getMemoryRequirenments();
+    const  auto allocationResult = vmaAllocateMemoryPages(allocator_, (VkMemoryRequirements*) & pageMemoryRequirements, &allocationCreateInfo, pageCount, allocations.data(), allocationInfos.data());
+
+    return Handle<VirtualTexture>();
+}
+
+auto VulkanRenderInterface::getMemoryRequirenments() -> void
+{
+    auto pageSizeX = u32{ 128 };
+    auto pageSizeY = u32{ 128 };
+    auto mipLevels = u32{ 9 };
+
+    const auto samples = 8;
+
+    auto reqs = std::vector<vk::MemoryRequirements2>{};
+    reqs.resize(samples);
+
+    for (auto i = 1; i <= samples; i++)
+    {
+        pageSizeX *= 1 << i;
+        pageSizeX *= 1 << i;
+
+        const auto testImageCreateInfo = vk::ImageCreateInfo
+        {
+            .flags = vk::ImageCreateFlagBits::eSparseBinding | vk::ImageCreateFlagBits::eSparseResidency,
+            .imageType = vk::ImageType::e3D,
+            .format = vk::Format::eBc7UnormBlock,
+            .extent = vk::Extent3D{ pageSizeX, pageSizeY, 1 },
+            .mipLevels = mipLevels,
+            .arrayLayers = 1,
+            .samples = vk::SampleCountFlagBits::e1,
+            .tiling = vk::ImageTiling::eOptimal,
+            .usage = vk::ImageUsageFlagBits::eSampled
+        };
+
+        const auto imageMemoryRequirementsInfo = vk::DeviceImageMemoryRequirements
+        {
+            .pCreateInfo = &testImageCreateInfo,
+        };
+        const auto req = device_.getImageMemoryRequirements(imageMemoryRequirementsInfo);
+
+        reqs[i - u64{ 1 }] = req;
+
+        mipLevels++;
+    }
+    allocatePageMemoryInternal();
+    
+}
+
+auto VulkanRenderInterface::allocatePageMemoryInternal() -> void
+{
+    auto pageMemoryReqrement = vk::MemoryRequirements
+    {
+        .size = 65536,
+        .alignment = 65536,
+        .memoryTypeBits = 0 //<- this value should be fetched correctly via one of vmaFind...MemoryTypeIndex() function, in this case it should target device local memory
+    };
+
+    
+
+    const auto pageSize = pageMemoryReqrement.alignment;
+    const auto pageCount = u32{ 2 };
+
+    const auto minPagesCount = u32{ 4 };
+
+    auto pool = VmaPool{};
+
+    const auto memoryTypeIndex = pageMemoryReqrement.memoryTypeBits;
+
+    const auto poolCreateInfo = VmaPoolCreateInfo
+    {
+        .memoryTypeIndex = u32{1} << memoryTypeIndex,
+        .flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT,
+        .blockSize = pageMemoryReqrement.alignment,
+        .minBlockCount = minPagesCount,
+        .minAllocationAlignment = pageMemoryReqrement.alignment
+    };
+
+    const auto result = vmaCreatePool(allocator_, &poolCreateInfo, &pool);
+
+    TOY_ASSERT(vk::Result(result) == vk::Result::eSuccess);
+
+    const auto allocationCreateInfo = VmaAllocationCreateInfo
+    {
+        .pool = pool
+    };
+
+    auto allocations = std::vector<VmaAllocation>{};
+    allocations.resize(pageCount);
+
+    auto allocationInfos = std::vector<VmaAllocationInfo>{};
+    allocationInfos.resize(pageCount);
+
+    const  auto allocationResult = vmaAllocateMemoryPages(allocator_, (VkMemoryRequirements*)&pageMemoryReqrement, &allocationCreateInfo, pageCount, allocations.data(), allocationInfos.data());
+
+
+    for (const auto& allocationInfo : allocationInfos)
+    {
+        std::stringstream ss;
+        ss << "Page | Pool";
+        setObjectName(device_, (vk::DeviceMemory)allocationInfo.deviceMemory, ss.str().c_str());
+    }
+
+    auto statistics = VmaStatistics{};
+    vmaGetPoolStatistics(allocator_, pool, &statistics);
+
+    //TODO: it can be a good candidate for CVAR to call it from a debug console
+    auto poolDetailedStatistics = VmaDetailedStatistics{};
+    vmaCalculatePoolStatistics(allocator_, pool, &poolDetailedStatistics);
+
+    auto totalStatistics = VmaTotalStatistics{};
+
+    vmaCalculateStatistics(allocator_, &totalStatistics);
 }
 
 void VulkanRenderInterface::updateBindGroupInternal(

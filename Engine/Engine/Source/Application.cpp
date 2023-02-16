@@ -17,6 +17,7 @@
 #include <rigtorp/MPMCQueue.h>
 #include <iostream>
 #include <chrono>
+#include <VirtualTextureStreaming.h>
 
 #include <VulkanRenderInterface.h>
 #include "SceneLoader.h"
@@ -58,6 +59,7 @@ namespace
 
 int Application::run()
 {
+
     /*using namespace ozz::animation::offline::fbx;
     using namespace ozz::animation::offline;
     auto instanceManager = FbxManagerInstance{};
@@ -82,6 +84,7 @@ int Application::run()
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
     auto graphicsDebugger = debugger::RenderDocCapture{};
+    auto virtualTextureStreaming = VirtualTextureStreaming{};
 
     window.initialize(WindowDescriptor{ 1280, 720 });
 
@@ -104,6 +107,8 @@ int Application::run()
     };
     graphicsDebugger.initialize(renderDocDescriptor);
 
+    const auto virtualTextureStreamingDescriptor = VirtualTextureStreamingDescriptor{};
+    virtualTextureStreaming.initialize(virtualTextureStreamingDescriptor);
     
 
 
@@ -410,6 +415,8 @@ int Application::run()
     }
 
 
+    //const auto ii = renderer.createVirtualTexture({});
+
     auto frameStartTime = std::chrono::high_resolution_clock::now();
     auto frameEndTime = std::chrono::high_resolution_clock::now();
 
@@ -418,7 +425,7 @@ int Application::run()
         const auto cpuFrameTime = frameEndTime - frameStartTime;
         frameStartTime = std::chrono::high_resolution_clock::now();
         const auto hertz = cpuFrameTime.count() / 1000000.0f;//ns -> s
-        window.setWindowTitle(std::to_string(hertz));
+        //window.setWindowTitle(std::to_string(hertz)); // <- this couse memory allocation
         window.pollEvents();
         const auto& events = window.getEvents();
         const auto& io = window.getIo();
@@ -639,7 +646,7 @@ int Application::run()
 
                         Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
 
-                        const auto mesh = scene.meshes_[drawInstance.meshIndex];
+                        const auto& mesh = scene.meshes_[drawInstance.meshIndex];
 
 
 
@@ -704,7 +711,6 @@ int Application::run()
         }
         frameEndTime = std::chrono::high_resolution_clock::now();
     }
-
     shouldRun = false;
     workerA.join();
     workerB.join();
@@ -713,7 +719,10 @@ int Application::run()
     renderer.deinitialize();
     window.deinitialize();
     logger::deinitialize();
-   
+
+    
+
+
 
     return EXIT_SUCCESS;
 }

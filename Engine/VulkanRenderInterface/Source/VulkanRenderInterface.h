@@ -306,6 +306,12 @@ namespace toy::renderer::api::vulkan
 			const BufferDescriptor& descriptor,
 			[[maybe_unused]] const DebugLabel label) -> Handle<Buffer>;
 
+		[[nodiscard]] auto createVirtualTextureInternal(
+			const VirtualTextureDescriptor& descriptor,
+			[[maybe_unused]] const DebugLabel label = DebugLabel{}) -> Handle<VirtualTexture>;
+
+		
+
 		auto updateBindGroupInternal(const Handle<BindGroup>& bindGroup,
 		                             const std::initializer_list<
 			                             BindingDataMapping>& mappings) -> void;
@@ -327,6 +333,19 @@ namespace toy::renderer::api::vulkan
 
 		void initializePerRenderThreadData();
 
+		auto getMemoryRequirenments() -> void;
+		auto allocatePageMemoryInternal() -> void;
+
+		
+
+		struct SparseImageRequirements
+		{
+			vk::MemoryRequirements2 imageMemoryRequirements_;
+			vk::SparseImageMemoryRequirements2 sparseImageMemoryRequirements_;
+		};
+
+		
+		
 
 		std::unordered_map<QueueType, DeviceQueue> queues_;
 
@@ -419,8 +438,49 @@ namespace toy::renderer::api::vulkan
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};
 		Pool<BindGroup, VulkanBindGroup> persistentBindGroupStorage_{};//TODO:: bind groups should be removed manual
 	
-		
 
+
+		struct VulkanTexture
+		{
+			vk::Image image;
+		};
+
+		struct TextureDescriptor
+		{
+
+		};
+
+		[[nodiscard]] auto createTextureInternal(
+			const TextureDescriptor& descriptor,
+			[[maybe_unused]] const DebugLabel label = DebugLabel{}) -> Handle<Texture>;
+
+
+		//Pool<Texture, VulkanTexture> 
+
+		struct ResourceManager
+		{
+			VulkanRenderInterface& interface_;
+
+			ResourceManager(VulkanRenderInterface& i) : interface_(i){}
+
+			struct TextureDescriptor 
+			{
+
+			};
+
+			[[nodiscard]] auto createTextureInternal(
+				const TextureDescriptor& descriptor,
+				[[maybe_unused]] const DebugLabel label = DebugLabel{}) -> Handle<Texture>;
+		};
+
+		friend ResourceManager;
+
+		//ResourceManager resouceManager_;
+
+		/*[[nodiscard]]ResourceManager& resouceManager()
+		{
+			return resouceManager_;
+		}*/
 		/*
 		 *
 		 *I need two independent frame allocators, one on the Host site and other living on device
