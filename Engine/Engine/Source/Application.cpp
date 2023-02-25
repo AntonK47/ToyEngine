@@ -22,6 +22,9 @@
 #include <VulkanRenderInterface.h>
 #include "SceneLoader.h"
 #include <glm/ext/matrix_transform.hpp>
+
+#include <execution>
+#include <algorithm>
 //#include <ozz/base/io/archive.h>
 //#include <ozz/animation/offline/fbx/fbx_skeleton.h>
 //#include <ozz/animation/offline/fbx/fbx.h>
@@ -354,6 +357,8 @@ int Application::run()
     //==============================
     const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
     const auto p2 = "E:\\Develop\\ToyEngineContent\\crystal_palace.glb";
+    const auto bistroExterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj";
+    const auto bistroInterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\interior.obj";
     
     const auto scene = Scene::loadSceneFromFile(renderer, p2);
     
@@ -419,6 +424,12 @@ int Application::run()
 
     auto frameStartTime = std::chrono::high_resolution_clock::now();
     auto frameEndTime = std::chrono::high_resolution_clock::now();
+
+    using Batch = decltype(renderer)::SubmitBatchType;
+
+    std::unique_ptr<Batch> prepareBatch;
+    auto perThreadSubmits = std::array<std::unique_ptr<Batch>, 2>{};
+    std::unique_ptr<Batch> postRenderingBatch;
 
     while (stillRunning)
     {
@@ -536,7 +547,7 @@ int Application::run()
         {
             captureTool.start();
 
-        	renderer.nextFrame();
+            renderer.nextFrame();
 
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
@@ -545,20 +556,20 @@ int Application::run()
             {
                 const auto aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
                 const auto projection = glm::infinitePerspective(glm::radians(60.0f), aspectRatio, 0.001f);
-                const auto view = glm::lookAt(camera.position, camera.position+camera.forward, camera.up);
+                const auto view = glm::lookAt(camera.position, camera.position + camera.forward, camera.up);
 
                 const auto viewData = View
                 {
                     .view = view,
                     .projection = projection,
-                    .viewProjection = projection*view
+                    .viewProjection = projection * view
                 };
 
                 std::memcpy(frameDataBeginPtr, &viewData, sizeof(View));
                 frameDataBeginPtr += sizeof(View);
             }
 
-            const auto myConstantBufferView = BufferView{ frameData.nativeHandle, {}, sizeof(View)};
+            const auto myConstantBufferView = BufferView{ frameData.nativeHandle, {}, sizeof(View) };
 
             renderer.updateBindGroup(bindGroup, {
                 {
@@ -569,37 +580,12 @@ int Application::run()
 
 
             const auto& swapchainImage = renderer.acquireNextSwapchainImage();
-            
-            auto commandList = renderer.acquireCommandList(QueueType::graphics);
-            commandList.begin();
-            //TODO: this should performed on initial resource creation
-            commandList.barrier({
-                ImageBarrierDescriptor
-                {
-                    .srcLayout = Layout::undefined,
-                    .dstLayout = Layout::present,
-                    .image = swapchainImage.image
-                }
-                });
-            commandList.barrier({
-                ImageBarrierDescriptor
-	            {
-	                .srcLayout = Layout::undefined,
-	                .dstLayout = Layout::depthStencilRenderTarget,
-                    .aspect = ImageViewAspect::depth,
-	                .image = depthFramebuffer
-	            }
-                });
-            
-                
-            commandList.barrier({ 
-                ImageBarrierDescriptor
-            	{
-            		.srcLayout = Layout::present,
-                    .dstLayout = Layout::colorRenderTarget,
-                    .image = swapchainImage.image
-            	}
-            });
+
+
+            const auto half = scene.drawInstances_.size() / 2;
+
+            const auto set = std::array{ std::vector(scene.drawInstances_.begin(), scene.drawInstances_.begin() + half), std::vector(scene.drawInstances_.begin() + half, scene.drawInstances_.end()) };
+            const auto setIndicies = std::array<int, 2>{0, 1};
 
             const auto renderingDescriptor = RenderingDescriptor
             {
@@ -610,7 +596,7 @@ int Application::run()
                         .load = LoadOperation::clear,
                         .store = StoreOperation::store,
                         .resolveMode = ResolveMode::none,
-                        .clearValue = ColorClear{ 100.0f/255.0f, 149.0f/255.0f, 237.0f/255.0f, 1.0f }
+                        .clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
                     }
                 },
                 .depthRenderTarget = RenderTargetDescriptor
@@ -625,86 +611,175 @@ int Application::run()
 
             constexpr auto area = RenderArea{ 0,0,1280,720 };
 
-            commandList.beginRendering(renderingDescriptor, area);
-
+            
             {
-                constexpr auto scissor = Scissor{ 0,0,1280, 720};
-                constexpr auto viewport = Viewport{ 0.0,0.0,1280.0,720.0 };
-
-
-                commandList.bindPipeline(simpleTrianglePipeline);
-                commandList.setScissor(scissor);
-                commandList.setViewport(viewport);
-                commandList.bindGroup(0, meshDataBindGroup);
-                commandList.bindGroup(1, bindGroup);
-
-                for(auto i = u32{}; i < myTestObjects.size(); i++)
-                {
-                    for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(scene.drawInstances_.size())); j++)
+                auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
+                cmd.begin();
+                //TODO: this should performed on initial resource creation
+                cmd.barrier({
+                    ImageBarrierDescriptor
                     {
-                        const auto& drawInstance = scene.drawInstances_[j];
-
-                        Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
-
-                        const auto& mesh = scene.meshes_[drawInstance.meshIndex];
-
-
-
-                        const auto instanceData = InstanceData
-                        {
-                            .model = glm::translate(drawInstance.model, myTestObjects[i]),
-                            .clusterOffset = mesh.clusterOffset,
-                            .triangleOffset = mesh.triangleOffset,
-                            .positionStreamOffset = mesh.positionStreamOffset
-                        };
-
-                        const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-                        const auto cbv = BufferView{ frameData.nativeHandle, { offset }, sizeof(instanceData) };
-
-                        auto ii = (void*)frameDataBeginPtr;
-                        auto si = std::size_t{ 1024 * 10 * 10 };
-                        frameDataBeginPtr = (u8*)std::align(64, sizeof(instanceData), ii, si);
-
-                        std::memcpy(frameDataBeginPtr, &instanceData, sizeof(instanceData));
-                        frameDataBeginPtr += sizeof(instanceData) + 64 - sizeof(instanceData) % 64;
-
-
-                        renderer.updateBindGroup(perInstanceGroup, 
-                            {
-                            	BindingDataMapping
-                            	{
-                            		.binding = 0,
-                            		.view = CBV{ cbv}
-                            	}
-                            });
-
-                        commandList.bindGroup(2, perInstanceGroup);
-                        commandList.draw(mesh.vertexCount, 1, 0, 0);
+                        .srcLayout = Layout::undefined,
+                        .dstLayout = Layout::present,
+                        .image = swapchainImage.image
                     }
+                    });
+                cmd.barrier({
+                    ImageBarrierDescriptor
+                    {
+                        .srcLayout = Layout::undefined,
+                        .dstLayout = Layout::depthStencilRenderTarget,
+                        .aspect = ImageViewAspect::depth,
+                        .image = depthFramebuffer
+                    }
+                    });
+
+
+                cmd.barrier({
+                    ImageBarrierDescriptor
+                    {
+                        .srcLayout = Layout::present,
+                        .dstLayout = Layout::colorRenderTarget,
+                        .image = swapchainImage.image
+                    }
+                    });
+
+                //perform render target clearing
+                cmd.beginRendering(renderingDescriptor, area);
+                cmd.endRendering();
+                cmd.end();
+
+                if (postRenderingBatch != nullptr)
+                {
+                    auto dependency = postRenderingBatch->barrier();
+                    prepareBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, {dependency}));
+                }
+                else
+                {
+                    prepareBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, {}));
                 }
             }
+            renderer.submitBatches(QueueType::graphics, { *prepareBatch });
 
-            commandList.endRendering();
 
-            commandList.barrier({ 
-                ImageBarrierDescriptor
-            	{
-            		.srcLayout = Layout::colorRenderTarget,
-            		.dstLayout = Layout::present,
-                    .image = swapchainImage.image
-            	}
-            });
+            std::for_each(std::execution::seq, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
+                {
+                    auto& drawInstances = set[index];
+                    auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
+                    cmd.begin();
 
-            commandList.end();
+                    const auto renderingDescriptor = RenderingDescriptor
+                    {
+                        .colorRenderTargets = {
+                            RenderTargetDescriptor
+                            {
+                                .imageView = swapchainImage.view,
+                                .load = LoadOperation::dontCare,
+                                .store = StoreOperation::store,
+                                .resolveMode = ResolveMode::none,
+                                .clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
+                            }
+                        },
+                        .depthRenderTarget = RenderTargetDescriptor
+                        {
+                            .imageView = depthFramebufferView,
+                            .load = LoadOperation::dontCare,
+                            .store = StoreOperation::store,
+                            .resolveMode = ResolveMode::none,
+                            .clearValue = DepthClear{ 1.0f }
+                        }
+                    };
 
-            
-            renderer.submitCommandList(commandList);
+                    cmd.beginRendering(renderingDescriptor, area);
 
-            //TODO: need somehow pass frame begin and end token as semaphore for present
-            /*auto batch = renderer.submitCommandList(QueueType::graphics, { commandList }, {});
-            renderer.submitBatches(QueueType::graphics, { batch });*/
+                    {
+                        constexpr auto scissor = Scissor{ 0,0,1280, 720 };
+                        constexpr auto viewport = Viewport{ 0.0,0.0,1280.0,720.0 };
 
-            renderer.present();
+
+                        cmd.bindPipeline(simpleTrianglePipeline);
+                        cmd.setScissor(scissor);
+                        cmd.setViewport(viewport);
+                        cmd.bindGroup(0, meshDataBindGroup);
+                        cmd.bindGroup(1, bindGroup);
+
+                        for (auto i = u32{}; i < myTestObjects.size(); i++)
+                        {
+                            for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
+                            {
+                                const auto& drawInstance = drawInstances[j];
+
+                                Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
+                                const auto& mesh = scene.meshes_[drawInstance.meshIndex];
+
+                                {
+                                    //this scope should be thread safe. More preciesly, memory allocation should be thread safe. Beter strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
+
+                                    const auto instanceData = InstanceData
+                                    {
+                                        .model = glm::translate(drawInstance.model, myTestObjects[i]),
+                                        .clusterOffset = mesh.clusterOffset,
+                                        .triangleOffset = mesh.triangleOffset,
+                                        .positionStreamOffset = mesh.positionStreamOffset
+                                    };
+
+                                    const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+                                    const auto cbv = BufferView{ frameData.nativeHandle, { offset }, sizeof(instanceData) };
+
+                                    auto ii = (void*)frameDataBeginPtr;
+                                    auto si = std::size_t{ 1024 * 10 * 10 };
+                                    frameDataBeginPtr = (u8*)std::align(64, sizeof(instanceData), ii, si);
+
+                                    std::memcpy(frameDataBeginPtr, &instanceData, sizeof(instanceData));
+                                    frameDataBeginPtr += sizeof(instanceData) + 64 - sizeof(instanceData) % 64;
+
+                                    renderer.updateBindGroup(perInstanceGroup,
+                                        {
+                                            BindingDataMapping
+                                            {
+                                                .binding = 0,
+                                                .view = CBV{ cbv}
+                                            }
+                                        });
+                                }
+                               
+                                cmd.bindGroup(2, perInstanceGroup);
+                                cmd.draw(mesh.vertexCount, 1, 0, 0);
+                            }
+                        }
+                    }
+
+                    cmd.endRendering();
+                    cmd.end();
+
+                    auto perThreadBatch = renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, { prepareBatch->barrier() });
+                    perThreadSubmits[index] = std::make_unique<Batch>(perThreadBatch);
+
+                });
+
+            renderer.submitBatches(QueueType::graphics, { *perThreadSubmits[0],*perThreadSubmits[1] });
+
+
+
+            {
+                auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
+                cmd.begin();
+                cmd.barrier({
+                        ImageBarrierDescriptor
+                        {
+                            .srcLayout = Layout::colorRenderTarget,
+                            .dstLayout = Layout::present,
+                            .image = swapchainImage.image
+                        }
+                    });
+
+                cmd.end();
+                postRenderingBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, { perThreadSubmits[0]->barrier(), perThreadSubmits[1]->barrier() }));
+            }
+
+
+            renderer.submitBatches(QueueType::graphics, { *postRenderingBatch });
+            renderer.present(postRenderingBatch->barrier());
 
             time += 0.01f;
             captureTool.stopAndOpenCapture();

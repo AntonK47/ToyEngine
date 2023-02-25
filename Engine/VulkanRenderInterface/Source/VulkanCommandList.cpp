@@ -14,7 +14,25 @@ namespace
 
 	vk::AttachmentLoadOp mapLoadOp(LoadOperation load)
 	{
+		switch (load)
+		{
+		case toy::renderer::LoadOperation::load:
+			return vk::AttachmentLoadOp::eLoad;
+			break;
+		case toy::renderer::LoadOperation::clear:
+			return vk::AttachmentLoadOp::eClear;
+			break;
+		case toy::renderer::LoadOperation::dontCare:
+			return vk::AttachmentLoadOp::eDontCare;
+			break;
+		case toy::renderer::LoadOperation::none:
+			return vk::AttachmentLoadOp::eNoneEXT;
+			break;
+		default:
+			break;
+		}
 		return vk::AttachmentLoadOp::eClear;
+
 	}
 
 	vk::ClearValue mapClearValue(const ColorClear& colorClear)
@@ -36,7 +54,20 @@ namespace
 
 	vk::AttachmentStoreOp mapStoreOp(StoreOperation store)
 	{
-		//TODO: it should have proper mapping now
+		switch (store)
+		{
+		case toy::renderer::StoreOperation::store:
+			return vk::AttachmentStoreOp::eStore;
+			break;
+		case toy::renderer::StoreOperation::dontCare:
+			return vk::AttachmentStoreOp::eDontCare;
+			break;
+		case toy::renderer::StoreOperation::none:
+			return vk::AttachmentStoreOp::eNoneKHR;
+			break;
+		default:
+			break;
+		}
 		return vk::AttachmentStoreOp::eStore;
 	}
 

@@ -124,9 +124,9 @@ namespace toy::renderer
 			return implementation().acquireNextSwapchainImageInternal();
 		}
 
-		void present()
+		void present(const SubmitDependency& dependency)
 		{
-			implementation().presentInternal();
+			implementation().presentInternal(dependency);
 		}
 
 
@@ -185,6 +185,7 @@ namespace toy::renderer
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			const UsageScope& scope = UsageScope::inFrame) -> Handle<BindGroup>
 		{
+			//TODO: this should be thread safe
 			return implementation().allocateBindGroupInternal(bindGroupLayout, 1, scope).front();
 		}
 

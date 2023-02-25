@@ -273,7 +273,7 @@ namespace toy::renderer::api::vulkan
 
 		[[nodiscard]] auto acquireNextSwapchainImageInternal() -> SwapchainImage;
 
-		auto presentInternal() -> void;
+		auto presentInternal(const SubmitDependency& dependency) -> void;
 
 		[[nodiscard]] auto getNativeBackendInternal() -> NativeBackend
 		{

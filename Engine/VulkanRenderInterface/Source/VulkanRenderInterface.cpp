@@ -348,12 +348,16 @@ namespace
     }
 }
 
-
+static int aa = 0;
+std::mutex m;
 VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const UsageScope& usageScope)
 {
     TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
 
-    const auto& commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers.front();
+    //TODO: create proper structure to hold per thread data
+    std::lock_guard lock(m);
+    const auto& commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers[aa];
+    aa++;
 
     return CommandListType(queueType, *this, commandBuffer);
 }
@@ -468,11 +472,11 @@ void VulkanRenderInterface::submitBatchesInternal(const QueueType queueType,
         .pSignalSemaphoreInfos = &signalInfo
     };
 
-    const auto& fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
-    auto result = device_.resetFences(1, &fence);
-    TOY_ASSERT(result == vk::Result::eSuccess);
+    /*const auto& fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    auto result = device_.resetFences(1, &fence);*/
+    //TOY_ASSERT(result == vk::Result::eSuccess);
     const auto queue = queues_[queueType].queue;
-    result = queue.submit2(1, &submitInfo, fence);
+    auto result = queue.submit2(1, &submitInfo, nullptr);
     TOY_ASSERT(result == vk::Result::eSuccess);
     result = device_.waitIdle();
     TOY_ASSERT(result == vk::Result::eSuccess);
@@ -844,10 +848,13 @@ void VulkanRenderInterface::nextFrameInternal()
     bindGroupCache_.nextFrame();
     bindGroupStorage_.reset();
     currentFrame_++;
+    //TODO: hack
+    aa = 0;
     const auto& nextFramesFence = swapchainImageAfterPresentFences_[(currentFrame_ + u64{ 1 }) % maxDeferredFrames_];
     auto result = device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
     TOY_ASSERT(result == vk::Result::eSuccess);
 
+    //TODO: reset all thread pools at once
     const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
     result = device_.resetCommandPool(pool);
     TOY_ASSERT(result == vk::Result::eSuccess);
@@ -1005,8 +1012,10 @@ SwapchainImage VulkanRenderInterface::acquireNextSwapchainImageInternal()
         .deviceMask = 1u
     };
 
-    const auto nextImage = device_.acquireNextImage2KHR(acquireInfo).value;
-
+    const auto result = device_.acquireNextImage2KHR(acquireInfo);
+    TOY_ASSERT(result.result == vk::Result::eSuccess);
+    const auto nextImage = result.value;
+    
     const auto& imageView = swapchainImageViews_[nextImage];
     const auto& image = swapchainImages_[nextImage];
 
@@ -1019,10 +1028,57 @@ SwapchainImage VulkanRenderInterface::acquireNextSwapchainImageInternal()
     };
 }
 
-void VulkanRenderInterface::presentInternal()
+void VulkanRenderInterface::presentInternal(const SubmitDependency& dependency)
 {
     auto imageIndices = std::array{ currentImageIndex_ };
     auto results = std::array{ vk::Result{} };
+
+    const auto signalSemaphoreSubmitInfo = vk::SemaphoreSubmitInfo
+    {
+        .semaphore = readyToPresentSemaphore_,
+        .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .deviceIndex = 0
+    };
+
+    auto waitInfos = std::vector<vk::SemaphoreSubmitInfo>{};//TODO: smallvector
+    waitInfos.reserve(2);
+    waitInfos.push_back
+        (
+            vk::SemaphoreSubmitInfo
+            {
+                .semaphore = timelineSemaphorePerQueue_[QueueType::graphics],
+                .value = dependency.value,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands, //TODO: select something smarter
+                .deviceIndex = 0
+            }
+        );
+
+    const auto waitSemaphoreSubmitInfo = vk::SemaphoreSubmitInfo
+    {
+        .semaphore = readyToRenderSemaphore_,
+        .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .deviceIndex = 0
+    };
+
+    waitInfos.push_back(waitSemaphoreSubmitInfo);
+
+    const auto submitInfo = vk::SubmitInfo2
+    {
+        .waitSemaphoreInfoCount = static_cast<u32>(std::size(waitInfos)),
+        .pWaitSemaphoreInfos = std::data(waitInfos),
+        .commandBufferInfoCount = 0,
+        .pCommandBufferInfos = nullptr,
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signalSemaphoreSubmitInfo
+    };
+
+    const auto& fence = swapchainImageAfterPresentFences_[currentFrame_ % maxDeferredFrames_];
+    auto result = device_.resetFences(1, &fence);
+    TOY_ASSERT(result == vk::Result::eSuccess);
+
+    const auto queue = queues_[QueueType::graphics].queue;
+    result = queue.submit2(1, &submitInfo, fence);
+    TOY_ASSERT(result == vk::Result::eSuccess);
 
     const auto presentInfo = vk::PresentInfoKHR
     {
@@ -1035,7 +1091,7 @@ void VulkanRenderInterface::presentInternal()
     };
 
     //TODO: should be a present queue
-    const auto result = queues_[QueueType::graphics].queue.presentKHR(presentInfo);
+    result = queues_[QueueType::graphics].queue.presentKHR(presentInfo);
     TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
