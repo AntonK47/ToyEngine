@@ -52,6 +52,11 @@ namespace toy::renderer
 		using type = typename T;
 	};
 
+	struct WorkerThreadId
+	{
+		core::u32 index;
+	};
+
 	template <typename RenderInterfaceImplementation>
 	class RenderInterface
 	{
@@ -90,9 +95,9 @@ namespace toy::renderer
 		}
 
 		[[nodiscard]] auto acquireCommandList(
-			QueueType queueType, const UsageScope& usageScope = UsageScope::inFrame) -> CommandListType
+			QueueType queueType, const WorkerThreadId workerId = WorkerThreadId{ 0 }, const UsageScope & usageScope = UsageScope::inFrame) -> CommandListType
 		{
-			return implementation().acquireCommandListInternal(queueType, usageScope);
+			return implementation().acquireCommandListInternal(queueType, workerId, usageScope);
 		}
 		
 
@@ -205,10 +210,10 @@ namespace toy::renderer
 		//draft for pipeline creation
 		[[nodiscard]] auto createPipeline(
 			const GraphicsPipelineDescriptor& graphicsPipelineDescriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups = {}) -> Handle<
+			const std::vector<SetBindGroupMapping>& bindGroups = {}, const std::vector<PushConstant> pushConstants = {}) -> Handle<
 			Pipeline>
 		{
-			return implementation().createPipelineInternal(graphicsPipelineDescriptor, bindGroups);
+			return implementation().createPipelineInternal(graphicsPipelineDescriptor, bindGroups, pushConstants);
 		}
 
 		[[nodiscard]] auto createPipeline(

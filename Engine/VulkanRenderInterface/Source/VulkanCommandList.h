@@ -70,6 +70,12 @@ namespace toy::renderer::api::vulkan
 			const std::initializer_list<AccelerationStructureInstance>& instances) -> Handle<AccelerationStructure>;
 		void beginInternal();
 		void endInternal();
+
+		template <class ConstantValue>
+		auto pushConstantInternal(const ConstantValue& value)
+		{
+			commandBuffer_.pushConstants(currentPipeline_.layout, vk::ShaderStageFlagBits::eAll, 0,  sizeof(value), static_cast<const void*>(&value));
+		}
 		
 		VulkanPipeline currentPipeline_{};
 		vk::CommandBuffer commandBuffer_{}; 

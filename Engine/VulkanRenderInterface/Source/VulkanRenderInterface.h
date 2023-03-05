@@ -258,7 +258,7 @@ namespace toy::renderer::api::vulkan
 
 
 		[[nodiscard]] auto acquireCommandListInternal(
-			QueueType queueType,
+			QueueType queueType, const WorkerThreadId workerId,
 			const UsageScope& usageScope) -> CommandListType;
 
 		auto submitCommandListInternal(
@@ -293,7 +293,8 @@ namespace toy::renderer::api::vulkan
 
 		[[nodiscard]] auto createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups) -> Handle<
+			const std::vector<SetBindGroupMapping>& bindGroups,
+			const std::vector<PushConstant>& pushConstants) -> Handle<
 			Pipeline>;
 
 		[[nodiscard]] auto createShaderModuleInternal(
@@ -320,7 +321,8 @@ namespace toy::renderer::api::vulkan
 
 		[[nodiscard]] auto createPipelineInternal(
 			const ComputePipelineDescriptor& descriptor,
-			const std::vector<SetBindGroupMapping>& bindGroups) -> Handle<
+			const std::vector<SetBindGroupMapping>& bindGroups,
+			const std::vector<PushConstant>& pushConstants) -> Handle<
 			Pipeline>;
 
 		[[nodiscard]] auto createImageInternal(
@@ -331,7 +333,7 @@ namespace toy::renderer::api::vulkan
 
 		void submitBatchesInternal(const QueueType queueType, const std::initializer_list<SubmitBatchType>& batches);
 
-		void initializePerRenderThreadData();
+		PerThreadCommandPoolData initializePerRenderThreadData();
 
 		auto getMemoryRequirenments() -> void;
 		auto allocatePageMemoryInternal() -> void;
@@ -369,7 +371,8 @@ namespace toy::renderer::api::vulkan
 
 		u32 currentFrame_{};
 		std::thread::id renderThreadId_;
-		PerThreadCommandPoolData renderThreadCommandPoolData_{};
+
+		std::vector<PerThreadCommandPoolData> perThreadData_{};
 
 
 		std::vector<vk::Semaphore> timelineSemaphorePerFrame_{};

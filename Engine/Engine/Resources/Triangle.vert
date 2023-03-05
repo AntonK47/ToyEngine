@@ -27,6 +27,11 @@ struct TangentFrame
 	vec3 bitangent;
 };
 
+struct DrawData
+{
+    uint instanceIndex;
+};
+
 layout(set = 0, binding = 0, scalar) buffer PositionStreamBlock
 {
     Position positionStream[];
@@ -72,9 +77,14 @@ struct InstanceData
     uint positionStreamOffset;
 };
 
-layout(set = 2, binding = 0) uniform perObject
+layout(set = 2, binding = 0) buffer perObject
 {
-    InstanceData instance;
+    InstanceData instances[];
+};
+
+layout(push_constant) uniform constants
+{
+	uint drawId;
 };
 
 layout(location = 0) out uint clusterId;
@@ -85,7 +95,9 @@ layout(location = 3) out vec3 positionWorldSpace;
 
 void main()
 {
-    
+    InstanceData instance = instances[drawId];
+
+
     int meshletId = int(instance.clusterOffset)+gl_VertexIndex/(64*3);
     int triangleId = gl_VertexIndex % (64*3);
     clusterId = uint(meshletId);
@@ -100,7 +112,7 @@ void main()
     uv = uvStream[index];
 
     vec4 position = vec4(p.x,p.y,p.z,1.0);
-    float s = 0.05f;
+    float s = 0.005f;
     mat4 scale = mat4(  s, 0.0,0.0,0.0,
                         0.0, s, 0.0,0.0,
                         0.0,0.0, s, 0.0,

@@ -92,6 +92,7 @@ namespace toy::renderer
 		window::WindowHandler handler;
 		window::BackendRendererMeta meta;
 		std::function<WindowExtent()> windowExtentGetter;
+		core::u32 threadWorkersCount{ 1 };
 	};
 
 	struct RenderTarget {};
@@ -205,6 +206,11 @@ namespace toy::renderer
 	{
 		core::u32 set{0};
 		Handle<BindGroupLayout> bindGroupLayout{};
+	};
+
+	struct PushConstant
+	{
+		core::u32 size;
 	};
 
 	struct SwapchainImage

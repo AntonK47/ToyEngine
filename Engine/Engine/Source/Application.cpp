@@ -100,7 +100,8 @@ int Application::run()
         .windowExtentGetter = [&window]()
         {
             return WindowExtent{ window.width(), window.height()};
-        }
+        },
+        .threadWorkersCount = 2
     };
     renderer.initialize(rendererDescriptor);
 
@@ -167,10 +168,12 @@ int Application::run()
 #pragma region FrameRingLinearAllocator
     //FEATURE: This should moved into a Frame Linear Allocator
     //================================================================================
+    auto usage = toy::core::Flags<BufferAccessUsage>{ BufferAccessUsage::storage };
+    usage |= BufferAccessUsage::uniform;
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
-            .size = 1024*1024*100,
-            .accessUsage = BufferAccessUsage::uniform,
+            .size = 1024*1024*1024,
+            .accessUsage = usage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
 
@@ -197,7 +200,7 @@ int Application::run()
 	    {
 		    {
 			    .binding = 0,
-			    .descriptor = BindingDescriptor{BindingType::UniformBuffer}
+			    .descriptor = BindingDescriptor{BindingType::StorageBuffer}
 		    }
 	    }
     };
@@ -293,7 +296,10 @@ int Application::run()
                 SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
                 SetBindGroupMapping{1, simpleTriangleGroupLayout},
                 SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout}
-            });
+            },
+        {
+            PushConstant({ .size = sizeof(u32)})
+        });
 
 #pragma endregion
 
@@ -336,9 +342,10 @@ int Application::run()
     struct InstanceData
     {
         glm::mat4 model;
-        u32 clusterOffset;
-        u32 triangleOffset;
-        u32 positionStreamOffset;
+        glm::uint clusterOffset;
+        glm::uint triangleOffset;
+        glm::uint positionStreamOffset;
+        glm::uint pad;
     };
 
     //REFACTOR: camera control
@@ -662,10 +669,32 @@ int Application::run()
             renderer.submitBatches(QueueType::graphics, { *prepareBatch });
 
 
-            std::for_each(std::execution::seq, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
+            Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
+            const auto batchOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+
+            const auto dataMemSize = sizeof(InstanceData);// +64 - sizeof(InstanceData) % 64;
+            //TODO: this should not be multithreaded, it can be bound upfront and I can use update after bind
+            renderer.updateBindGroup(perInstanceGroup,
+                {
+                    BindingDataMapping
+                    {
+                        .binding = 0,
+                        .view = UAV
+                        {
+                            .bufferView = BufferView
+                            {
+                                .buffer = frameData.nativeHandle,
+                                .offset = batchOffset,
+                                .size = (u64)(dataMemSize * scene.drawInstances_.size())
+                            }
+                        }
+                    }
+                });
+
+            std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
                 {
                     auto& drawInstances = set[index];
-                    auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
+                    auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index)});
                     cmd.begin();
 
                     const auto renderingDescriptor = RenderingDescriptor
@@ -674,7 +703,7 @@ int Application::run()
                             RenderTargetDescriptor
                             {
                                 .imageView = swapchainImage.view,
-                                .load = LoadOperation::dontCare,
+                                .load = LoadOperation::load,
                                 .store = StoreOperation::store,
                                 .resolveMode = ResolveMode::none,
                                 .clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
@@ -683,7 +712,7 @@ int Application::run()
                         .depthRenderTarget = RenderTargetDescriptor
                         {
                             .imageView = depthFramebufferView,
-                            .load = LoadOperation::dontCare,
+                            .load = LoadOperation::load,
                             .store = StoreOperation::store,
                             .resolveMode = ResolveMode::none,
                             .clearValue = DepthClear{ 1.0f }
@@ -702,48 +731,43 @@ int Application::run()
                         cmd.setViewport(viewport);
                         cmd.bindGroup(0, meshDataBindGroup);
                         cmd.bindGroup(1, bindGroup);
+                        cmd.bindGroup(2, perInstanceGroup);
+
+                        
+                        auto setOffset = set[0].size() * dataMemSize * index;
+                        
+                        for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
+                        {
+                            const auto& drawInstance = drawInstances[j];
+                            const auto& mesh = scene.meshes_[drawInstance.meshIndex];
+
+                            //this scope should be thread safe. More preciesly, memory allocation should be thread safe. Beter strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
+
+                            const auto instanceData = InstanceData
+                            {
+                                .model = glm::translate(drawInstance.model, myTestObjects[0]),
+                                .clusterOffset = mesh.clusterOffset,
+                                .triangleOffset = mesh.triangleOffset,
+                                .positionStreamOffset = mesh.positionStreamOffset
+                            };
+
+                            std::memcpy(frameDataBeginPtr + setOffset, &instanceData, dataMemSize);
+                            setOffset += dataMemSize;
+
+                        }
+                        
+
 
                         for (auto i = u32{}; i < myTestObjects.size(); i++)
                         {
                             for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
                             {
                                 const auto& drawInstance = drawInstances[j];
-
-                                Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
                                 const auto& mesh = scene.meshes_[drawInstance.meshIndex];
 
-                                {
-                                    //this scope should be thread safe. More preciesly, memory allocation should be thread safe. Beter strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
 
-                                    const auto instanceData = InstanceData
-                                    {
-                                        .model = glm::translate(drawInstance.model, myTestObjects[i]),
-                                        .clusterOffset = mesh.clusterOffset,
-                                        .triangleOffset = mesh.triangleOffset,
-                                        .positionStreamOffset = mesh.positionStreamOffset
-                                    };
-
-                                    const auto offset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-                                    const auto cbv = BufferView{ frameData.nativeHandle, { offset }, sizeof(instanceData) };
-
-                                    auto ii = (void*)frameDataBeginPtr;
-                                    auto si = std::size_t{ 1024 * 10 * 10 };
-                                    frameDataBeginPtr = (u8*)std::align(64, sizeof(instanceData), ii, si);
-
-                                    std::memcpy(frameDataBeginPtr, &instanceData, sizeof(instanceData));
-                                    frameDataBeginPtr += sizeof(instanceData) + 64 - sizeof(instanceData) % 64;
-
-                                    renderer.updateBindGroup(perInstanceGroup,
-                                        {
-                                            BindingDataMapping
-                                            {
-                                                .binding = 0,
-                                                .view = CBV{ cbv}
-                                            }
-                                        });
-                                }
-                               
-                                cmd.bindGroup(2, perInstanceGroup);
+                                const u32 value = j+ (u32)index * static_cast<u32>(set[0].size());
+                                cmd.pushConstant(value);
                                 cmd.draw(mesh.vertexCount, 1, 0, 0);
                             }
                         }
@@ -755,7 +779,8 @@ int Application::run()
                     auto perThreadBatch = renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, { prepareBatch->barrier() });
                     perThreadSubmits[index] = std::make_unique<Batch>(perThreadBatch);
 
-                });
+                }
+                );
 
             renderer.submitBatches(QueueType::graphics, { *perThreadSubmits[0],*perThreadSubmits[1] });
 

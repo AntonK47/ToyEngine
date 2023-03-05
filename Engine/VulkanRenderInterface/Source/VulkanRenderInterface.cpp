@@ -350,13 +350,13 @@ namespace
 
 static int aa = 0;
 std::mutex m;
-VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const UsageScope& usageScope)
+VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const WorkerThreadId workerId, const UsageScope& usageScope)
 {
-    TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
+    //TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
 
     //TODO: create proper structure to hold per thread data
     std::lock_guard lock(m);
-    const auto& commandBuffer = renderThreadCommandPoolData_.perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers[aa];
+    const auto& commandBuffer = perThreadData_[workerId.index].perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers[aa];
     aa++;
 
     return CommandListType(queueType, *this, commandBuffer);
@@ -713,8 +713,11 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     renderThreadId_ = std::this_thread::get_id();
 
-
-    initializePerRenderThreadData();
+    perThreadData_.resize(descriptor.threadWorkersCount);
+    for (auto i = u32{}; i < descriptor.threadWorkersCount; i++)
+    {
+        perThreadData_[i] = initializePerRenderThreadData();
+    }
 
 	/*renderThreadCommandPoolData_ = createPerThreadCommandPoolData(device_, maxDeferredFrames_,
         queues_[QueueType::graphics].familyIndex, queues_[QueueType::asyncCompute].familyIndex, queues_[QueueType::transfer].familyIndex, 1, 1, 1);*/
@@ -810,13 +813,17 @@ void VulkanRenderInterface::deinitializeInternal()
         device_.destroyDescriptorPool(pool);
     }
 
-    for(const auto& [queueType, perFramePools]: renderThreadCommandPoolData_.perQueueType)
+    for (auto& threadData : perThreadData_)
     {
-	    for(const auto& perFrame: perFramePools)
-	    {
-            device_.destroyCommandPool(perFrame.commandPool);
-	    }
+        for (const auto& [queueType, perFramePools] : threadData.perQueueType)
+        {
+            for (const auto& perFrame : perFramePools)
+            {
+                device_.destroyCommandPool(perFrame.commandPool);
+            }
+        }
     }
+    
 
     device_.destroySemaphore(readyToPresentSemaphore_);
     device_.destroySemaphore(readyToRenderSemaphore_);
@@ -855,9 +862,13 @@ void VulkanRenderInterface::nextFrameInternal()
     TOY_ASSERT(result == vk::Result::eSuccess);
 
     //TODO: reset all thread pools at once
-    const auto pool = renderThreadCommandPoolData_.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
-    result = device_.resetCommandPool(pool);
-    TOY_ASSERT(result == vk::Result::eSuccess);
+    for (auto& threadData : perThreadData_)
+    {
+        const auto pool = threadData.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
+        result = device_.resetCommandPool(pool);
+        TOY_ASSERT(result == vk::Result::eSuccess);
+    }
+    
 
     resetDescriptorPoolsUntilFrame(currentFrame_);
 }
@@ -1143,7 +1154,7 @@ void VulkanRenderInterface::submitCommandListInternal(const CommandListType& com
 }
 
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
-	const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups)
+	const GraphicsPipelineDescriptor& descriptor, const std::vector<SetBindGroupMapping>& bindGroups, const std::vector<PushConstant>& pushConstants)
 {
 
     const auto colorRenderTargets = static_cast<u32>(descriptor.renderTargetDescriptor.colorRenderTargets.size());
@@ -1183,11 +1194,22 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index].layout;
     }
 
+    const auto pushConstantsCount = static_cast<u32>(pushConstants.size());
+    auto pushConstantRanges = std::vector<vk::PushConstantRange>{};
+    pushConstantRanges.resize(pushConstantsCount);
+    for (auto i = u32{}; i < pushConstantsCount; i++)
+    {
+        pushConstantRanges[i].offset = 0;
+        pushConstantRanges[i].size = pushConstants[i].size;
+        pushConstantRanges[i].stageFlags = vk::ShaderStageFlagBits::eAll;
+    }
+
     const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
     {
         .setLayoutCount = setCount,
         .pSetLayouts = setLayouts.data(),
-        .pushConstantRangeCount = 0
+        .pushConstantRangeCount = pushConstantsCount,
+        .pPushConstantRanges = pushConstantRanges.data()
     };
 
     const auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
@@ -1703,7 +1725,8 @@ void VulkanRenderInterface::mapInternal(const Handle<Buffer>& buffer, void** dat
 
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const ComputePipelineDescriptor& descriptor,
-	const std::vector<SetBindGroupMapping>& bindGroups)
+	const std::vector<SetBindGroupMapping>& bindGroups,
+    const std::vector<PushConstant>& pushConstants)
 {
     const auto stage = vk::PipelineShaderStageCreateInfo
     {
@@ -1722,11 +1745,22 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         setLayouts[i] = bindGroupLayoutCache_[bindGroups[i].bindGroupLayout.index].layout;
     }
 
+    const auto pushConstantsCount = static_cast<u32>(pushConstants.size());
+    auto pushConstantRanges = std::vector<vk::PushConstantRange>{};
+    pushConstantRanges.resize(pushConstantsCount);
+    for (auto i = u32{}; i < pushConstantsCount; i++)
+    {
+        pushConstantRanges[i].offset = 0;
+        pushConstantRanges[i].size = pushConstants[i].size;
+        pushConstantRanges[i].stageFlags = vk::ShaderStageFlagBits::eCompute;
+    }
+
     const auto layoutCreateInfo = vk::PipelineLayoutCreateInfo
     {
         .setLayoutCount = setCount,
         .pSetLayouts = setLayouts.data(),
-        .pushConstantRangeCount = 0
+        .pushConstantRangeCount = pushConstantsCount,
+        .pPushConstantRanges = pushConstantRanges.data()
     };
 
     const auto pipelineLayoutResult = device_.createPipelineLayout(layoutCreateInfo);
@@ -1845,7 +1879,7 @@ Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
 
 
 
-void VulkanRenderInterface::initializePerRenderThreadData()
+PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
 {
     auto graphicsPerFrame = std::vector<PerFrameCommandPoolData>(maxDeferredFrames_);
     auto asyncComputePerFrame = std::vector <PerFrameCommandPoolData>(maxDeferredFrames_);
@@ -1947,5 +1981,5 @@ void VulkanRenderInterface::initializePerRenderThreadData()
         perThreadData.perQueueType[QueueType::transfer] = transferPerFrame;
     }
 
-    renderThreadCommandPoolData_ = perThreadData;
+    return perThreadData;
 }

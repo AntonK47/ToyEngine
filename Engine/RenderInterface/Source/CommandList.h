@@ -305,6 +305,12 @@ namespace toy::renderer
 			implementation().setViewportInternal(viewport);
 		}
 
+		template <class ConstantValue>
+		auto pushConstant(const ConstantValue& value)
+		{
+			implementation().pushConstantInternal(value);
+		}
+
 		auto draw(
 			core::u32 vertexCount,
 			core::u32 instanceCount,
