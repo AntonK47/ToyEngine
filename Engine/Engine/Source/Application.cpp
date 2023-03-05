@@ -366,8 +366,11 @@ int Application::run()
     const auto p2 = "E:\\Develop\\ToyEngineContent\\crystal_palace.glb";
     const auto bistroExterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj";
     const auto bistroInterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\interior.obj";
-    
-    const auto scene = Scene::loadSceneFromFile(renderer, p2);
+
+    const auto bistroInteriorData = "E:\\Develop\\ToyEngineContent\\interior.dat";
+    const auto bistroExteriorData = "E:\\Develop\\ToyEngineContent\\exterior.dat";
+
+    const auto scene = Scene::loadSceneFromFile(renderer, bistroExteriorData);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, {
@@ -498,21 +501,23 @@ int Application::run()
             moveCameraFaster = false;
         }
 
+        const auto fastSpeed = 25.0f;
+
         if(io.keyboardState.w == toy::io::ButtonState::pressed)
         {
-            camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? 10.0f:1.0f);
+            camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed :1.0f);
         }
         if (io.keyboardState.s == toy::io::ButtonState::pressed)
         {
-            camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? 10.0f : 1.0f);
+            camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
         }
         if (io.keyboardState.a == toy::io::ButtonState::pressed)
         {
-            camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? 10.0f : 1.0f);
+            camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
         }
         if (io.keyboardState.d == toy::io::ButtonState::pressed)
         {
-            camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? 10.0f : 1.0f);
+            camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
         }
         if(io.mouseState.leftButton == toy::io::ButtonState::pressed && !mouseButtonPressed)
         {

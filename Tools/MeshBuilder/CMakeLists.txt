@@ -9,18 +9,12 @@ set(MODULE_SOURCES
 
 set(RESOURCE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Resources")
 
-add_library(${APPLICATION_NAME} 
-	STATIC
-		${MODULE_SOURCES}
-)
-
-target_include_directories(${APPLICATION_NAME} 
-	PUBLIC
-		/
-)
-
 find_package(meshoptimizer CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+
+add_executable(${APPLICATION_NAME}
+		${MODULE_SOURCES}
+)
 
 target_link_libraries(${APPLICATION_NAME}
 	PRIVATE

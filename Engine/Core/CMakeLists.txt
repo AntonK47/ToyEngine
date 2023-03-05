@@ -11,6 +11,7 @@ set(MODULE_HEADERS
 	Source/Logger.h
 	Source/Scene.h)
 
+find_path(ZPP_BITS_INCLUDE_DIRS "zpp_bits.h")
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -21,6 +22,7 @@ add_library(${MODULE_NAME}
 target_include_directories(${MODULE_NAME} 
 	PUBLIC
 		Source/ 
+	PRIVATE ${ZPP_BITS_INCLUDE_DIRS}
 )
 
 

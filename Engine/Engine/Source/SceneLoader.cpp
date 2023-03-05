@@ -5,7 +5,7 @@
 #include "Scene.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include <MeshBuilder.h>
+
 
 using namespace toy::core;
 using namespace toy::renderer;
@@ -46,34 +46,8 @@ namespace
 Scene Scene::loadSceneFromFile(::RenderInterface& renderer,
     const std::string& path)
 {
-    //const auto scene = scene::loadSceneFile(sceneFilePath);
-    Assimp::Importer importer;
-    //"C:\\Users\\AntonKi8\\Downloads\\main_sponza\\NewSponza_Main_glTF_002.gltf"
-    //"C:\\Users\\AntonKi8\\Downloads\\gltf\\hotgirl1\\scene.gltf"
-    //"C:\\Users\\AntonKi8\\Downloads\\gltf\\gtr\\scene.gltf"
-    //"C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
-    //"C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx"
-    //const auto p = "C:\\Users\\AntonKi8\\Downloads\\postwar_city.glb";
-    const auto p = "C:\\Users\\AntonKi8\\Downloads\\crystal_palace.glb";
-    const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
-    const auto sceneAssimp = importer.ReadFile(path
-        , aiProcess_GenBoundingBoxes | aiProcess_Triangulate | aiProcess_GenSmoothNormals /*,
-                                         aiProcess_GenSmoothNormals |
-                                          |
-                                         aiProcess_GenBoundingBoxes |
-                                         aiProcess_JoinIdenticalVertices |
-                                         aiProcess_SortByPType*/);
-                                         importer.ApplyPostProcessing(aiPostProcessSteps::aiProcess_CalcTangentSpace);
-    const auto error = importer.GetErrorString();
-    //assert(sceneAssimp && error);
-    //const auto mesh = loadMeshFile("aa.mesh");
-
-
-
-    std::vector<toy::core::scene::SceneObject> scene;
-    processScene(*sceneAssimp, scene);
-
-
+    //TODO: check if exists!
+    auto scene = toy::core::scene::loadSceneFile(path);
 
     auto totalVertexCount = u32{};
     auto totalTriangleCount = u32{};

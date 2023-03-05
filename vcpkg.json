@@ -15,6 +15,7 @@
     "meshoptimizer",
     "assimp",
     "mpmcqueue",
-    "g3log"
+    "g3log",
+    "zpp-bits"
   ]
 }

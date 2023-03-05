@@ -1,10 +1,11 @@
 #pragma once
+#define ZPP_BITS_AUTODETECT_MEMBERS_MODE 0
 #include <array>
 #include <string>
 #include <vector>
 
 #include "CommonTypes.h"
-
+#include <zpp_bits.h>
 
 namespace toy::core::scene
 {
@@ -13,6 +14,7 @@ namespace toy::core::scene
 
 	struct Normal
 	{
+		using serialize = zpp::bits::members<3>;
 		float x;
 		float y;
 		float z;
@@ -20,6 +22,7 @@ namespace toy::core::scene
 
 	struct Position
 	{
+		using serialize = zpp::bits::members<3>;
 		float x;
 		float y;
 		float z;
@@ -27,12 +30,14 @@ namespace toy::core::scene
 
 	struct TextureCoordinate
 	{
+		using serialize = zpp::bits::members<2>;
 		float u;
 		float v;
 	};
 
 	struct Vector
 	{
+		using serialize = zpp::bits::members<3>;
 		float x;
 		float y;
 		float z;
@@ -40,6 +45,7 @@ namespace toy::core::scene
 
 	struct TangentFrame
 	{
+		using serialize = zpp::bits::members<3>;
 		Vector normal;
 		Vector tangent;
 		Vector bitangent;
@@ -47,6 +53,7 @@ namespace toy::core::scene
 
 	struct Mesh
 	{
+		using serialize = zpp::bits::members<4>;
 		std::vector<Index> indices;
 		std::vector<Position> positionsVertexStream;
 		std::vector<TextureCoordinate> uvVertexStream;
@@ -56,26 +63,31 @@ namespace toy::core::scene
 
 	struct Header
 	{
+		using serialize = zpp::bits::members<2>;
 		u32 verticesCount;
 		uint32_t indicesCount;
 	};
 
 
+	struct ConeAxis
+	{
+		using serialize = zpp::bits::members<2>;
+		u8 axis[3];
+		u8 opening;
+	};
+
 	struct MeshClusterCullData
 	{
+		using serialize = zpp::bits::members<4>;
 		float midpoint[3];
 		float halfSize[3];
 		uint32_t coneCenter;
-
-		struct
-		{
-			u8 axis[3];
-			u8 opening;
-		} coneAxisConeOpening;
+		ConeAxis coneAxisConeOpening;
 	};
 
 	struct AABB
 	{
+		using serialize = zpp::bits::members<2>;
 		float min[3];
 		float max[3];
 	};
@@ -83,6 +95,7 @@ namespace toy::core::scene
 
 	struct LodHeader
 	{
+		using serialize = zpp::bits::members<4>;
 		u32 lodLevel;
 		AABB aabb;
 		u32 totalTriangles;
@@ -94,6 +107,7 @@ namespace toy::core::scene
 
 	struct Meshlet
 	{
+		using serialize = zpp::bits::members<4>;
 		u32 triangleOffset;
 		u32 triangleCount;
 
@@ -103,6 +117,7 @@ namespace toy::core::scene
 
 	struct LodMesh
 	{
+		using serialize = zpp::bits::members<3>;
 		LodHeader header;
 		std::vector<MeshClusterCullData> cullData;
 		std::vector<Meshlet> meshlets;
@@ -110,6 +125,7 @@ namespace toy::core::scene
 
 	struct RuntimeMeshHeader
 	{
+		using serialize = zpp::bits::members<3>;
 		u32 lods{ 0 };
 		u32 totalTriangles{ 0 };
 		u32 totalVertexCount{ 0 };
@@ -119,6 +135,7 @@ namespace toy::core::scene
 
 	struct RuntimeMesh
 	{
+		using serialize = zpp::bits::members<6>;
 		RuntimeMeshHeader header;
 		std::vector<LodMesh> lods;
 		std::vector<u8> triangles;
@@ -131,12 +148,14 @@ namespace toy::core::scene
 	using Transform = std::array<float, 16>;
 	struct SceneObject
 	{
+		using serialize = zpp::bits::members<2>;
 		RuntimeMesh mesh;
 		Transform transform{};
 	};
 
 	struct SceneHeader
 	{
+		using serialize = zpp::bits::members<1>;
 		uint32_t objectCount;
 	};
 
