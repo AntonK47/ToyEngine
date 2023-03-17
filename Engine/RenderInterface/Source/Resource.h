@@ -30,7 +30,7 @@ namespace toy::renderer
 	struct Buffer
 	{
 		Handle<Buffer> nativeHandle;
-		core::u64 size;
+		core::u64 size{};
 #ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
 		core::DebugLabel debugLabel;
 #endif

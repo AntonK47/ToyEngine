@@ -64,7 +64,7 @@ vec3 hashToColor(int hash)
 
 void main()
 {
-    int hash = hash(int(clusterId));
+    int hash = hash(hash(int(clusterId)));
 
     vec3 id = hashToColor(hash);
 
@@ -76,5 +76,6 @@ void main()
 
     float s = 0.1f;
     int spatialHash = h_ss(s, positionWorldSpace, s*0.1f);
-    outputColor = vec4(hashToColor(spatialHash), 1.0);
+    outputColor = vec4(hashToColor(hash), 1.0);
+    //outputColor = vec4(vec3(a), 1.0);
 }

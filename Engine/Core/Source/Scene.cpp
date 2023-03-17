@@ -1,7 +1,6 @@
 #include "Scene.h"
 #include <fstream>
 #include <iostream>
-#include <zpp_bits.h>
 #include <assert.h>
 
 using namespace toy::core::scene;
@@ -39,6 +38,5 @@ std::vector<SceneObject> toy::core::scene::loadSceneFile(
 	{
 		assert(false);
 	}
-
 	return scene;
 }

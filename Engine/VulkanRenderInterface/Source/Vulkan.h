@@ -8,7 +8,12 @@
 #endif
 
 #include <Common.h>
+#pragma warning(disable:28251)
+#pragma warning(disable:6031)
 #include <vulkan/vulkan.hpp>
+#pragma warning(default:6031)
+#pragma warning(default:28251)
+
 #include <vk_mem_alloc.h>
 
 #include "RenderInterfaceCommonTypes.h"

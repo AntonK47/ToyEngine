@@ -1,6 +1,5 @@
 #define GLM_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
-
 #include "Application.h"
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
@@ -25,11 +24,7 @@
 
 #include <execution>
 #include <algorithm>
-//#include <ozz/base/io/archive.h>
-//#include <ozz/animation/offline/fbx/fbx_skeleton.h>
-//#include <ozz/animation/offline/fbx/fbx.h>
-
-
+#include <span>
 
 using namespace toy::renderer;
 using namespace toy::window;
@@ -38,11 +33,6 @@ using namespace compiler;
 
 namespace 
 {
-    void heavyWork()
-    {
-        std::cout << "mega heavy job has started!!!!" << std::endl;
-    }
-
 	std::string loadShaderFile(const std::string& filePath)
 	{
        
@@ -62,27 +52,6 @@ namespace
 
 int Application::run()
 {
-
-    /*using namespace ozz::animation::offline::fbx;
-    using namespace ozz::animation::offline;
-    auto instanceManager = FbxManagerInstance{};
-    auto fbxIoSettings = FbxDefaultIOSettings{ instanceManager };
-
-    const auto file = std::string{ "C:\\Users\\AntonKi8\\Downloads\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx" };
-    const auto pwd = std::string{ "" };
-
-    auto sceneLoader = ozz::animation::offline::fbx::FbxSceneLoader
-	{
-		file.c_str(),
-		pwd.c_str(),
-		instanceManager,
-		fbxIoSettings
-	};
-
-    RawSkeleton* skeleton;
-    OzzImporter::NodeType type;
-    ozz::animation::offline::fbx::ExtractSkeleton(sceneLoader, type, skeleton);*/
-
     logger::initialize();
     auto window = SDLWindow{};
     auto renderer = api::vulkan::VulkanRenderInterface{};
@@ -90,6 +59,8 @@ int Application::run()
     auto virtualTextureStreaming = VirtualTextureStreaming{};
 
     window.initialize(WindowDescriptor{ 1280, 720 });
+
+    const auto workerCount = 10;
 
     const auto rendererDescriptor = RendererDescriptor
     {
@@ -101,7 +72,7 @@ int Application::run()
         {
             return WindowExtent{ window.width(), window.height()};
         },
-        .threadWorkersCount = 2
+        .threadWorkersCount = workerCount
     };
     renderer.initialize(rendererDescriptor);
 
@@ -114,57 +85,6 @@ int Application::run()
     const auto virtualTextureStreamingDescriptor = VirtualTextureStreamingDescriptor{};
     virtualTextureStreaming.initialize(virtualTextureStreamingDescriptor);
     
-
-
-#pragma region Multithreading
-    struct Job
-    {
-    public:
-
-        Job() = default;
-        Job(const std::function<void()>& jobJunction)
-        {
-            function = jobJunction;
-        }
-        Job(const Job& a) noexcept { function = a.function; }
-        Job& operator=(const Job& a) noexcept { function = a.function; return *this; }
-        Job(Job&&) = delete;
-        std::function<void()> function;
-    };
-
-    auto queue = rigtorp::MPMCQueue<Job>{ 100 };
-    auto shouldRun = true;
-
-    auto workerProcessor = [&shouldRun, &queue]()
-    {
-        while (shouldRun)
-        {
-            using namespace std::chrono_literals;
-            std::this_thread::sleep_for(1s);
-            //std::cout << "thread id: " << std::this_thread::get_id() << std::endl;
-
-            auto job = Job{};
-            while (queue.try_pop(job))
-            {
-                if (job.function)
-                {
-                    job.function();
-                }
-            }
-        }
-
-    };
-
-    auto workerA = std::thread
-    {
-        workerProcessor
-    };
-
-    auto workerB = std::thread
-    {
-        workerProcessor
-    };
-#pragma endregion
 #pragma region FrameRingLinearAllocator
     //FEATURE: This should moved into a Frame Linear Allocator
     //================================================================================
@@ -172,7 +92,7 @@ int Application::run()
     usage |= BufferAccessUsage::uniform;
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
-            .size = 1024*1024*1024,
+            .size = 1024*1024*10,
             .accessUsage = usage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
@@ -181,7 +101,7 @@ int Application::run()
     renderer.map(frameData.nativeHandle, &frameDataPtr);
     //=================================================================================
 #pragma endregion
-#pragma region Material 
+#pragma region Pipeline creation 
     //R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
     const auto simpleTriangleGroup = BindGroupDescriptor
     {
@@ -292,11 +212,11 @@ int Application::run()
                 .depthTestEnabled = true
             }
         },
-            {
-                SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
-                SetBindGroupMapping{1, simpleTriangleGroupLayout},
-                SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout}
-            },
+        {
+            SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
+            SetBindGroupMapping{1, simpleTriangleGroupLayout},
+            SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout}
+        },
         {
             PushConstant({ .size = sizeof(u32)})
         });
@@ -369,19 +289,21 @@ int Application::run()
 
     const auto bistroInteriorData = "E:\\Develop\\ToyEngineContent\\interior.dat";
     const auto bistroExteriorData = "E:\\Develop\\ToyEngineContent\\exterior.dat";
+    const auto knightData = "E:\\Develop\\ToyEngineContent\\knight.dat";
+    const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
 
     const auto scene = Scene::loadSceneFromFile(renderer, bistroExteriorData);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
-	renderer.updateBindGroup(meshDataBindGroup, {
-
+	renderer.updateBindGroup(meshDataBindGroup, 
+        {
 				{
 					0, UAV{BufferView{ scene.positionStream_.nativeHandle, 0, VK_WHOLE_SIZE}}
 				},
-			{
+			    {
 					1, UAV{BufferView{ scene.uvStream_.nativeHandle, 0, VK_WHOLE_SIZE}}
 				},
-			{
+			    {
 					2, UAV{BufferView{ scene.tangentFrameStream_.nativeHandle, 0, VK_WHOLE_SIZE}}
 				},
 				{
@@ -395,20 +317,7 @@ int Application::run()
     //TODO: [#3] command submit should work also without calling nextFrame in a frame async scenario
     u32 objectToRender = scene.drawInstances_.size();
 
-    const auto gridSize = u32{ 1 };
-    auto myTestObjects = std::vector<glm::vec3>{};
-    myTestObjects.reserve(gridSize* gridSize* gridSize);
-    const auto scale = 200.0f;
-    for(auto i = u32{}; i < gridSize; i++)
-    {
-	    for(auto j = u32{}; j < gridSize; j++)
-	    {
-		    for(auto k = u32{}; k < gridSize; k++)
-		    {
-                myTestObjects.push_back(glm::vec3{ i * scale, j * scale, k * scale });
-		    }
-	    }
-    }
+    
 
 
     auto time = 0.0f;
@@ -428,8 +337,6 @@ int Application::run()
         
 
     }
-
-
     //const auto ii = renderer.createVirtualTexture({});
 
     auto frameStartTime = std::chrono::high_resolution_clock::now();
@@ -438,7 +345,7 @@ int Application::run()
     using Batch = decltype(renderer)::SubmitBatchType;
 
     std::unique_ptr<Batch> prepareBatch;
-    auto perThreadSubmits = std::array<std::unique_ptr<Batch>, 2>{};
+    auto perThreadSubmits = std::array<std::unique_ptr<Batch>, 10>{};
     std::unique_ptr<Batch> postRenderingBatch;
 
     while (stillRunning)
@@ -446,7 +353,7 @@ int Application::run()
         const auto cpuFrameTime = frameEndTime - frameStartTime;
         frameStartTime = std::chrono::high_resolution_clock::now();
         const auto hertz = cpuFrameTime.count() / 1000000.0f;//ns -> s
-        //window.setWindowTitle(std::to_string(hertz)); // <- this couse memory allocation
+        window.setWindowTitle(std::to_string(hertz)); // <- this couse memory allocation
         window.pollEvents();
         const auto& events = window.getEvents();
         const auto& io = window.getIo();
@@ -469,15 +376,6 @@ int Application::run()
             }
         } 
 
-#pragma region Job Push
-        /*if (io.keyboardState.a == toy::io::ButtonState::pressed)
-        {
-            {
-	            auto job = Job{&heavyWork};
-				queue.push(job);
-            }
-        }*/
-#pragma endregion
 #pragma region Camera Control
         if (io.keyboardState.e == toy::io::ButtonState::pressed)
         {
@@ -593,11 +491,31 @@ int Application::run()
 
             const auto& swapchainImage = renderer.acquireNextSwapchainImage();
 
+            const auto instances = std::span{ scene.drawInstances_ };
 
-            const auto half = scene.drawInstances_.size() / 2;
+            const auto batchSize = 10;
+            const auto itemsPerBatch = scene.drawInstances_.size() / batchSize;
+            auto batchSpanOffset = std::size_t{ 0 };
 
-            const auto set = std::array{ std::vector(scene.drawInstances_.begin(), scene.drawInstances_.begin() + half), std::vector(scene.drawInstances_.begin() + half, scene.drawInstances_.end()) };
-            const auto setIndicies = std::array<int, 2>{0, 1};
+            auto batches = std::vector<std::remove_const_t<decltype(instances)>>{};
+            batches.resize(batchSize);
+            for (auto i = u32{}; i < batchSize - 1; i++)
+            {
+                batches[i] = instances.subspan(batchSpanOffset, itemsPerBatch);
+                batchSpanOffset += itemsPerBatch;
+            }
+            batches[batchSize - 1] = instances.subspan(batchSpanOffset, scene.drawInstances_.size() - batchSpanOffset);
+
+            auto setIndicies = std::vector<int>{};
+            setIndicies.resize(batchSize);
+            std::iota(std::begin(setIndicies), std::end(setIndicies), 0);
+
+            auto batchOffsets = std::vector<std::size_t>{};
+            batchOffsets.resize(batchSize);
+            auto itemsPerBatches = [&](std::size_t i) { return batches[i].size(); };
+
+            std::transform_exclusive_scan(std::begin(setIndicies), std::end(setIndicies),
+                std::begin(batchOffsets), std::size_t{ 0 }, std::plus<std::size_t>{}, itemsPerBatches);
 
             const auto renderingDescriptor = RenderingDescriptor
             {
@@ -620,40 +538,42 @@ int Application::run()
                     .clearValue = DepthClear{ 1.0f }
                 }
             };
-
+            assert(&renderingDescriptor);
             constexpr auto area = RenderArea{ 0,0,1280,720 };
 
-            
             {
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
                 //TODO: this should performed on initial resource creation
-                cmd.barrier({
-                    ImageBarrierDescriptor
+                cmd.barrier(
                     {
-                        .srcLayout = Layout::undefined,
-                        .dstLayout = Layout::present,
-                        .image = swapchainImage.image
-                    }
+                        ImageBarrierDescriptor
+                        {
+                            .srcLayout = Layout::undefined,
+                            .dstLayout = Layout::present,
+                            .image = swapchainImage.image
+                        }
                     });
-                cmd.barrier({
-                    ImageBarrierDescriptor
+                cmd.barrier(
                     {
-                        .srcLayout = Layout::undefined,
-                        .dstLayout = Layout::depthStencilRenderTarget,
-                        .aspect = ImageViewAspect::depth,
-                        .image = depthFramebuffer
-                    }
+                        ImageBarrierDescriptor
+                        {
+                            .srcLayout = Layout::undefined,
+                            .dstLayout = Layout::depthStencilRenderTarget,
+                            .aspect = ImageViewAspect::depth,
+                            .image = depthFramebuffer
+                        }
                     });
 
 
-                cmd.barrier({
-                    ImageBarrierDescriptor
+                cmd.barrier(
                     {
-                        .srcLayout = Layout::present,
-                        .dstLayout = Layout::colorRenderTarget,
-                        .image = swapchainImage.image
-                    }
+                        ImageBarrierDescriptor
+                        {
+                            .srcLayout = Layout::present,
+                            .dstLayout = Layout::colorRenderTarget,
+                            .image = swapchainImage.image
+                        }
                     });
 
                 //perform render target clearing
@@ -677,8 +597,7 @@ int Application::run()
             Handle<BindGroup> perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
             const auto batchOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
 
-            const auto dataMemSize = sizeof(InstanceData);// +64 - sizeof(InstanceData) % 64;
-            //TODO: this should not be multithreaded, it can be bound upfront and I can use update after bind
+            const auto dataMemSize = sizeof(InstanceData);
             renderer.updateBindGroup(perInstanceGroup,
                 {
                     BindingDataMapping
@@ -696,10 +615,10 @@ int Application::run()
                     }
                 });
 
-            std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
+            std::for_each(std::execution::seq, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
                 {
-                    auto& drawInstances = set[index];
-                    auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index)});
+                    auto& drawInstances = batches[index];
+                    auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount)});
                     cmd.begin();
 
                     const auto renderingDescriptor = RenderingDescriptor
@@ -739,18 +658,21 @@ int Application::run()
                         cmd.bindGroup(2, perInstanceGroup);
 
                         
-                        auto setOffset = set[0].size() * dataMemSize * index;
+                        auto setOffset = batchOffsets[index] * dataMemSize;
                         
                         for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
                         {
                             const auto& drawInstance = drawInstances[j];
+
+
+                            //scene.meshes_[drawInstance.meshIndex].lods[0].
                             const auto& mesh = scene.meshes_[drawInstance.meshIndex];
 
                             //this scope should be thread safe. More preciesly, memory allocation should be thread safe. Beter strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
 
                             const auto instanceData = InstanceData
                             {
-                                .model = glm::translate(drawInstance.model, myTestObjects[0]),
+                                .model = glm::translate(drawInstance.model, glm::vec3(0.0f,0.0f,0.0f)),
                                 .clusterOffset = mesh.clusterOffset,
                                 .triangleOffset = mesh.triangleOffset,
                                 .positionStreamOffset = mesh.positionStreamOffset
@@ -761,21 +683,17 @@ int Application::run()
 
                         }
                         
-
-
-                        for (auto i = u32{}; i < myTestObjects.size(); i++)
+                        for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
                         {
-                            for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
-                            {
-                                const auto& drawInstance = drawInstances[j];
-                                const auto& mesh = scene.meshes_[drawInstance.meshIndex];
+                            const auto& drawInstance = drawInstances[j];
+                            const auto& mesh = scene.meshes_[drawInstance.meshIndex];
 
 
-                                const u32 value = j+ (u32)index * static_cast<u32>(set[0].size());
-                                cmd.pushConstant(value);
-                                cmd.draw(mesh.vertexCount, 1, 0, 0);
-                            }
+                            const u32 value = j + static_cast<u32>(batchOffsets[index]);
+                            cmd.pushConstant(value);
+                            cmd.draw(mesh.vertexCount, 1, 0, 0);
                         }
+                        
                     }
 
                     cmd.endRendering();
@@ -787,7 +705,20 @@ int Application::run()
                 }
                 );
 
-            renderer.submitBatches(QueueType::graphics, { *perThreadSubmits[0],*perThreadSubmits[1] });
+            
+            renderer.submitBatches(QueueType::graphics, 
+                { 
+                    *perThreadSubmits[0],
+                    *perThreadSubmits[1],
+                    *perThreadSubmits[2],
+                    *perThreadSubmits[3],
+                    * perThreadSubmits[4],
+                    * perThreadSubmits[5],
+                    * perThreadSubmits[6],
+                    * perThreadSubmits[7],
+                    * perThreadSubmits[8],
+                    * perThreadSubmits[9]
+                });
 
 
 
@@ -804,7 +735,19 @@ int Application::run()
                     });
 
                 cmd.end();
-                postRenderingBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, { perThreadSubmits[0]->barrier(), perThreadSubmits[1]->barrier() }));
+                postRenderingBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, 
+                    {
+                        perThreadSubmits[0]->barrier(),
+                        perThreadSubmits[1]->barrier(),
+                        perThreadSubmits[2]->barrier(),
+                        perThreadSubmits[3]->barrier(),
+                        perThreadSubmits[4]->barrier(),
+                        perThreadSubmits[5]->barrier(),
+                        perThreadSubmits[6]->barrier(),
+                        perThreadSubmits[7]->barrier(),
+                        perThreadSubmits[8]->barrier(),
+                        perThreadSubmits[9]->barrier()
+                    }));
             }
 
 
@@ -816,18 +759,11 @@ int Application::run()
         }
         frameEndTime = std::chrono::high_resolution_clock::now();
     }
-    shouldRun = false;
-    workerA.join();
-    workerB.join();
 
     graphicsDebugger.deinitialize();
     renderer.deinitialize();
     window.deinitialize();
     logger::deinitialize();
-
-    
-
-
 
     return EXIT_SUCCESS;
 }

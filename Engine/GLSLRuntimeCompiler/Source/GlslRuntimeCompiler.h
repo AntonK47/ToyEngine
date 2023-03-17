@@ -1,7 +1,8 @@
 #pragma once
+#pragma warning(disable:26495)
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
-
+#pragma warning(default:26495)
 #include <CommonTypes.h>
 
 namespace toy::renderer::compiler

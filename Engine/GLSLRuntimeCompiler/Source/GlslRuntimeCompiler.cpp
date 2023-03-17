@@ -1,7 +1,10 @@
 #include "GlslRuntimeCompiler.h"
 
 #include <sstream>
+
+#pragma warning(disable:26495)
 #include <glslang/Include/glslang_c_interface.h>
+#pragma warning(default:26495)
 
 using namespace toy::renderer::compiler;
 

@@ -23,6 +23,8 @@ set(TOY_ADDITIONAL_DEFINES
     TOY_ENGINE_ENABLE_RAY_TRACING
 ) 
 
+#workaround for e2500 in zpp_bits
+add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS=0)
 
 define_property(GLOBAL PROPERTY TOY_SOURCE_DIR)
 

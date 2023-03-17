@@ -348,6 +348,7 @@ namespace
     }
 }
 
+//TODO: make better
 static int aa = 0;
 std::mutex m;
 VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const WorkerThreadId workerId, const UsageScope& usageScope)
@@ -478,8 +479,8 @@ void VulkanRenderInterface::submitBatchesInternal(const QueueType queueType,
     const auto queue = queues_[queueType].queue;
     auto result = queue.submit2(1, &submitInfo, nullptr);
     TOY_ASSERT(result == vk::Result::eSuccess);
-    result = device_.waitIdle();
-    TOY_ASSERT(result == vk::Result::eSuccess);
+    /*result = device_.waitIdle();
+    TOY_ASSERT(result == vk::Result::eSuccess);*/
 }
 
 VulkanRenderInterface::SubmitBatchType VulkanRenderInterface::submitCommandListInternal(
@@ -1889,7 +1890,7 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
     const auto asyncComputeIndex = queues_[QueueType::asyncCompute].familyIndex;
     const auto transferIndex = queues_[QueueType::transfer].familyIndex;
 
-    constexpr auto graphicsCommandListPerFrame = u32{ 10 };
+    constexpr auto graphicsCommandListPerFrame = u32{ 100 };//TODO:
     constexpr auto asyncComputeCommandListPerFrame = u32{ 10 };
     constexpr auto transferCommandListPerFrame = u32{ 10 };
 

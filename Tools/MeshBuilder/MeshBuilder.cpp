@@ -151,14 +151,20 @@ ProcessResult process(const std::string& input,
 
 int MeshBuilderApplication::run(int argc, char* argv[])
 {
-	auto output = std::string{ "E:\\Develop\\ToyEngineContent\\interior.dat" };
-	auto input = std::string{ "E:\\McGuireComputerGraphicsArchive\\Bistro\\interior.obj" };
+	const auto output = std::string{ "E:\\Develop\\ToyEngineContent\\interior.dat" };
+	const auto input = std::string{ "E:\\McGuireComputerGraphicsArchive\\Bistro\\interior.obj" };
 
-	auto output1 = std::string{ "E:\\Develop\\ToyEngineContent\\exterior.dat" };
-	auto input1 = std::string{ "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj" };
+	const auto output1 = std::string{ "E:\\Develop\\ToyEngineContent\\exterior.dat" };
+	const auto input1 = std::string{ "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj" };
+
+	const auto input2 = std::string{ "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx" };
+	const auto output2 = std::string{ "E:\\Develop\\ToyEngineContent\\knight.dat"};
+
+	const auto input3 = std::string{ "E:\\Develop\\ToyEngineContent\\Z-Anatomy.glb" };
+	const auto output3 = std::string{ "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat" };
 
 	auto format = float{ defaultFormat };
-	if (process(input1, output1, ProcessOptions{ format }) == ProcessResult::success)
+	if (process(input3, output3, ProcessOptions{ format }) == ProcessResult::success)
 	{
 		std::cout << output << " generation finished." << std::endl;
 		return EXIT_SUCCESS;
