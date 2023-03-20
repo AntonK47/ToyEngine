@@ -25,4 +25,7 @@ namespace toy::renderer
     vk::DescriptorType mapDescriptorType(BindingType type);
 
     vk::ImageAspectFlagBits mapViewAspect(ImageViewAspect aspect);
+
+    [[nodiscard]] auto mapFilter(Filter filter) -> vk::Filter;
+    [[nodiscard]] auto mapMipFilter(MipFilter filter) -> vk::SamplerMipmapMode;
 }

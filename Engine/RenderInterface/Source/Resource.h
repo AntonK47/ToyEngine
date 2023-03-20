@@ -36,6 +36,9 @@ namespace toy::renderer
 #endif
 	};
 
+	struct Sampler
+	{};
+
 	struct VirtualTexture
 	{
 		Handle<VirtualTexture> nativeHandle;

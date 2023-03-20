@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <glm/ext/matrix_common.hpp>
+#include <glm/glm.hpp>
 
 #include "CommandListValidator.h"
 #include "RenderInterfaceCommonTypes.h"
@@ -66,7 +67,7 @@ namespace toy::renderer
 	{
 		Layout srcLayout;
 		Layout dstLayout;
-		ResourcePipelineStageUsageFlags srcStage{ ResourcePipelineStageUsageFlagBits::none };
+		ResourcePipelineStageUsageFlags srcStage{ ResourcePipelineStageUsageFlagBits::none }; //TODO: I don't like this design desition, because in contextes like data transfer it doesn't make sence.
 		ResourcePipelineStageUsageFlags dstStage{ ResourcePipelineStageUsageFlagBits::none };
 		ImageViewAspect aspect;
 		Handle<Image> image;
@@ -135,8 +136,8 @@ namespace toy::renderer
 	struct RenderingDescriptor
 	{
 		std::vector<RenderTargetDescriptor> colorRenderTargets{};//TODO: smallvector
-		RenderTargetDescriptor depthRenderTarget{};
-		RenderTargetDescriptor stencilRenderTarget{};
+		std::optional<RenderTargetDescriptor> depthRenderTarget{};
+		std::optional<RenderTargetDescriptor> stencilRenderTarget{};
 	};
 
 	enum class GeometryBehavior
@@ -165,7 +166,32 @@ namespace toy::renderer
 		Handle<AccelerationStructure> blas;
 	};
 
+	struct SourceBufferDescrptor
+	{
+		Handle<Buffer> buffer;
+		core::u32 offset;
+	};
+
+	struct Region
+	{
+		core::u32 mip{};
+		core::u32 baseLayer{};
+		core::u32 layerCount{};
+		glm::uvec3 extent{};
+		glm::ivec3 offset{ 0,0,0 };
+	};
+
+	struct DestinationImageDescriptor
+	{
+		Handle<Image> image;
+		std::vector<Region> regions{};
+	};
 	
+	enum class IndexType
+	{
+		index16,
+		index32
+	};
 
 	/*template <typename T>
 	concept CommandListConcept = requires(T cmd) {
@@ -311,6 +337,11 @@ namespace toy::renderer
 			implementation().pushConstantInternal(value);
 		}
 
+		auto bindIndexBuffer(const Handle<Buffer>& buffer, const core::u64 offset, const IndexType indexType) -> void
+		{
+			implementation().bindIndexBufferInternal(buffer, offset, indexType);
+		}
+
 		auto draw(
 			core::u32 vertexCount,
 			core::u32 instanceCount,
@@ -320,6 +351,22 @@ namespace toy::renderer
 			//TODO: When scissor or viewport state was not set before, than make and set a fullscreen scissor and viewport (or match render area)
 			VALIDATE(validateDraw(vertexCount, instanceCount, firstVertex, firstInstance));
 			implementation().drawInternal(vertexCount, instanceCount, firstVertex, firstInstance);
+		}
+
+		auto drawIndexed(
+			core::u32 indexCount,
+			core::u32 instanceCount,
+			core::u32 firstIndex,
+			core::i32 vertexOffset,
+			core::u32 firstInstance
+		) -> void
+		{
+			implementation().drawIndexedInternal(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+		}
+
+		auto trasfer(const SourceBufferDescrptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription) -> void
+		{
+			implementation().transferInternal(srcBufferDescriptor, dstImageDescription);
 		}
 
 		[[nodiscard]] auto getQueueType() const -> QueueType { return queueType_; }

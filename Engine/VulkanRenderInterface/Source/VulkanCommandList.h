@@ -57,7 +57,20 @@ namespace toy::renderer::api::vulkan
 			core::u32 instanceCount,
 			core::u32 firstVertex,
 			core::u32 firstInstance);
+
+		auto drawIndexedInternal(
+			core::u32 indexCount,
+			core::u32 instanceCount,
+			core::u32 firstIndex,
+			core::i32 vertexOffset,
+			core::u32 firstInstance
+		) -> void;
+
+		auto transferInternal(const SourceBufferDescrptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription) -> void;
+
 		void bindPipelineInternal(const Handle<Pipeline>& pipeline);
+		auto bindIndexBufferInternal(const Handle<Buffer>& buffer, const u64 offset, const IndexType indexType) -> void;
+
 		void setScissorInternal(const Scissor& scissor);
 		void setViewportInternal(const Viewport& viewport);
 

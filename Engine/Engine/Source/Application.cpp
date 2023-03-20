@@ -26,6 +26,8 @@
 #include <algorithm>
 #include <span>
 
+#include <imgui.h>
+
 using namespace toy::renderer;
 using namespace toy::window;
 using namespace compiler;
@@ -33,6 +35,18 @@ using namespace compiler;
 
 namespace 
 {
+
+    auto mapWindowIoToImGuiIo(const toy::io::WindowIo& windowIo, ImGuiIO& imguiIo) -> void
+    {
+
+        imguiIo.AddMousePosEvent(windowIo.mouseState.position.x, windowIo.mouseState.position.y);
+        imguiIo.AddMouseButtonEvent(0, windowIo.mouseState.leftButton == toy::io::ButtonState::pressed);
+        imguiIo.AddMouseButtonEvent(1, windowIo.mouseState.rightButton == toy::io::ButtonState::pressed);
+        imguiIo.AddMouseButtonEvent(2, windowIo.mouseState.middleButton == toy::io::ButtonState::pressed);
+        imguiIo.AddMouseWheelEvent(0.0f, windowIo.mouseState.wheel);
+
+    }
+
 	std::string loadShaderFile(const std::string& filePath)
 	{
        
@@ -60,6 +74,11 @@ int Application::run()
 
     window.initialize(WindowDescriptor{ 1280, 720 });
 
+
+    
+    
+
+
     const auto workerCount = 10;
 
     const auto rendererDescriptor = RendererDescriptor
@@ -76,6 +95,96 @@ int Application::run()
     };
     renderer.initialize(rendererDescriptor);
 
+
+
+
+    ImGui::CreateContext();
+    
+        int width, height;
+        unsigned char* pixels = NULL;
+        ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
+        const auto texelSize = 1;
+        const auto fontImageSize = width * height * texelSize;
+
+        Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
+        accessUsage |= ImageAccessUsage::transferDst;
+
+
+        const auto fontDescriptor = ImageDescriptor
+        {
+            .format = Format::r8,
+            .extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
+            .mips = 1,
+            .layers = 1,
+            .accessUsage = accessUsage
+        };
+
+        auto fontImage = renderer.createImage(fontDescriptor);
+        ImGui::GetIO().Fonts->SetTexID((void*)&fontImage);
+
+        const auto stagingSize = 10 * 1024 * 1024; //10MB
+
+        const auto stagingDescriptor = BufferDescriptor
+        {
+            .size = stagingSize,
+            .accessUsage = BufferAccessUsage::transferSrc,
+            .memoryUsage = MemoryUsage::cpuOnly
+        };
+
+        auto stagingBuffer = renderer.createBuffer(stagingDescriptor, DebugLabel{ "Upload Staging Buffer" });
+
+        void* stagingBufferDataPtr;
+        renderer.map(stagingBuffer.nativeHandle, &stagingBufferDataPtr);
+
+        TOY_ASSERT(fontImageSize <= stagingSize);
+
+        std::memcpy(stagingBufferDataPtr, pixels, fontImageSize);
+
+
+        auto uploadCommandList = renderer.acquireCommandList(QueueType::transfer);
+
+        uploadCommandList.begin();
+        uploadCommandList.barrier({ ImageBarrierDescriptor
+            {
+                .srcLayout = Layout::undefined,
+                .dstLayout = Layout::transferDst,
+                .srcStage = ResourcePipelineStageUsageFlagBits::none,
+                .dstStage = ResourcePipelineStageUsageFlagBits::none,
+                .aspect = ImageViewAspect::color,
+                .image = fontImage
+            } });
+
+        uploadCommandList.trasfer(
+            SourceBufferDescrptor
+            {
+                .buffer = stagingBuffer.nativeHandle,
+                .offset = 0
+            },
+            DestinationImageDescriptor
+            {
+                .image = fontImage,
+                .regions = { Region{ 0, 0, 1, glm::uvec3{width, height, 1 }}}
+            }
+            );
+
+        uploadCommandList.barrier({ ImageBarrierDescriptor
+            {
+                .srcLayout = Layout::transferDst,
+                .dstLayout = Layout::shaderRead,
+                .srcStage = ResourcePipelineStageUsageFlagBits::none,
+                .dstStage = ResourcePipelineStageUsageFlagBits::fragment,
+                .aspect = ImageViewAspect::color,
+                .image = fontImage
+            } });
+        uploadCommandList.end();
+
+        const auto submit = renderer.submitCommandList(toy::renderer::QueueType::transfer, { uploadCommandList }, {});
+        renderer.submitBatches(toy::renderer::QueueType::transfer, { submit });
+
+    
+    
+    
+
     const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
     {
         .nativeBackend = renderer.getNativeBackend()
@@ -90,9 +199,10 @@ int Application::run()
     //================================================================================
     auto usage = toy::core::Flags<BufferAccessUsage>{ BufferAccessUsage::storage };
     usage |= BufferAccessUsage::uniform;
+    usage |= BufferAccessUsage::index;
     const auto frameData = renderer.createBuffer(BufferDescriptor
         {
-            .size = 1024*1024*10,
+            .size = 1024*1024*100,
             .accessUsage = usage,
             .memoryUsage = MemoryUsage::cpuOnly,
         });
@@ -209,7 +319,8 @@ int Application::run()
             },
             .state = PipelineState
             {
-                .depthTestEnabled = true
+                .depthTestEnabled = true,
+                .faceCulling = FaceCull::back
             }
         },
         {
@@ -223,6 +334,136 @@ int Application::run()
 
 #pragma endregion
 
+#pragma region gui pipeline
+
+
+    const auto guiVertexShaderGlslCode = loadShaderFile("Resources/gui.vert");
+    const auto guiFragmentShaderGlslCode = loadShaderFile("Resources/gui.frag");
+
+    const auto guiVertexShaderInfo =
+        GlslRuntimeCompiler::ShaderInfo
+    {
+        .entryPoint = "main",
+        .compilationDefines = {},
+        .shaderStage = compiler::ShaderStage::vertex,
+        .shaderCode = guiVertexShaderGlslCode,
+        .enableDebugCompilation = true
+    };
+
+    const auto guiFragmentShaderInfo =
+        GlslRuntimeCompiler::ShaderInfo
+    {
+        .entryPoint = "main",
+        .compilationDefines = {},
+        .shaderStage = compiler::ShaderStage::fragment,
+        .shaderCode = guiFragmentShaderGlslCode,
+        .enableDebugCompilation = true
+    };
+
+
+    auto guiVsSpirvCode = ShaderByteCode{};
+    auto guiFsSpirvCode = ShaderByteCode{};
+
+    {
+        const auto result = GlslRuntimeCompiler::compileToSpirv(guiVertexShaderInfo, guiVsSpirvCode);
+        TOY_ASSERT(result == CompilationResult::success);
+    }
+    {
+        const auto result = GlslRuntimeCompiler::compileToSpirv(guiFragmentShaderInfo, guiFsSpirvCode);
+        TOY_ASSERT(result == CompilationResult::success);
+    }
+
+    
+
+
+    const auto guiVertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::spirv1_6, guiVsSpirvCode });
+    const auto guiFragmentShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::fragment, { ShaderLanguage::spirv1_6, guiFsSpirvCode });
+
+
+    const auto guiVertexDataGroup = BindGroupDescriptor
+    {
+        .bindings =
+        {
+            {
+                .binding = 0,
+                .descriptor = BindingDescriptor{BindingType::StorageBuffer}
+            }
+        }
+    };
+
+    const auto guiFontGroup = BindGroupDescriptor
+    {
+        .bindings =
+        {
+            {
+                .binding = 0,
+                .descriptor = BindingDescriptor{BindingType::Texture2D}
+            },
+            {
+                .binding = 1,
+                .descriptor = BindingDescriptor{BindingType::Sampler}
+            }
+        }
+    };
+
+    
+    const auto guiVertexDataGroupLayout = renderer.createBindGroupLayout(guiVertexDataGroup);
+    const auto guiFontGroupLayout = renderer.createBindGroupLayout(guiFontGroup);
+
+    const auto fontView = renderer.createImageView(ImageViewDescriptor
+        {
+            .image = fontImage,
+            .format = Format::r8,
+            .type = ImageViewType::_2D
+        });
+
+
+    const auto fontSampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+
+    Handle<BindGroup> guiFontBindGroup = renderer.allocateBindGroup(guiFontGroupLayout, UsageScope::async);
+    renderer.updateBindGroup(guiFontBindGroup,
+        {
+                {
+                    0, Texture2DSRV{fontView}
+                },
+                {
+                    1, SamplerSRV{fontSampler}
+                },
+        });
+
+    struct ScaleTranslate {
+        glm::vec2 scale;
+        glm::vec2 translate;
+    };
+
+    const auto guiPipeline = renderer.createPipeline(
+        GraphicsPipelineDescriptor
+        {
+            .vertexShader = guiVertexShaderModule,
+            .fragmentShader = guiFragmentShaderModule,
+            .renderTargetDescriptor = RenderTargetsDescriptor
+            {
+                .colorRenderTargets = std::initializer_list
+                {
+                    ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
+                },
+                //.depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
+            },
+            .state = PipelineState
+            {
+                .depthTestEnabled = false,
+                .faceCulling = FaceCull::none,
+                .blending = Blending::alphaBlend
+            }
+        },
+        {
+            SetBindGroupMapping{0, guiVertexDataGroupLayout},
+            SetBindGroupMapping{1, guiFontGroupLayout}
+        },
+        {
+            PushConstant({ .size = sizeof(ScaleTranslate) })
+        });
+#pragma endregion
 
     const auto imageDescriptor = ImageDescriptor
 	{
@@ -292,7 +533,7 @@ int Application::run()
     const auto knightData = "E:\\Develop\\ToyEngineContent\\knight.dat";
     const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
 
-    const auto scene = Scene::loadSceneFromFile(renderer, bistroExteriorData);
+    const auto scene = Scene::loadSceneFromFile(renderer, knightData);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, 
@@ -357,6 +598,14 @@ int Application::run()
         window.pollEvents();
         const auto& events = window.getEvents();
         const auto& io = window.getIo();
+
+        auto& imGuiIo = ImGui::GetIO();
+        imGuiIo.DeltaTime = 1.0f / 60.0f;              // set the time elapsed since the previous frame (in seconds)
+        imGuiIo.DisplaySize.x = window.width();             // set the current display width
+        imGuiIo.DisplaySize.y = window.height();
+        mapWindowIoToImGuiIo(io, imGuiIo);
+
+
 
         for (const auto& event : events)
         {
@@ -459,6 +708,15 @@ int Application::run()
 
             renderer.nextFrame();
 
+            ImGui::NewFrame();
+            ImGui::Text("Hello, world!");
+            ImGui::ShowDemoWindow();
+            ImGui::EndFrame();
+
+            
+            ImGui::Render();
+            ImDrawData* drawData = ImGui::GetDrawData();
+
             Handle<BindGroup> bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
             auto frameDataBeginPtr = static_cast<u8*>(frameDataPtr);
@@ -542,6 +800,7 @@ int Application::run()
             constexpr auto area = RenderArea{ 0,0,1280,720 };
 
             {
+                renderer.beginDebugLable(QueueType::graphics, {"prepare render target"});
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
                 //TODO: this should performed on initial resource creation
@@ -615,6 +874,8 @@ int Application::run()
                     }
                 });
 
+            renderer.endDebugLable(QueueType::graphics);
+            renderer.beginDebugLable(QueueType::graphics, { "object rendering"});
             std::for_each(std::execution::seq, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
                 {
                     auto& drawInstances = batches[index];
@@ -721,8 +982,155 @@ int Application::run()
                 });
 
 
+            renderer.endDebugLable(QueueType::graphics);
 
+            auto guiBatch = std::unique_ptr<Batch>{};
             {
+
+
+                renderer.beginDebugLable(QueueType::graphics, DebugLabel{ "GUI" });
+                auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
+                cmd.begin();
+                const auto renderingDescriptor = RenderingDescriptor
+                {
+                    .colorRenderTargets = {
+                        RenderTargetDescriptor
+                        {
+                            .imageView = swapchainImage.view,
+                            .load = LoadOperation::load,
+                            .store = StoreOperation::store,
+                            .resolveMode = ResolveMode::none,
+                            .clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
+                        }
+                    }/*,
+                    .depthRenderTarget = RenderTargetDescriptor
+                    {
+                        .imageView = depthFramebufferView,
+                        .load = LoadOperation::load,
+                        .store = StoreOperation::store,
+                        .resolveMode = ResolveMode::none,
+                        .clearValue = DepthClear{ 1.0f }
+                    }*/
+                };
+
+                cmd.beginRendering(renderingDescriptor, area);
+               
+                constexpr auto viewport = Viewport{ 0.0,720.0,1280.0,-720.0 };
+
+
+                cmd.bindPipeline(guiPipeline);
+                cmd.setViewport(viewport);
+                cmd.bindGroup(1, guiFontBindGroup);
+
+                const auto dataMemSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
+                const auto clipOff = drawData->DisplayPos;
+
+                for (auto i = u32{}; i < drawData->CmdListsCount; i++)
+                {
+                    auto guiVertexDataGroup = renderer.allocateBindGroup(guiVertexDataGroupLayout);
+                    const auto cmdList = drawData->CmdLists[i];
+
+                    const auto& indexRawData = cmdList->IdxBuffer;
+                    const auto& vertexRawData = cmdList->VtxBuffer;
+
+                    const auto indexRawDataSize = indexRawData.Size * sizeof(ImDrawIdx);
+                   
+                    
+                    auto size = std::size_t{ frameData.size };
+                    auto p = (void*)frameDataBeginPtr;
+                    frameDataBeginPtr = (u8*)std::align(16, indexRawDataSize, p, size) ;
+
+                    if (frameDataBeginPtr + indexRawDataSize > frameDataBeginPtr + frameData.size)
+                    {
+                        frameDataBeginPtr = (u8*)frameDataPtr;
+                    }
+                    auto indexBufferOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+                    std::memcpy(frameDataBeginPtr, indexRawData.Data, indexRawDataSize);
+                    frameDataBeginPtr += indexRawDataSize;
+
+                    const auto vertexRawDataSize = vertexRawData.Size * sizeof(ImDrawVert);
+                    
+                    size = std::size_t{ frameData.size };
+                    p = (void*)frameDataBeginPtr;
+                    frameDataBeginPtr = (u8*)std::align(16, vertexRawDataSize, p, size);
+                    if (frameDataBeginPtr + indexRawDataSize > frameDataBeginPtr + frameData.size)
+                    {
+                        frameDataBeginPtr = (u8*)frameDataPtr;
+                    }
+
+                    auto vertexBufferOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+                    std::memcpy(frameDataBeginPtr, vertexRawData.Data, vertexRawDataSize);
+                    frameDataBeginPtr += vertexRawDataSize;
+
+                    
+                    renderer.updateBindGroup(guiVertexDataGroup,
+                        {
+                            BindingDataMapping
+                            {
+                                .binding = 0,
+                                .view = UAV
+                                {
+                                    .bufferView = BufferView
+                                    {
+                                        .buffer = frameData.nativeHandle,
+                                        .offset = vertexBufferOffset,
+                                        .size = (u64)(vertexRawDataSize)
+                                    }
+                                }
+                            }
+                        });
+
+                    float scale[2];
+                    scale[0] = 2.0f / drawData->DisplaySize.x;
+                    scale[1] = 2.0f / drawData->DisplaySize.y;
+
+                    const auto scaleTranslate = ScaleTranslate
+                    {
+                        .scale = glm::vec2(scale[0], scale[1]),
+                        .translate = glm::vec2(-1.0f - drawData->DisplayPos.x * scale[0], -1.0f - drawData->DisplayPos.y * scale[1])
+                    };
+                    cmd.bindGroup(0, guiVertexDataGroup);
+
+
+                    cmd.pushConstant(scaleTranslate);
+
+                    for (auto j = u32{}; j < cmdList->CmdBuffer.Size; j++)
+                    {
+                        const auto& drawCommand = cmdList->CmdBuffer[j];
+
+                        const auto clipMin = ImVec2(drawCommand.ClipRect.x - clipOff.x, drawCommand.ClipRect.y - clipOff.y);
+                        const auto clipMax = ImVec2(drawCommand.ClipRect.z - clipOff.x, drawCommand.ClipRect.w - clipOff.y);
+                        if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
+                            continue;
+                        
+                        const auto scissor = Scissor{ static_cast<i32>(clipMin.x), static_cast<i32>(clipMin.y), static_cast<u32>(clipMax.x- clipMin.x), static_cast<u32>(clipMax.y-clipMin.y) };
+                        cmd.setScissor(scissor);
+                        cmd.bindIndexBuffer(frameData.nativeHandle, indexBufferOffset, sizeof(ImDrawIdx) == 2 ? IndexType::index16 : IndexType::index32);
+                        cmd.drawIndexed(drawCommand.ElemCount, 1, drawCommand.IdxOffset, drawCommand.VtxOffset, 0);
+                    }
+                }
+                cmd.endRendering();
+                cmd.end();
+                guiBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd },
+                    { 
+                        perThreadSubmits[0]->barrier(),
+                        perThreadSubmits[1]->barrier(),
+                        perThreadSubmits[2]->barrier(),
+                        perThreadSubmits[3]->barrier(),
+                        perThreadSubmits[4]->barrier(),
+                        perThreadSubmits[5]->barrier(),
+                        perThreadSubmits[6]->barrier(),
+                        perThreadSubmits[7]->barrier(),
+                        perThreadSubmits[8]->barrier(),
+                        perThreadSubmits[9]->barrier() 
+                    }));
+
+                renderer.submitBatches(QueueType::graphics, { *guiBatch });
+                renderer.endDebugLable(QueueType::graphics);
+            }
+            
+            {
+                renderer.beginDebugLable(QueueType::graphics, {"prepare present"});
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
                 cmd.barrier({
@@ -737,16 +1145,7 @@ int Application::run()
                 cmd.end();
                 postRenderingBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::renderer::QueueType::graphics, { cmd }, 
                     {
-                        perThreadSubmits[0]->barrier(),
-                        perThreadSubmits[1]->barrier(),
-                        perThreadSubmits[2]->barrier(),
-                        perThreadSubmits[3]->barrier(),
-                        perThreadSubmits[4]->barrier(),
-                        perThreadSubmits[5]->barrier(),
-                        perThreadSubmits[6]->barrier(),
-                        perThreadSubmits[7]->barrier(),
-                        perThreadSubmits[8]->barrier(),
-                        perThreadSubmits[9]->barrier()
+                        guiBatch->barrier()
                     }));
             }
 
@@ -760,6 +1159,7 @@ int Application::run()
         frameEndTime = std::chrono::high_resolution_clock::now();
     }
 
+    ImGui::DestroyContext();
     graphicsDebugger.deinitialize();
     renderer.deinitialize();
     window.deinitialize();

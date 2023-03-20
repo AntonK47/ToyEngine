@@ -160,6 +160,11 @@ namespace toy::renderer
 			return implementation().createImageInternal(descriptor);
 		}
 
+		[[nodiscard]] auto createSampler(const SamplerDescriptor& descriptor, [[maybe_unused]] const DebugLabel label = {}) -> Handle<Sampler>
+		{
+			return implementation().createSamplerInternal(descriptor, label);
+		}
+
 		[[nodiscard]] auto createVirtualTexture(const VirtualTextureDescriptor& descriptor) -> Handle<VirtualTexture>
 		{
 			return implementation().createVirtualTextureInternal(descriptor);
@@ -241,8 +246,18 @@ namespace toy::renderer
 			return implementation().createShaderModuleInternal(stage, code);
 		}
 
+		auto beginDebugLable(const QueueType queueType, const DebugLabel& label) -> void
+		{
+			implementation().beginDebugLableInternal(queueType, label);
+		}
 
-		//TODO This function should be thread safe
+		auto endDebugLable(const QueueType queueType) -> void
+		{
+			implementation().endDebugLableInternal(queueType);
+		}
+
+
+		//TODO This function should be thread safe??????????, internaly there are no storage write, but only read access
 		auto updateBindGroup(
 			const Handle<BindGroup>& bindGroup,
 			const std::initializer_list<BindingDataMapping>& mappings) -> void

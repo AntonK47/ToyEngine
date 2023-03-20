@@ -32,6 +32,8 @@ target_link_libraries(${MODULE_NAME}
 		GLSLRuntimeCompiler
 		GraphicsDebugger
 		MPMCQueue::MPMCQueue
+		imgui::imgui
+
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

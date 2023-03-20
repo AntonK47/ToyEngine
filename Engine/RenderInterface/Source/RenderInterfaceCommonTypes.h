@@ -132,6 +132,7 @@ namespace toy::renderer
 
 	enum class Format
 	{
+		r8,
 		rgba8,
 		rgba16,
 		d16,
@@ -170,9 +171,24 @@ namespace toy::renderer
 		std::optional<StencilRenderTargetDescriptor> stencilRenderTarget;
 	};
 
+	enum class FaceCull
+	{
+		front,
+		back,
+		none,
+	};
+
+	enum class Blending
+	{
+		alphaBlend,
+		none
+	};
+
 	struct PipelineState
 	{
-		bool depthTestEnabled;
+		bool depthTestEnabled{ false };
+		FaceCull faceCulling{ FaceCull::none };
+		Blending blending{ Blending::none };
 	};
 	
 	struct GraphicsPipelineDescriptor
@@ -236,10 +252,22 @@ namespace toy::renderer
 		BufferView bufferView;
 	};
 
+	struct Texture2DSRV
+	{
+		Handle<ImageView> imageView;
+	};
+
+	struct SamplerSRV
+	{
+		Handle<Sampler> sampler;
+	};
+
+	
+
 	struct BindingDataMapping
 	{
 		core::u32 binding{0};
-		std::variant<CBV, UAV> view{};
+		std::variant<CBV, UAV, Texture2DSRV, SamplerSRV> view{};
 		core::u32 arrayElement{};
 	};
 
@@ -249,6 +277,26 @@ namespace toy::renderer
 		core::Flags<BufferAccessUsage> accessUsage;
 		MemoryUsage memoryUsage{ MemoryUsage::gpuOnly };
 		core::Flags<QueuesSharing> queuesSharing{ QueuesSharing::graphics };
+	};
+
+	enum class Filter
+	{
+		nearest,
+		linear,
+		cubic
+	};
+
+	enum class MipFilter
+	{
+		nearest,
+		linear
+	};
+
+	struct SamplerDescriptor
+	{
+		Filter magFilter;
+		Filter minFilter;
+		MipFilter mipFilter;
 	};
 
 	struct Extent

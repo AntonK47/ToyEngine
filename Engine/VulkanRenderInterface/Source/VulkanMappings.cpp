@@ -135,6 +135,8 @@ vk::Format toy::renderer::mapFormat(const Format format)
 	case Format::d32:
 		vulkanFormat = vk::Format::eD32Sfloat;
 		break;
+	case Format::r8:
+		vulkanFormat = vk::Format::eR8Unorm;
 	}
 	return vulkanFormat;
 }
@@ -208,4 +210,30 @@ vk::ImageAspectFlagBits toy::renderer::mapViewAspect(const ImageViewAspect aspec
 	}
 
 	return vk::ImageAspectFlagBits::eNone;
+}
+
+[[nodiscard]] auto toy::renderer::mapFilter(Filter filter) -> vk::Filter
+{
+	switch (filter)
+	{
+	case Filter::nearest:
+		return vk::Filter::eNearest;
+	case Filter::linear:
+		return vk::Filter::eLinear;
+	case Filter::cubic:
+		return vk::Filter::eCubicIMG;
+	}
+	return vk::Filter::eNearest;
+}
+[[nodiscard]] auto toy::renderer::mapMipFilter(MipFilter filter) -> vk::SamplerMipmapMode
+{
+	switch (filter)
+	{
+	case MipFilter::nearest:
+		return vk::SamplerMipmapMode::eNearest;
+	case MipFilter::linear:
+		return vk::SamplerMipmapMode::eLinear;
+	}
+	return vk::SamplerMipmapMode::eNearest;
+
 }

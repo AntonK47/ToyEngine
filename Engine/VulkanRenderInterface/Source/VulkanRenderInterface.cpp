@@ -236,7 +236,7 @@ namespace
             vk::PhysicalDeviceRayTracingMaintenance1FeaturesKHR
             {
                 .rayTracingMaintenance1 = vk::Bool32{true}
-            }
+            },
 #endif
         };
 
@@ -348,7 +348,7 @@ namespace
     }
 }
 
-//TODO: make better
+//TODO: make it better
 static int aa = 0;
 std::mutex m;
 VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const WorkerThreadId workerId, const UsageScope& usageScope)
@@ -479,8 +479,8 @@ void VulkanRenderInterface::submitBatchesInternal(const QueueType queueType,
     const auto queue = queues_[queueType].queue;
     auto result = queue.submit2(1, &submitInfo, nullptr);
     TOY_ASSERT(result == vk::Result::eSuccess);
-    /*result = device_.waitIdle();
-    TOY_ASSERT(result == vk::Result::eSuccess);*/
+    result = device_.waitIdle();
+    TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
 VulkanRenderInterface::SubmitBatchType VulkanRenderInterface::submitCommandListInternal(
@@ -774,6 +774,12 @@ void VulkanRenderInterface::deinitializeInternal()
         	device_.destroyImageView(imageView.imageView);
         }
         imageViewStorage_.reset();
+
+        for (const auto& [key, sampler] : samplerStorage_)
+        {
+            device_.destroySampler(sampler.sampler);
+        }
+        samplerStorage_.reset();
 
         for (const auto& [key, pipeline] : pipelineStorage_)
         {
@@ -1223,10 +1229,26 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
         .viewportCount = 1,
         .scissorCount = 1,
     };
+    
+    
+
+    auto cullMode = vk::CullModeFlags{};
+    switch (descriptor.state.faceCulling)
+    {
+    case FaceCull::front:
+        cullMode = vk::CullModeFlagBits::eFront;
+        break;
+    case FaceCull::back:
+        cullMode = vk::CullModeFlagBits::eBack;
+        break;
+    case FaceCull::none:
+        cullMode = vk::CullModeFlagBits::eNone;
+    }
+
     const auto rasterizationState = vk::PipelineRasterizationStateCreateInfo
     {
         .polygonMode = vk::PolygonMode::eFill,
-        .cullMode = vk::CullModeFlagBits::eBack,
+        .cullMode = cullMode,
         .frontFace = vk::FrontFace::eClockwise,
         .lineWidth = 1.0f
     };
@@ -1234,18 +1256,32 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
     {
         .rasterizationSamples = vk::SampleCountFlagBits::e1
     };
+
+    //TODO: there could be more then one color attachments
     auto colorAttachments = std::array
     {
         vk::PipelineColorBlendAttachmentState
         {
+            .blendEnable = vk::Bool32{ false },
             .colorWriteMask = vk::ColorComponentFlagBits::eA | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
         }
     };
 
+    if (descriptor.state.blending == Blending::alphaBlend)
+    {
+        colorAttachments[0].blendEnable = vk::Bool32{ true };
+        colorAttachments[0].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+        colorAttachments[0].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        colorAttachments[0].colorBlendOp = vk::BlendOp::eAdd;
+        colorAttachments[0].srcAlphaBlendFactor = vk::BlendFactor::eOne;
+        colorAttachments[0].dstAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        colorAttachments[0].alphaBlendOp = vk::BlendOp::eAdd;
+    }
+
     auto colorBlendState = vk::PipelineColorBlendStateCreateInfo
     {
         .attachmentCount = static_cast<uint32_t>(colorAttachments.size()),
-        .pAttachments = colorAttachments.data()
+        .pAttachments = colorAttachments.data(),
     };
     auto dynamicStates = std::array
     {
@@ -1495,6 +1531,46 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
     return Handle<VirtualTexture>();
 }
 
+auto VulkanRenderInterface::createSamplerInternal(const SamplerDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) -> Handle<Sampler>
+{
+  /*  VkSamplerCreateFlags    flags;
+    VkFilter                magFilter;
+    VkFilter                minFilter;
+    VkSamplerMipmapMode     mipmapMode;
+    VkSamplerAddressMode    addressModeU;
+    VkSamplerAddressMode    addressModeV;
+    VkSamplerAddressMode    addressModeW;
+    float                   mipLodBias;
+    VkBool32                anisotropyEnable;
+    float                   maxAnisotropy;
+    VkBool32                compareEnable;
+    VkCompareOp             compareOp;
+    float                   minLod;
+    float                   maxLod;
+    VkBorderColor           borderColor;
+    VkBool32                unnormalizedCoordinates;*/
+
+    const auto samplerCreateInfo = vk::SamplerCreateInfo
+    {
+        .magFilter = mapFilter(descriptor.magFilter),
+        .minFilter = mapFilter(descriptor.minFilter),
+        .mipmapMode = mapMipFilter(descriptor.mipFilter),
+        .addressModeU = vk::SamplerAddressMode::eRepeat,
+        .addressModeV = vk::SamplerAddressMode::eRepeat,
+        .addressModeW = vk::SamplerAddressMode::eRepeat,
+        .maxAnisotropy = 1.0f,
+        .minLod = -1000,
+        .maxLod = 1000
+    };
+
+    const auto result = device_.createSampler(samplerCreateInfo);
+    TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+    const auto handle = samplerStorage_.add(VulkanSampler{ result.value }, descriptor);
+
+    return handle;
+}
+
 auto VulkanRenderInterface::getMemoryRequirenments() -> void
 {
     auto pageSizeX = u32{ 128 };
@@ -1658,10 +1734,31 @@ void VulkanRenderInterface::updateBindGroupInternal(
 		                .range = bufferView.bufferView.size
 		            };
 		            descriptorInfos[i] = descriptorBufferInfo;
-	            }
+	            },
+                [&](const Texture2DSRV& srv)
+                {
+                    const auto& imageSrv = std::get<Texture2DSRV>(binding.view);
+                    const auto& imageView = imageViewStorage_.get(imageSrv.imageView);
+                    const auto& descriptorImageInfo = vk::DescriptorImageInfo
+                    {
+                        .imageView = imageView.imageView,
+                        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
+                    };
+                    descriptorInfos[i] = descriptorImageInfo;
+                },
+                    [&](const SamplerSRV& srv)
+                {
+                    const auto& samplerSrv = std::get<SamplerSRV>(binding.view);
+                    const auto& sampler = samplerStorage_.get(samplerSrv.sampler);
+                    const auto& descriptorImageInfo = vk::DescriptorImageInfo
+                    {
+                        .sampler = sampler.sampler
+                    };
+                    descriptorInfos[i] = descriptorImageInfo;
+                }
             },
             binding.view);
-        if(std::holds_alternative<CBV>(binding.view))
+        /*if(std::holds_alternative<CBV>(binding.view))
         {
             TOY_ASSERT(std::holds_alternative<CBV>(binding.view));
             
@@ -1670,7 +1767,7 @@ void VulkanRenderInterface::updateBindGroupInternal(
         {
             TOY_ASSERT(std::holds_alternative<UAV>(binding.view));
             
-        }
+        }*/
     }
 
     for (auto i = u32{}; i < mappingsVector.size(); i++)
@@ -1705,6 +1802,38 @@ void VulkanRenderInterface::updateBindGroupInternal(
                 .descriptorCount = 1,
                 .descriptorType = vk::DescriptorType::eStorageBuffer, //because of UAV type, TODO: derive it properly!
                 .pBufferInfo = &std::get<vk::DescriptorBufferInfo>(descriptorInfos[i])
+            };
+
+            descriptorWrites.push_back(write);
+        }
+        if (std::holds_alternative<Texture2DSRV>(binding.view))
+        {
+            TOY_ASSERT(std::holds_alternative<Texture2DSRV>(binding.view));
+
+            const auto write = vk::WriteDescriptorSet
+            {
+                .dstSet = vulkanBindGroup.descriptorSet,
+                .dstBinding = binding.binding,
+                .dstArrayElement = binding.arrayElement,
+                .descriptorCount = 1,
+                .descriptorType = vk::DescriptorType::eSampledImage,
+                .pImageInfo = &std::get<vk::DescriptorImageInfo>(descriptorInfos[i])
+            };
+
+            descriptorWrites.push_back(write);
+        }
+        if (std::holds_alternative<SamplerSRV>(binding.view))
+        {
+            TOY_ASSERT(std::holds_alternative<SamplerSRV>(binding.view));
+
+            const auto write = vk::WriteDescriptorSet
+            {
+                .dstSet = vulkanBindGroup.descriptorSet,
+                .dstBinding = binding.binding,
+                .dstArrayElement = binding.arrayElement,
+                .descriptorCount = 1,
+                .descriptorType = vk::DescriptorType::eSampler,
+                .pImageInfo = &std::get<vk::DescriptorImageInfo>(descriptorInfos[i])
             };
 
             descriptorWrites.push_back(write);
@@ -1983,4 +2112,20 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
     }
 
     return perThreadData;
+}
+
+
+void VulkanRenderInterface::beginDebugLableInternal(const QueueType queueType, const DebugLabel& label)
+{
+    const auto debugLabel = vk::DebugUtilsLabelEXT
+    {
+    	.pLabelName = label.name,
+        .color = std::array{ label.color.r(), label.color.g(), label.color.b(), 1.0f}
+    };
+    queues_[queueType].queue.beginDebugUtilsLabelEXT(debugLabel);
+}
+
+void VulkanRenderInterface::endDebugLableInternal(const QueueType queueType)
+{
+    queues_[queueType].queue.endDebugUtilsLabelEXT();
 }

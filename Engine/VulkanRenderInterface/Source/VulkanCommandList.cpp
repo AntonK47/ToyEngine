@@ -73,12 +73,12 @@ namespace
 
 	bool hasDepthAttachment(const RenderingDescriptor& descriptor)
 	{
-		return true;//TODO:?????
+		return descriptor.depthRenderTarget.has_value();
 	}
 
 	bool hasStencilAttachment(const RenderingDescriptor& descriptor)
 	{
-		return false;
+		return descriptor.stencilRenderTarget.has_value();
 	}
 
 	vk::GeometryFlagsKHR mapGeometryFlags(GeometryBehavior behavier)
@@ -130,7 +130,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 			{
 				mapViewAspect(imageBarrierDescriptor.aspect), 0, 1, 0, 1
 			};
-
+			//TODO: it might be incorrect!!
 			switch (imageBarrierDescriptor.srcLayout)
 			{
 			case Layout::undefined:
@@ -147,6 +147,11 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 				barrier.oldLayout = vk::ImageLayout::ePresentSrcKHR;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eNone;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eNone;
+				break;
+			case Layout::transferDst:
+				barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+				barrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
+				barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
 				break;
 			default:
 
@@ -173,6 +178,16 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 				barrier.newLayout = vk::ImageLayout::ePresentSrcKHR;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eNone;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eNone;
+				break;
+			case Layout::transferDst:
+				barrier.newLayout = vk::ImageLayout::eTransferDstOptimal;
+				barrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
+				barrier.dstAccessMask = vk::AccessFlagBits2::eTransferWrite;
+				break;
+			case Layout::shaderRead: //TODO: this enum name is not clear about futher resource usage
+				barrier.newLayout = vk::ImageLayout::eReadOnlyOptimal;
+				barrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
+				barrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
 				break;
 			default:
 
@@ -234,29 +249,31 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 
 	if(hasDepthAttachment(descriptor))
 	{
-		const auto& imageView = renderer_.imageViewStorage_.get(descriptor.depthRenderTarget.imageView).imageView;
+		const auto& renderTarget = descriptor.depthRenderTarget.value();
+		const auto& imageView = renderer_.imageViewStorage_.get(renderTarget.imageView).imageView;
 		depthAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
 			.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-			.resolveMode = mapResolve(descriptor.depthRenderTarget.resolveMode),
-			.loadOp = mapLoadOp(descriptor.depthRenderTarget.load),
-			.storeOp = mapStoreOp(descriptor.depthRenderTarget.store),
-			.clearValue = mapDepthClearValue(std::get<DepthClear>(descriptor.depthRenderTarget.clearValue))
+			.resolveMode = mapResolve(renderTarget.resolveMode),
+			.loadOp = mapLoadOp(renderTarget.load),
+			.storeOp = mapStoreOp(renderTarget.store),
+			.clearValue = mapDepthClearValue(std::get<DepthClear>(renderTarget.clearValue))
 		};
 	}
 
 	auto stencilAttachment = vk::RenderingAttachmentInfo{};
 	if(hasStencilAttachment(descriptor))
 	{
-		const auto& imageView = renderer_.imageViewStorage_.get(descriptor.stencilRenderTarget.imageView).imageView;
+		const auto& renderTarget = descriptor.stencilRenderTarget.value();
+		const auto& imageView = renderer_.imageViewStorage_.get(renderTarget.imageView).imageView;
 		stencilAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
 			.imageLayout = vk::ImageLayout::eStencilAttachmentOptimal,
-			.resolveMode = mapResolve(descriptor.stencilRenderTarget.resolveMode),
-			.loadOp = mapLoadOp(descriptor.stencilRenderTarget.load),
-			.storeOp = mapStoreOp(descriptor.stencilRenderTarget.store),
+			.resolveMode = mapResolve(renderTarget.resolveMode),
+			.loadOp = mapLoadOp(renderTarget.load),
+			.storeOp = mapStoreOp(renderTarget.store),
 			//.clearValue = mapClearValue(descriptor.stencilRenderTarget.clearValue)TODO:??
 		};
 	}
@@ -287,10 +304,72 @@ void VulkanCommandList::drawInternal(const u32 vertexCount, const u32 instanceCo
 	commandBuffer_.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
+void VulkanCommandList::drawIndexedInternal(
+	core::u32 indexCount,
+	core::u32 instanceCount,
+	core::u32 firstIndex,
+	core::i32 vertexOffset,
+	core::u32 firstInstance
+)
+{
+	commandBuffer_.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstIndex);
+}
+
+void VulkanCommandList::transferInternal(const SourceBufferDescrptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription)
+{
+	TOY_ASSERT(!dstImageDescription.regions.empty());
+
+	auto regions = std::vector<vk::BufferImageCopy2>{};
+	regions.resize(dstImageDescription.regions.size());
+
+	const auto& buffer = renderer_.bufferStorage_.get(srcBufferDescriptor.buffer);
+	const auto& image = renderer_.imageStorage_.get(dstImageDescription.image);
+
+	for (u32 i = {}; i < dstImageDescription.regions.size(); i++)
+	{
+		const auto& region = dstImageDescription.regions[i];
+		const auto subresource = vk::ImageSubresourceLayers
+		{
+			.aspectMask = vk::ImageAspectFlagBits::eColor,// image.aspect, TODO:
+			.mipLevel = region.mip,
+			.baseArrayLayer = region.baseLayer,
+			.layerCount = region.layerCount
+		};
+		regions[i] = vk::BufferImageCopy2
+		{
+			.bufferOffset = srcBufferDescriptor.offset,
+			.bufferRowLength = 0,
+			.bufferImageHeight = 0,
+			.imageSubresource = subresource,
+			.imageOffset = vk::Offset3D{region.offset.x, region.offset.y, region.offset.z},
+			.imageExtent = vk::Extent3D{ region.extent.x, region.extent.y, region.extent.z }
+		};
+	}
+
+	const auto copyBufferToImageInfo = vk::CopyBufferToImageInfo2
+	{
+		.srcBuffer = buffer.buffer,
+		.dstImage = image.image,
+		.dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
+		.regionCount = static_cast<u32>(regions.size()),
+		.pRegions = regions.data()
+	};
+
+	commandBuffer_.copyBufferToImage2(copyBufferToImageInfo);
+}
+
 void VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
 {
 	currentPipeline_ = renderer_.pipelineStorage_.get(pipeline);
 	commandBuffer_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
+}
+
+void VulkanCommandList::bindIndexBufferInternal(const Handle<Buffer>& buffer, const u64 offset, const IndexType indexType)
+{
+	const auto& indexBuffer = renderer_.bufferStorage_.get(buffer);
+
+	const auto type = indexType == IndexType::index16 ? vk::IndexType::eUint16 : vk::IndexType::eUint32; //TODO: maybe i should consider also 8 bit index types
+	commandBuffer_.bindIndexBuffer(indexBuffer.buffer, vk::DeviceSize{ offset }, type);
 }
 
 void VulkanCommandList::setScissorInternal(const Scissor& scissor)
@@ -543,8 +622,10 @@ buildAccelerationStructureInternal(
 
 void VulkanCommandList::endInternal()
 {
+	//commandBuffer_.endDebugUtilsLabelEXT();
 	const auto result = commandBuffer_.end();
 	TOY_ASSERT(result == vk::Result::eSuccess);
+	
 }
 
 void VulkanCommandList::beginInternal()
@@ -554,6 +635,15 @@ void VulkanCommandList::beginInternal()
 		.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
 	};
 
+
+	
+	
 	const auto result = commandBuffer_.begin(beginInfo);
 	TOY_ASSERT(result == vk::Result::eSuccess);
+	//const auto debugLabel = vk::DebugUtilsLabelEXT
+	//{
+	//	.pLabelName = "....",
+	//	.color = std::array{0.5f,0.5f,0.5f,1.0f}
+	//};
+	//commandBuffer_.beginDebugUtilsLabelEXT(debugLabel);
 }

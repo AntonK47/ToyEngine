@@ -281,7 +281,8 @@ namespace toy::renderer::api::vulkan
 		}
 
 
-		
+		auto beginDebugLableInternal(const QueueType queueType, const DebugLabel& label) -> void;
+		auto endDebugLableInternal(const QueueType queueType) -> void;
 
 		[[nodiscard]] auto createBindGroupLayoutInternal(
 			const BindGroupDescriptor& descriptor) -> Handle<BindGroupLayout>;
@@ -306,12 +307,13 @@ namespace toy::renderer::api::vulkan
 		[[nodiscard]] auto createBufferInternal(
 			const BufferDescriptor& descriptor,
 			[[maybe_unused]] const DebugLabel label) -> Handle<Buffer>;
-
+		
 		[[nodiscard]] auto createVirtualTextureInternal(
 			const VirtualTextureDescriptor& descriptor,
 			[[maybe_unused]] const DebugLabel label = DebugLabel{}) -> Handle<VirtualTexture>;
 
 		
+		[[nodiscard]] auto createSamplerInternal(const SamplerDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) -> Handle<Sampler>;
 
 		auto updateBindGroupInternal(const Handle<BindGroup>& bindGroup,
 		                             const std::initializer_list<
@@ -415,6 +417,7 @@ namespace toy::renderer::api::vulkan
 			VmaAllocation allocation{};
 			bool isMapped{ false };
 			bool isExternal{ false };
+			vk::ImageAspectFlags aspect{};
 		};
 
 		struct VulkanImageView
@@ -422,6 +425,10 @@ namespace toy::renderer::api::vulkan
 			vk::ImageView imageView;
 		};
 
+		struct VulkanSampler
+		{
+			vk::Sampler sampler;
+		};
 
 		static constexpr u32 maxCommandListsPerSubmit_ = 10;
 		static constexpr u32 maxSubmits_ = 100;
@@ -437,6 +444,7 @@ namespace toy::renderer::api::vulkan
 		Pool<Image, VulkanImage> imageStorage_{};
 
 		Pool<ImageView, VulkanImageView> imageViewStorage_{};
+		Pool<Sampler, VulkanSampler> samplerStorage_{};
 
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};
 		Pool<BindGroup, VulkanBindGroup> persistentBindGroupStorage_{};//TODO:: bind groups should be removed manual
