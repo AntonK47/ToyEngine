@@ -11,18 +11,6 @@ using namespace toy::core::scene;
 
 void MeshletBuilder::process(const Mesh& mesh, RuntimeMesh& processedMesh)
 {
-	/*
-	 *	foreach mesh in scene
-	 *		generate LODs
-	 *		reconstruct mesh attributes (normals, uv's) for each LOD > 0
-	 *		foreach LOD in LODs
-	 *			generate meshlets
-	 *				foreach meshlet in meshlets
-	 *				compressMeshletData
-	 *				generateCullData
-	 *	pack meshes/LODs/meshlets/meshletCullData/meshletCompressData
-	 */
-
 	//TODO: max lod level should be computed
 	for(uint32_t lodLevel = 0; lodLevel < 15; lodLevel++)
 	{

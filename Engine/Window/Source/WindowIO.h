@@ -85,7 +85,7 @@ namespace toy::io
 
 
         ButtonState semicolon;
-        ButtonState apostroph;
+        ButtonState apostrophe;
         ButtonState comma;
         ButtonState period;
         ButtonState slash;
@@ -95,7 +95,7 @@ namespace toy::io
         ButtonState graveAccent;//tilde
        
         ButtonState minus;
-        ButtonState equel;
+        ButtonState equal;
         
         ButtonState controlLeft;
         ButtonState controlRight;

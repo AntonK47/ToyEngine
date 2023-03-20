@@ -281,8 +281,8 @@ namespace toy::renderer::api::vulkan
 		}
 
 
-		auto beginDebugLableInternal(const QueueType queueType, const DebugLabel& label) -> void;
-		auto endDebugLableInternal(const QueueType queueType) -> void;
+		auto beginDebugLabelInternal(const QueueType queueType, const DebugLabel& label) -> void;
+		auto endDebugLabelInternal(const QueueType queueType) -> void;
 
 		[[nodiscard]] auto createBindGroupLayoutInternal(
 			const BindGroupDescriptor& descriptor) -> Handle<BindGroupLayout>;

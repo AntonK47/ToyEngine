@@ -92,13 +92,13 @@ namespace
         io.AddKeyEvent(ImGuiKey::ImGuiKey_LeftAlt, windowIo.keyboardState.altLeft == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_RightAlt, windowIo.keyboardState.altRight == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_Semicolon, windowIo.keyboardState.semicolon == toy::io::ButtonState::pressed);
-        io.AddKeyEvent(ImGuiKey::ImGuiKey_Apostrophe, windowIo.keyboardState.apostroph == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Apostrophe, windowIo.keyboardState.apostrophe == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_Comma, windowIo.keyboardState.comma == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_Period, windowIo.keyboardState.period == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_Slash, windowIo.keyboardState.slash == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_GraveAccent, windowIo.keyboardState.graveAccent == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_Minus, windowIo.keyboardState.minus == toy::io::ButtonState::pressed);
-        io.AddKeyEvent(ImGuiKey::ImGuiKey_Equal, windowIo.keyboardState.equel == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Equal, windowIo.keyboardState.equal == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_LeftCtrl, windowIo.keyboardState.controlLeft == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_RightCtrl, windowIo.keyboardState.controlRight == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_Escape, windowIo.keyboardState.escape == toy::io::ButtonState::pressed);
@@ -145,7 +145,7 @@ int Application::run()
     auto virtualTextureStreaming = VirtualTextureStreaming{};
 
     window.initialize(WindowDescriptor{ 1280, 720 });
-    window.setWindowTitle("Toy Engine"); // <- this couse memory allocation
+    window.setWindowTitle("Toy Engine"); // <- this course memory allocation
 
     
     
@@ -226,8 +226,8 @@ int Application::run()
                 .image = fontImage
             } });
 
-        uploadCommandList.trasfer(
-            SourceBufferDescrptor
+        uploadCommandList.transfer(
+            SourceBufferDescriptor
             {
                 .buffer = stagingBuffer.nativeHandle,
                 .offset = 0
@@ -652,8 +652,8 @@ int Application::run()
     struct GuiDrawStatistics
     {
         u32 drawCalls{};
-        u32 totalIndiciesCount{};
-        u32 totalVerticiesCount{};
+        u32 totalIndicesCount{};
+        u32 totalVerticesCount{};
     };
 
     struct DrawStatistics
@@ -727,14 +727,14 @@ int Application::run()
             ImGui::Separator();
             ImGui::Text("Scene");
             ImGui::Separator();
-            ImGui::Text("Total tiangles: %d", drawStatistics.scene.totalTrianglesCount);
+            ImGui::Text("Total triangles: %d", drawStatistics.scene.totalTrianglesCount);
             ImGui::Text("Total drawcalls: %d", drawStatistics.scene.drawCalls);
             ImGui::Separator();
             ImGui::Separator();
             ImGui::Text("GUI");
             ImGui::Separator();
-            ImGui::Text("Total indicies: %d", drawStatistics.gui.totalIndiciesCount);
-            ImGui::Text("Total verticies: %d", drawStatistics.gui.totalVerticiesCount);
+            ImGui::Text("Total indices: %d", drawStatistics.gui.totalIndicesCount);
+            ImGui::Text("Total vertices: %d", drawStatistics.gui.totalVerticesCount);
             ImGui::Text("Total drawcalls: %d", drawStatistics.gui.drawCalls);
 
         }
@@ -934,7 +934,7 @@ int Application::run()
             constexpr auto area = RenderArea{ 0,0,1280,720 };
 
             {
-                renderer.beginDebugLable(QueueType::graphics, {"prepare render target"});
+                renderer.beginDebugLabel(QueueType::graphics, {"prepare render target"});
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
                 //TODO: this should performed on initial resource creation
@@ -1008,8 +1008,8 @@ int Application::run()
                     }
                 });
 
-            renderer.endDebugLable(QueueType::graphics);
-            renderer.beginDebugLable(QueueType::graphics, { "object rendering"});
+            renderer.endDebugLabel(QueueType::graphics);
+            renderer.beginDebugLabel(QueueType::graphics, { "object rendering"});
             std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
                 {
                     auto& drawStatistics = perRenderThreadDrawStatistics[index].statistics;
@@ -1065,7 +1065,7 @@ int Application::run()
                             //scene.meshes_[drawInstance.meshIndex].lods[0].
                             const auto& mesh = scene.meshes_[drawInstance.meshIndex];
 
-                            //this scope should be thread safe. More preciesly, memory allocation should be thread safe. Beter strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
+                            //this scope should be thread safe. More precisely, memory allocation should be thread safe. Appropriate strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
 
                             const auto instanceData = InstanceData
                             {
@@ -1134,13 +1134,13 @@ int Application::run()
                 });
 
 
-            renderer.endDebugLable(QueueType::graphics);
+            renderer.endDebugLabel(QueueType::graphics);
 
             auto guiBatch = std::unique_ptr<Batch>{};
             {
 
                 drawStatistics.gui = GuiDrawStatistics{};
-                renderer.beginDebugLable(QueueType::graphics, DebugLabel{ "GUI" });
+                renderer.beginDebugLabel(QueueType::graphics, DebugLabel{ "GUI" });
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
                 const auto renderingDescriptor = RenderingDescriptor
@@ -1177,8 +1177,8 @@ int Application::run()
                     const auto& indexRawData = cmdList->IdxBuffer;
                     const auto& vertexRawData = cmdList->VtxBuffer;
 
-                    drawStatistics.gui.totalIndiciesCount += indexRawData.Size;
-                    drawStatistics.gui.totalVerticiesCount += vertexRawData.Size;
+                    drawStatistics.gui.totalIndicesCount += indexRawData.Size;
+                    drawStatistics.gui.totalVerticesCount += vertexRawData.Size;
 
                     const auto indexRawDataSize = indexRawData.Size * sizeof(ImDrawIdx);
                    
@@ -1274,11 +1274,11 @@ int Application::run()
                     }));
 
                 renderer.submitBatches(QueueType::graphics, { *guiBatch });
-                renderer.endDebugLable(QueueType::graphics);
+                renderer.endDebugLabel(QueueType::graphics);
             }
             
             {
-                renderer.beginDebugLable(QueueType::graphics, {"prepare present"});
+                renderer.beginDebugLabel(QueueType::graphics, {"prepare present"});
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
                 cmd.barrier({

@@ -66,7 +66,7 @@ namespace toy::renderer::api::vulkan
 			core::u32 firstInstance
 		) -> void;
 
-		auto transferInternal(const SourceBufferDescrptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription) -> void;
+		auto transferInternal(const SourceBufferDescriptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription) -> void;
 
 		void bindPipelineInternal(const Handle<Pipeline>& pipeline);
 		auto bindIndexBufferInternal(const Handle<Buffer>& buffer, const u64 offset, const IndexType indexType) -> void;

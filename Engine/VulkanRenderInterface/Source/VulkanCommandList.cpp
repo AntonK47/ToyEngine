@@ -315,7 +315,7 @@ void VulkanCommandList::drawIndexedInternal(
 	commandBuffer_.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstIndex);
 }
 
-void VulkanCommandList::transferInternal(const SourceBufferDescrptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription)
+void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription)
 {
 	TOY_ASSERT(!dstImageDescription.regions.empty());
 

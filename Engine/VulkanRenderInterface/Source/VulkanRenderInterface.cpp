@@ -2115,7 +2115,7 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
 }
 
 
-void VulkanRenderInterface::beginDebugLableInternal(const QueueType queueType, const DebugLabel& label)
+void VulkanRenderInterface::beginDebugLabelInternal(const QueueType queueType, const DebugLabel& label)
 {
     const auto debugLabel = vk::DebugUtilsLabelEXT
     {
@@ -2125,7 +2125,7 @@ void VulkanRenderInterface::beginDebugLableInternal(const QueueType queueType, c
     queues_[queueType].queue.beginDebugUtilsLabelEXT(debugLabel);
 }
 
-void VulkanRenderInterface::endDebugLableInternal(const QueueType queueType)
+void VulkanRenderInterface::endDebugLabelInternal(const QueueType queueType)
 {
     queues_[queueType].queue.endDebugUtilsLabelEXT();
 }

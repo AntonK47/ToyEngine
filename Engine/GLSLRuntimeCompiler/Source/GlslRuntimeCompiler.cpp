@@ -83,8 +83,8 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	auto spirvStage = mapShaderStage(info.shaderStage);
 	auto shader = glslang::TShader{ spirvStage };
 	//auto shader = setUpShader(info);
-	auto cstringChaderCode = info.shaderCode.c_str();
-	shader.setStrings(&cstringChaderCode, 1);
+	auto cstringShaderCode = info.shaderCode.c_str();
+	shader.setStrings(&cstringShaderCode, 1);
 	shader.setEnvInput(glslang::EShSource::EShSourceGlsl, spirvStage,
 		glslang::EShClient::EShClientVulkan,
 		100);

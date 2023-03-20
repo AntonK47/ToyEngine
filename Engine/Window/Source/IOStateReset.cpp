@@ -64,7 +64,7 @@ void KeyboardState::reset()
     altRight = ButtonState::unpressed;
 
     semicolon = ButtonState::unpressed;
-    apostroph = ButtonState::unpressed;
+    apostrophe = ButtonState::unpressed;
     comma = ButtonState::unpressed;
     period = ButtonState::unpressed;
     slash = ButtonState::unpressed;
@@ -72,7 +72,7 @@ void KeyboardState::reset()
     graveAccent = ButtonState::unpressed;
 
     minus = ButtonState::unpressed;
-    equel = ButtonState::unpressed;
+    equal = ButtonState::unpressed;
 
     controlLeft = ButtonState::unpressed;
     controlRight = ButtonState::unpressed;

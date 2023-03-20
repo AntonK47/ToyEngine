@@ -246,18 +246,18 @@ namespace toy::renderer
 			return implementation().createShaderModuleInternal(stage, code);
 		}
 
-		auto beginDebugLable(const QueueType queueType, const DebugLabel& label) -> void
+		auto beginDebugLabel(const QueueType queueType, const DebugLabel& label) -> void
 		{
-			implementation().beginDebugLableInternal(queueType, label);
+			implementation().beginDebugLabelInternal(queueType, label);
 		}
 
-		auto endDebugLable(const QueueType queueType) -> void
+		auto endDebugLabel(const QueueType queueType) -> void
 		{
-			implementation().endDebugLableInternal(queueType);
+			implementation().endDebugLabelInternal(queueType);
 		}
 
 
-		//TODO This function should be thread safe??????????, internaly there are no storage write, but only read access
+		//TODO This function should be thread safe??????????, internally there are no storage write, but only read access
 		auto updateBindGroup(
 			const Handle<BindGroup>& bindGroup,
 			const std::initializer_list<BindingDataMapping>& mappings) -> void

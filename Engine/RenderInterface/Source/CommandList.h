@@ -166,7 +166,7 @@ namespace toy::renderer
 		Handle<AccelerationStructure> blas;
 	};
 
-	struct SourceBufferDescrptor
+	struct SourceBufferDescriptor
 	{
 		Handle<Buffer> buffer;
 		core::u32 offset;
@@ -348,7 +348,7 @@ namespace toy::renderer
 			core::u32 firstVertex,
 			core::u32 firstInstance) -> void
 		{
-			//TODO: When scissor or viewport state was not set before, than make and set a fullscreen scissor and viewport (or match render area)
+			//TODO: When scissor or viewport state was not set before, than make and set a Fullscreen scissor and viewport (or match render area)
 			VALIDATE(validateDraw(vertexCount, instanceCount, firstVertex, firstInstance));
 			implementation().drawInternal(vertexCount, instanceCount, firstVertex, firstInstance);
 		}
@@ -364,7 +364,7 @@ namespace toy::renderer
 			implementation().drawIndexedInternal(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 		}
 
-		auto trasfer(const SourceBufferDescrptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription) -> void
+		auto transfer(const SourceBufferDescriptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription) -> void
 		{
 			implementation().transferInternal(srcBufferDescriptor, dstImageDescription);
 		}

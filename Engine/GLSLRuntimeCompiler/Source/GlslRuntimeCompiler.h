@@ -168,8 +168,7 @@ namespace toy::renderer::compiler
             bool enableDebugCompilation = true;
         };
 
-        struct ShaderModule
-        {};
+        struct ShaderModule{};
         struct BindGroup{};
 
         static CompilationResult compileToSpirv(const ShaderInfo& info, ShaderByteCode& byteCode);
