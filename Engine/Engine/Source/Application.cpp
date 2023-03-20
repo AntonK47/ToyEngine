@@ -38,7 +38,6 @@ namespace
 
     auto mapWindowIoToImGuiIo(const toy::io::WindowIo& windowIo, ImGuiIO& io) -> void
     {
-
         io.AddMousePosEvent(windowIo.mouseState.position.x, windowIo.mouseState.position.y);
         io.AddMouseButtonEvent(0, windowIo.mouseState.leftButton == toy::io::ButtonState::pressed);
         io.AddMouseButtonEvent(1, windowIo.mouseState.rightButton == toy::io::ButtonState::pressed);
@@ -629,29 +628,10 @@ int Application::run()
 		});
 
     //TODO: [#3] command submit should work also without calling nextFrame in a frame async scenario
-    u32 objectToRender = scene.drawInstances_.size();
-
-    
-
-
     auto time = 0.0f;
     auto frameNumber = u32{};
     bool stillRunning = true;
     auto captureTool = graphicsDebugger.getScopeCapture();
-
-    {
-        //playing with transfer queue
-
-        auto t1 = renderer.acquireCommandList(QueueType::transfer);
-        auto t2 = renderer.acquireCommandList(QueueType::transfer);
-
-        auto d1 = renderer.submitCommandList(QueueType::transfer,{ t1 }, {});
-
-        auto d2 = renderer.submitCommandList(QueueType::transfer, { t2 }, {d1.barrier()});
-        
-
-    }
-    //const auto ii = renderer.createVirtualTexture({});
 
     auto frameStartTime = std::chrono::high_resolution_clock::now();
     auto frameEndTime = std::chrono::high_resolution_clock::now();
@@ -661,6 +641,36 @@ int Application::run()
     std::unique_ptr<Batch> prepareBatch;
     auto perThreadSubmits = std::array<std::unique_ptr<Batch>, 10>{};
     std::unique_ptr<Batch> postRenderingBatch;
+
+
+    struct SceneDrawStaticstics
+    {
+        u32 drawCalls{};
+        u32 totalTrianglesCount{};
+    };
+
+    struct GuiDrawStatistics
+    {
+        u32 drawCalls{};
+        u32 totalIndiciesCount{};
+        u32 totalVerticiesCount{};
+    };
+
+    struct DrawStatistics
+    {
+        SceneDrawStaticstics scene{};
+        GuiDrawStatistics gui{};
+    };
+
+    struct PerThreadDrawStatistics
+    {
+        alignas(std::hardware_destructive_interference_size) SceneDrawStaticstics statistics {};
+    };
+
+    auto perRenderThreadDrawStatistics = std::vector<PerThreadDrawStatistics>{};
+    perRenderThreadDrawStatistics.resize(workerCount);
+
+    auto drawStatistics = DrawStatistics{};
 
     while (stillRunning)
     {
@@ -679,8 +689,6 @@ int Application::run()
         imGuiIo.DisplaySize.y = window.height();
         mapWindowIoToImGuiIo(io, imGuiIo);
 
-
-
         for (const auto& event : events)
         {
             if (event == Event::quit)
@@ -691,8 +699,6 @@ int Application::run()
 
         ImGui::NewFrame();
         ImGui::ShowDemoWindow();
-
-
 
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
         
@@ -716,7 +722,21 @@ int Application::run()
       
             ImGui::Text("Statistics");
             ImGui::Separator();
-            ImGui::Text("frame time: %.2f ms (%.1f fps)", hertz, 1000.0f/hertz);
+            ImGui::Text("frame time: %.2f ms (%.1f fps)", hertz, 1000.0f / hertz); 
+            ImGui::Separator();
+            ImGui::Separator();
+            ImGui::Text("Scene");
+            ImGui::Separator();
+            ImGui::Text("Total tiangles: %d", drawStatistics.scene.totalTrianglesCount);
+            ImGui::Text("Total drawcalls: %d", drawStatistics.scene.drawCalls);
+            ImGui::Separator();
+            ImGui::Separator();
+            ImGui::Text("GUI");
+            ImGui::Separator();
+            ImGui::Text("Total indicies: %d", drawStatistics.gui.totalIndiciesCount);
+            ImGui::Text("Total verticies: %d", drawStatistics.gui.totalVerticiesCount);
+            ImGui::Text("Total drawcalls: %d", drawStatistics.gui.drawCalls);
+
         }
         ImGui::End();
 
@@ -737,18 +757,6 @@ int Application::run()
 #pragma region Camera Control
         if (!imGuiIo.WantCaptureKeyboard)
         {
-            if (io.keyboardState.e == toy::io::ButtonState::pressed)
-            {
-                objectToRender += 1;
-                std::cout << "visible objects: " << objectToRender << std::endl;
-            }
-
-            if (io.keyboardState.q == toy::io::ButtonState::pressed)
-            {
-                objectToRender -= 1;
-                std::cout << "visible objects: " << objectToRender << std::endl;
-            }
-
             if (io.keyboardState.shiftLeft == toy::io::ButtonState::pressed)
             {
                 moveCameraFaster = true;
@@ -1004,6 +1012,8 @@ int Application::run()
             renderer.beginDebugLable(QueueType::graphics, { "object rendering"});
             std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
                 {
+                    auto& drawStatistics = perRenderThreadDrawStatistics[index].statistics;
+                    drawStatistics = SceneDrawStaticstics{};
                     auto& drawInstances = batches[index];
                     auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount)});
                     cmd.begin();
@@ -1047,7 +1057,7 @@ int Application::run()
                         
                         auto setOffset = batchOffsets[index] * dataMemSize;
                         
-                        for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
+                        for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
                         {
                             const auto& drawInstance = drawInstances[j];
 
@@ -1070,7 +1080,7 @@ int Application::run()
 
                         }
                         
-                        for (auto j = u32{}; j < std::clamp(objectToRender, u32{}, static_cast<u32>(drawInstances.size())); j++)
+                        for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
                         {
                             const auto& drawInstance = drawInstances[j];
                             const auto& mesh = scene.meshes_[drawInstance.meshIndex];
@@ -1079,6 +1089,8 @@ int Application::run()
                             const u32 value = j + static_cast<u32>(batchOffsets[index]);
                             cmd.pushConstant(value);
                             cmd.draw(mesh.vertexCount, 1, 0, 0);
+                            drawStatistics.totalTrianglesCount += mesh.vertexCount / 3;
+                            drawStatistics.drawCalls++;
                         }
                         
                     }
@@ -1092,7 +1104,21 @@ int Application::run()
                 }
                 );
 
-            
+            auto gatheredStatistics = std::vector<SceneDrawStaticstics>{};
+            gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
+                
+            std::transform(perRenderThreadDrawStatistics.begin(), perRenderThreadDrawStatistics.end(), gatheredStatistics.begin(), [](auto& a) {return a.statistics; });
+
+            drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStaticstics{},
+                [](SceneDrawStaticstics a, SceneDrawStaticstics& b)
+                {
+                    SceneDrawStaticstics c;
+                    c.drawCalls= a.drawCalls + b.drawCalls;
+                    c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
+                    return c;
+                });
+
+
             renderer.submitBatches(QueueType::graphics, 
                 { 
                     *perThreadSubmits[0],
@@ -1113,7 +1139,7 @@ int Application::run()
             auto guiBatch = std::unique_ptr<Batch>{};
             {
 
-
+                drawStatistics.gui = GuiDrawStatistics{};
                 renderer.beginDebugLable(QueueType::graphics, DebugLabel{ "GUI" });
                 auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics);
                 cmd.begin();
@@ -1128,15 +1154,7 @@ int Application::run()
                             .resolveMode = ResolveMode::none,
                             .clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
                         }
-                    }/*,
-                    .depthRenderTarget = RenderTargetDescriptor
-                    {
-                        .imageView = depthFramebufferView,
-                        .load = LoadOperation::load,
-                        .store = StoreOperation::store,
-                        .resolveMode = ResolveMode::none,
-                        .clearValue = DepthClear{ 1.0f }
-                    }*/
+                    }
                 };
 
                 cmd.beginRendering(renderingDescriptor, area);
@@ -1158,6 +1176,9 @@ int Application::run()
 
                     const auto& indexRawData = cmdList->IdxBuffer;
                     const auto& vertexRawData = cmdList->VtxBuffer;
+
+                    drawStatistics.gui.totalIndiciesCount += indexRawData.Size;
+                    drawStatistics.gui.totalVerticiesCount += vertexRawData.Size;
 
                     const auto indexRawDataSize = indexRawData.Size * sizeof(ImDrawIdx);
                    
@@ -1233,6 +1254,7 @@ int Application::run()
                         cmd.setScissor(scissor);
                         cmd.bindIndexBuffer(frameData.nativeHandle, indexBufferOffset, sizeof(ImDrawIdx) == 2 ? IndexType::index16 : IndexType::index32);
                         cmd.drawIndexed(drawCommand.ElemCount, 1, drawCommand.IdxOffset, drawCommand.VtxOffset, 0);
+                        drawStatistics.gui.drawCalls++;
                     }
                 }
                 cmd.endRendering();
