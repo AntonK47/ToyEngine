@@ -36,15 +36,88 @@ using namespace compiler;
 namespace 
 {
 
-    auto mapWindowIoToImGuiIo(const toy::io::WindowIo& windowIo, ImGuiIO& imguiIo) -> void
+    auto mapWindowIoToImGuiIo(const toy::io::WindowIo& windowIo, ImGuiIO& io) -> void
     {
 
-        imguiIo.AddMousePosEvent(windowIo.mouseState.position.x, windowIo.mouseState.position.y);
-        imguiIo.AddMouseButtonEvent(0, windowIo.mouseState.leftButton == toy::io::ButtonState::pressed);
-        imguiIo.AddMouseButtonEvent(1, windowIo.mouseState.rightButton == toy::io::ButtonState::pressed);
-        imguiIo.AddMouseButtonEvent(2, windowIo.mouseState.middleButton == toy::io::ButtonState::pressed);
-        imguiIo.AddMouseWheelEvent(0.0f, windowIo.mouseState.wheel);
+        io.AddMousePosEvent(windowIo.mouseState.position.x, windowIo.mouseState.position.y);
+        io.AddMouseButtonEvent(0, windowIo.mouseState.leftButton == toy::io::ButtonState::pressed);
+        io.AddMouseButtonEvent(1, windowIo.mouseState.rightButton == toy::io::ButtonState::pressed);
+        io.AddMouseButtonEvent(2, windowIo.mouseState.middleButton == toy::io::ButtonState::pressed);
+        io.AddMouseWheelEvent(windowIo.mouseState.wheel.x, windowIo.mouseState.wheel.y);
 
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_0, windowIo.keyboardState.zero == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_1, windowIo.keyboardState.one == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_2, windowIo.keyboardState.two == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_3, windowIo.keyboardState.three == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_4, windowIo.keyboardState.four == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_5, windowIo.keyboardState.five == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_6, windowIo.keyboardState.six == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_7, windowIo.keyboardState.seven == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_8, windowIo.keyboardState.eight == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_9, windowIo.keyboardState.nine == toy::io::ButtonState::pressed);
+
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_A, windowIo.keyboardState.a == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_B, windowIo.keyboardState.b == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_C, windowIo.keyboardState.c == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_D, windowIo.keyboardState.d == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_E, windowIo.keyboardState.e == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F, windowIo.keyboardState.f == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_G, windowIo.keyboardState.g == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_H, windowIo.keyboardState.h == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_I, windowIo.keyboardState.i == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_J, windowIo.keyboardState.j == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_K, windowIo.keyboardState.k == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_L, windowIo.keyboardState.l == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_M, windowIo.keyboardState.m == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_O, windowIo.keyboardState.o == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_P, windowIo.keyboardState.p == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Q, windowIo.keyboardState.q == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_R, windowIo.keyboardState.r == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_S, windowIo.keyboardState.s == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_T, windowIo.keyboardState.t == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_U, windowIo.keyboardState.u == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_V, windowIo.keyboardState.v == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_W, windowIo.keyboardState.w == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_X, windowIo.keyboardState.x == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Y, windowIo.keyboardState.y == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Z, windowIo.keyboardState.z == toy::io::ButtonState::pressed);
+
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Space, windowIo.keyboardState.space == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Backspace, windowIo.keyboardState.backspace == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Enter, windowIo.keyboardState.enter == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_LeftShift, windowIo.keyboardState.shiftLeft == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_RightShift, windowIo.keyboardState.shiftRight == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_LeftBracket, windowIo.keyboardState.bracketLeft == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_RightBracket, windowIo.keyboardState.bracketRight == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Backslash, windowIo.keyboardState.backslash == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_LeftAlt, windowIo.keyboardState.altLeft == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_RightAlt, windowIo.keyboardState.altRight == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Semicolon, windowIo.keyboardState.semicolon == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Apostrophe, windowIo.keyboardState.apostroph == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Comma, windowIo.keyboardState.comma == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Period, windowIo.keyboardState.period == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Slash, windowIo.keyboardState.slash == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_GraveAccent, windowIo.keyboardState.graveAccent == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Minus, windowIo.keyboardState.minus == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Equal, windowIo.keyboardState.equel == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_LeftCtrl, windowIo.keyboardState.controlLeft == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_RightCtrl, windowIo.keyboardState.controlRight == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Escape, windowIo.keyboardState.escape == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_CapsLock, windowIo.keyboardState.capsLock == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_Tab, windowIo.keyboardState.tab == toy::io::ButtonState::pressed);
+        
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F1, windowIo.keyboardState.f1 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F2, windowIo.keyboardState.f2 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F3, windowIo.keyboardState.f3 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F4, windowIo.keyboardState.f4 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F5, windowIo.keyboardState.f5 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F6, windowIo.keyboardState.f6 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F7, windowIo.keyboardState.f7 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F8, windowIo.keyboardState.f8 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F9, windowIo.keyboardState.f9 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F10, windowIo.keyboardState.f10 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F11, windowIo.keyboardState.f11 == toy::io::ButtonState::pressed);
+        io.AddKeyEvent(ImGuiKey::ImGuiKey_F12, windowIo.keyboardState.f12 == toy::io::ButtonState::pressed);
     }
 
 	std::string loadShaderFile(const std::string& filePath)
@@ -73,7 +146,7 @@ int Application::run()
     auto virtualTextureStreaming = VirtualTextureStreaming{};
 
     window.initialize(WindowDescriptor{ 1280, 720 });
-
+    window.setWindowTitle("Toy Engine"); // <- this couse memory allocation
 
     
     
@@ -533,7 +606,7 @@ int Application::run()
     const auto knightData = "E:\\Develop\\ToyEngineContent\\knight.dat";
     const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
 
-    const auto scene = Scene::loadSceneFromFile(renderer, knightData);
+    const auto scene = Scene::loadSceneFromFile(renderer, bistroExteriorData);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, 
@@ -594,12 +667,13 @@ int Application::run()
         const auto cpuFrameTime = frameEndTime - frameStartTime;
         frameStartTime = std::chrono::high_resolution_clock::now();
         const auto hertz = cpuFrameTime.count() / 1000000.0f;//ns -> s
-        window.setWindowTitle(std::to_string(hertz)); // <- this couse memory allocation
+        
         window.pollEvents();
         const auto& events = window.getEvents();
         const auto& io = window.getIo();
 
         auto& imGuiIo = ImGui::GetIO();
+        imGuiIo.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         imGuiIo.DeltaTime = 1.0f / 60.0f;              // set the time elapsed since the previous frame (in seconds)
         imGuiIo.DisplaySize.x = window.width();             // set the current display width
         imGuiIo.DisplaySize.y = window.height();
@@ -615,6 +689,41 @@ int Application::run()
             }
         }
 
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow();
+
+
+
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+        
+        const float PAD = 10.0f;
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+        ImVec2 work_size = viewport->WorkSize;
+        ImVec2 window_pos, window_pos_pivot;
+        window_pos.x = (work_pos.x + PAD);
+        window_pos.y = (work_pos.y + PAD);
+        window_pos_pivot.x = 0.0f;
+        window_pos_pivot.y = 0.0f;
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        window_flags |= ImGuiWindowFlags_NoMove;
+        
+        ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+
+        auto statisticsOpen = true;
+        if (ImGui::Begin("Statistics", &statisticsOpen, window_flags))
+        {
+      
+            ImGui::Text("Statistics");
+            ImGui::Separator();
+            ImGui::Text("frame time: %.2f ms (%.1f fps)", hertz, 1000.0f/hertz);
+        }
+        ImGui::End();
+
+
+
+
+        ImGui::EndFrame();
 
         if(io.keyboardState.one == toy::io::ButtonState::pressed)
         {
@@ -626,56 +735,68 @@ int Application::run()
         } 
 
 #pragma region Camera Control
-        if (io.keyboardState.e == toy::io::ButtonState::pressed)
+        if (!imGuiIo.WantCaptureKeyboard)
         {
-            objectToRender += 1;
-            std::cout << "visible objects: " << objectToRender << std::endl;
-        }
+            if (io.keyboardState.e == toy::io::ButtonState::pressed)
+            {
+                objectToRender += 1;
+                std::cout << "visible objects: " << objectToRender << std::endl;
+            }
 
-        if (io.keyboardState.q == toy::io::ButtonState::pressed)
-        {
-            objectToRender -= 1;
-            std::cout << "visible objects: " << objectToRender << std::endl;
-        }
+            if (io.keyboardState.q == toy::io::ButtonState::pressed)
+            {
+                objectToRender -= 1;
+                std::cout << "visible objects: " << objectToRender << std::endl;
+            }
 
-        if (io.keyboardState.shiftLeft == toy::io::ButtonState::pressed)
-        {
-            moveCameraFaster = true;
-        }
+            if (io.keyboardState.shiftLeft == toy::io::ButtonState::pressed)
+            {
+                moveCameraFaster = true;
+            }
 
-        if (io.keyboardState.shiftLeft == toy::io::ButtonState::unpressed)
-        {
-            moveCameraFaster = false;
-        }
+            if (io.keyboardState.shiftLeft == toy::io::ButtonState::unpressed)
+            {
+                moveCameraFaster = false;
+            }
 
-        const auto fastSpeed = 25.0f;
+            const auto fastSpeed = 25.0f;
 
-        if(io.keyboardState.w == toy::io::ButtonState::pressed)
-        {
-            camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed :1.0f);
+            if (io.keyboardState.w == toy::io::ButtonState::pressed)
+            {
+                camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+            }
+            if (io.keyboardState.s == toy::io::ButtonState::pressed)
+            {
+                camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+            }
+            if (io.keyboardState.a == toy::io::ButtonState::pressed)
+            {
+                camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+            }
+            if (io.keyboardState.d == toy::io::ButtonState::pressed)
+            {
+                camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+            }
         }
-        if (io.keyboardState.s == toy::io::ButtonState::pressed)
+        
+        if (!imGuiIo.WantCaptureMouse)
         {
-            camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
-        }
-        if (io.keyboardState.a == toy::io::ButtonState::pressed)
-        {
-            camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
-        }
-        if (io.keyboardState.d == toy::io::ButtonState::pressed)
-        {
-            camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
-        }
-        if(io.mouseState.leftButton == toy::io::ButtonState::pressed && !mouseButtonPressed)
-        {
-            onMousePressedScreenLocation = glm::vec2{ io.mouseState.position.x, io.mouseState.position.y };
-            mouseButtonPressed = true;
-        }
+            if (io.mouseState.leftButton == toy::io::ButtonState::pressed && !mouseButtonPressed)
+            {
+                onMousePressedScreenLocation = glm::vec2{ io.mouseState.position.x, io.mouseState.position.y };
+                mouseButtonPressed = true;
+            }
 
-        if (io.mouseState.leftButton == toy::io::ButtonState::unpressed && mouseButtonPressed)
+            if (io.mouseState.leftButton == toy::io::ButtonState::unpressed && mouseButtonPressed)
+            {
+                mouseButtonPressed = false;
+            }
+        }
+        if (imGuiIo.WantCaptureMouse && mouseButtonPressed)
         {
             mouseButtonPressed = false;
         }
+        
 
         if(mouseButtonPressed)
         {
@@ -708,10 +829,15 @@ int Application::run()
 
             renderer.nextFrame();
 
-            ImGui::NewFrame();
-            ImGui::Text("Hello, world!");
-            ImGui::ShowDemoWindow();
-            ImGui::EndFrame();
+            
+            
+
+
+            
+
+
+
+
 
             
             ImGui::Render();
@@ -876,7 +1002,7 @@ int Application::run()
 
             renderer.endDebugLable(QueueType::graphics);
             renderer.beginDebugLable(QueueType::graphics, { "object rendering"});
-            std::for_each(std::execution::seq, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
+            std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
                 {
                     auto& drawInstances = batches[index];
                     auto cmd = renderer.acquireCommandList(toy::renderer::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount)});

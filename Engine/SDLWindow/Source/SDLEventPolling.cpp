@@ -18,6 +18,10 @@ if(event.key.keysym.sym == (sdlKey))\
 void SDLWindow::pollEventsInternal()
 {
     resetPolledEventsAndIo();
+
+    windowIo_.mouseState.wheel.x = 0.0;
+    windowIo_.mouseState.wheel.y = 0.0;
+
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
@@ -53,9 +57,6 @@ void SDLWindow::pollEventsInternal()
             KEYUP_ASSIGNMENT(x, SDLK_x)
             KEYUP_ASSIGNMENT(y, SDLK_y)
             KEYUP_ASSIGNMENT(z, SDLK_z)
-            KEYUP_ASSIGNMENT(space, SDLK_SPACE)
-            KEYUP_ASSIGNMENT(shiftLeft, SDLK_LSHIFT)
-            KEYUP_ASSIGNMENT(enter, SDLK_KP_ENTER)
             KEYUP_ASSIGNMENT(zero, SDLK_0)
             KEYUP_ASSIGNMENT(one, SDLK_1)
             KEYUP_ASSIGNMENT(two, SDLK_2)
@@ -66,6 +67,42 @@ void SDLWindow::pollEventsInternal()
             KEYUP_ASSIGNMENT(seven, SDLK_7)
             KEYUP_ASSIGNMENT(eight, SDLK_8)
             KEYUP_ASSIGNMENT(nine, SDLK_9)
+
+            KEYUP_ASSIGNMENT(space, SDLK_SPACE)
+            KEYUP_ASSIGNMENT(backspace, SDLK_BACKSPACE)
+            KEYUP_ASSIGNMENT(enter, SDLK_RETURN)
+            KEYUP_ASSIGNMENT(shiftLeft, SDLK_LSHIFT)
+            KEYUP_ASSIGNMENT(shiftRight, SDLK_RSHIFT)
+            KEYUP_ASSIGNMENT(bracketLeft, SDLK_LEFTBRACKET)
+            KEYUP_ASSIGNMENT(bracketRight, SDLK_RIGHTBRACKET)
+            KEYUP_ASSIGNMENT(altLeft, SDLK_LALT)
+            KEYUP_ASSIGNMENT(altRight, SDLK_RALT)
+            KEYUP_ASSIGNMENT(semicolon, SDLK_SEMICOLON)
+            KEYUP_ASSIGNMENT(apostroph, SDLK_QUOTE)
+            KEYUP_ASSIGNMENT(comma, SDLK_COMMA)
+            KEYUP_ASSIGNMENT(period, SDLK_PERIOD)
+            KEYUP_ASSIGNMENT(slash, SDLK_SLASH)
+            KEYUP_ASSIGNMENT(graveAccent, SDLK_BACKQUOTE)
+            KEYUP_ASSIGNMENT(minus, SDLK_MINUS)
+            KEYUP_ASSIGNMENT(equel, SDLK_EQUALS)
+            KEYUP_ASSIGNMENT(controlLeft, SDLK_LCTRL)
+            KEYUP_ASSIGNMENT(controlRight, SDLK_RCTRL)
+            KEYUP_ASSIGNMENT(escape, SDLK_ESCAPE)
+            KEYUP_ASSIGNMENT(capsLock, SDLK_CAPSLOCK)
+            KEYUP_ASSIGNMENT(tab, SDLK_TAB)
+
+            KEYUP_ASSIGNMENT(f1, SDLK_F1)
+            KEYUP_ASSIGNMENT(f2, SDLK_F2)
+            KEYUP_ASSIGNMENT(f3, SDLK_F3)
+            KEYUP_ASSIGNMENT(f4, SDLK_F4)
+            KEYUP_ASSIGNMENT(f5, SDLK_F5)
+            KEYUP_ASSIGNMENT(f6, SDLK_F6)
+            KEYUP_ASSIGNMENT(f7, SDLK_F7)
+            KEYUP_ASSIGNMENT(f8, SDLK_F8)
+            KEYUP_ASSIGNMENT(f9, SDLK_F9)
+            KEYUP_ASSIGNMENT(f10, SDLK_F10)
+            KEYUP_ASSIGNMENT(f11, SDLK_F11)
+            KEYUP_ASSIGNMENT(f12, SDLK_F12)
             break;
         case SDL_KEYDOWN:
             KEYDOWN_ASSIGNMENT(a, SDLK_a)
@@ -94,9 +131,6 @@ void SDLWindow::pollEventsInternal()
             KEYDOWN_ASSIGNMENT(x, SDLK_x)
             KEYDOWN_ASSIGNMENT(y, SDLK_y)
             KEYDOWN_ASSIGNMENT(z, SDLK_z)
-            KEYDOWN_ASSIGNMENT(space, SDLK_SPACE)
-        	KEYDOWN_ASSIGNMENT(shiftLeft, SDLK_LSHIFT)
-            KEYDOWN_ASSIGNMENT(enter, SDLK_KP_ENTER)
             KEYDOWN_ASSIGNMENT(zero, SDLK_0)
             KEYDOWN_ASSIGNMENT(one, SDLK_1)
             KEYDOWN_ASSIGNMENT(two, SDLK_2)
@@ -107,6 +141,41 @@ void SDLWindow::pollEventsInternal()
             KEYDOWN_ASSIGNMENT(seven, SDLK_7)
             KEYDOWN_ASSIGNMENT(eight, SDLK_8)
             KEYDOWN_ASSIGNMENT(nine, SDLK_9)
+
+            KEYDOWN_ASSIGNMENT(space, SDLK_SPACE)
+            KEYDOWN_ASSIGNMENT(backspace, SDLK_BACKSPACE)
+            KEYDOWN_ASSIGNMENT(enter, SDLK_RETURN)
+            KEYDOWN_ASSIGNMENT(shiftLeft, SDLK_LSHIFT)
+            KEYDOWN_ASSIGNMENT(shiftRight, SDLK_RSHIFT)
+            KEYDOWN_ASSIGNMENT(bracketLeft, SDLK_LEFTBRACKET)
+            KEYDOWN_ASSIGNMENT(bracketRight, SDLK_RIGHTBRACKET)
+            KEYDOWN_ASSIGNMENT(altLeft, SDLK_LALT)
+            KEYDOWN_ASSIGNMENT(altRight, SDLK_RALT)
+            KEYDOWN_ASSIGNMENT(semicolon, SDLK_SEMICOLON)
+            KEYDOWN_ASSIGNMENT(apostroph, SDLK_QUOTE)
+            KEYDOWN_ASSIGNMENT(comma, SDLK_COMMA)
+            KEYDOWN_ASSIGNMENT(period, SDLK_PERIOD)
+            KEYDOWN_ASSIGNMENT(slash, SDLK_SLASH)
+            KEYDOWN_ASSIGNMENT(graveAccent, SDLK_BACKQUOTE)
+            KEYDOWN_ASSIGNMENT(minus, SDLK_MINUS)
+            KEYDOWN_ASSIGNMENT(equel, SDLK_EQUALS)
+            KEYDOWN_ASSIGNMENT(controlLeft, SDLK_LCTRL)
+            KEYDOWN_ASSIGNMENT(controlRight, SDLK_RCTRL)
+            KEYDOWN_ASSIGNMENT(escape, SDLK_ESCAPE)
+            KEYDOWN_ASSIGNMENT(capsLock, SDLK_CAPSLOCK)
+            KEYDOWN_ASSIGNMENT(tab, SDLK_TAB)
+            KEYDOWN_ASSIGNMENT(f1, SDLK_F1)
+            KEYDOWN_ASSIGNMENT(f2, SDLK_F2)
+            KEYDOWN_ASSIGNMENT(f3, SDLK_F3)
+            KEYDOWN_ASSIGNMENT(f4, SDLK_F4)
+            KEYDOWN_ASSIGNMENT(f5, SDLK_F5)
+            KEYDOWN_ASSIGNMENT(f6, SDLK_F6)
+            KEYDOWN_ASSIGNMENT(f7, SDLK_F7)
+            KEYDOWN_ASSIGNMENT(f8, SDLK_F8)
+            KEYDOWN_ASSIGNMENT(f9, SDLK_F9)
+            KEYDOWN_ASSIGNMENT(f10, SDLK_F10)
+            KEYDOWN_ASSIGNMENT(f11, SDLK_F11)
+            KEYDOWN_ASSIGNMENT(f12, SDLK_F12)
             break;
         case SDL_MOUSEMOTION:
             windowIo_.mouseState.position.x = event.motion.x;
@@ -140,7 +209,16 @@ void SDLWindow::pollEventsInternal()
                 windowIo_.mouseState.middleButton = io::ButtonState::unpressed;
             }
             break;
+        case SDL_MOUSEWHEEL:
+        {
 
+            float wheelX = -event.wheel.preciseX;
+            float wheelY = event.wheel.preciseY;
+            windowIo_.mouseState.wheel.x = wheelX;
+            windowIo_.mouseState.wheel.y = wheelY;
+
+            break;
+        }
         default:
             break;
         }

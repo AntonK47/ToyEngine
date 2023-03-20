@@ -10,7 +10,11 @@ namespace toy::io
         unpressed
     };
 
-    using WheelState = float;
+    struct WheelState
+    {
+        float x;
+        float y;
+    };
 
     struct Point
     {
@@ -56,9 +60,6 @@ namespace toy::io
         ButtonState x;
         ButtonState y;
         ButtonState z;
-        ButtonState space;
-        ButtonState shiftLeft;
-        ButtonState enter;
         ButtonState zero;
         ButtonState one;
         ButtonState two;
@@ -69,6 +70,53 @@ namespace toy::io
         ButtonState seven;
         ButtonState eight;
         ButtonState nine;
+
+        ButtonState space; 
+        ButtonState backspace;
+        ButtonState enter;
+        ButtonState shiftLeft;
+        ButtonState shiftRight;
+        ButtonState bracketLeft;
+        ButtonState bracketRight;
+        ButtonState backslash;
+
+        ButtonState altLeft;
+        ButtonState altRight;
+
+
+        ButtonState semicolon;
+        ButtonState apostroph;
+        ButtonState comma;
+        ButtonState period;
+        ButtonState slash;
+
+
+
+        ButtonState graveAccent;//tilde
+       
+        ButtonState minus;
+        ButtonState equel;
+        
+        ButtonState controlLeft;
+        ButtonState controlRight;
+        ButtonState escape;
+        ButtonState capsLock;
+        ButtonState tab;
+
+        ButtonState f1;
+        ButtonState f2;
+        ButtonState f3;
+        ButtonState f4;
+        ButtonState f5;
+        ButtonState f6;
+        ButtonState f7;
+        ButtonState f8;
+        ButtonState f9;
+        ButtonState f10;
+        ButtonState f11;
+        ButtonState f12;
+
+
 
         void reset();
 
