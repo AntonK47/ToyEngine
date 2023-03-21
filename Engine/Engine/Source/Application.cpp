@@ -204,7 +204,7 @@ int Application::run()
     float baseFontSize = 16.0f;
     float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
 
-    ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Roboto-Medium.ttf", baseFontSize);
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", baseFontSize);
 
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
     ImFontConfig config;
@@ -214,86 +214,86 @@ int Application::run()
     
     ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", baseFontSize, &config, icons_ranges);
 
-        int width, height;
-        unsigned char* pixels = NULL;
-        ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
-        const auto texelSize = 1;
-        const auto fontImageSize = width * height * texelSize;
+    int width, height;
+    unsigned char* pixels = NULL;
+    ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
+    const auto texelSize = 1;
+    const auto fontImageSize = width * height * texelSize;
 
-        Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
-        accessUsage |= ImageAccessUsage::transferDst;
+    Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
+    accessUsage |= ImageAccessUsage::transferDst;
 
 
-        const auto fontDescriptor = ImageDescriptor
+    const auto fontDescriptor = ImageDescriptor
+    {
+        .format = Format::r8,
+        .extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
+        .mips = 1,
+        .layers = 1,
+        .accessUsage = accessUsage
+    };
+
+    auto fontImage = renderer.createImage(fontDescriptor);
+    ImGui::GetIO().Fonts->SetTexID((void*)&fontImage);
+
+    const auto stagingSize = 10 * 1024 * 1024; //10MB
+
+    const auto stagingDescriptor = BufferDescriptor
+    {
+        .size = stagingSize,
+        .accessUsage = BufferAccessUsage::transferSrc,
+        .memoryUsage = MemoryUsage::cpuOnly
+    };
+
+    auto stagingBuffer = renderer.createBuffer(stagingDescriptor, DebugLabel{ "Upload Staging Buffer" });
+
+    void* stagingBufferDataPtr;
+    renderer.map(stagingBuffer.nativeHandle, &stagingBufferDataPtr);
+
+    TOY_ASSERT(fontImageSize <= stagingSize);
+
+    std::memcpy(stagingBufferDataPtr, pixels, fontImageSize);
+
+
+    auto uploadCommandList = renderer.acquireCommandList(QueueType::transfer);
+
+    uploadCommandList.begin();
+    uploadCommandList.barrier({ ImageBarrierDescriptor
         {
-            .format = Format::r8,
-            .extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
-            .mips = 1,
-            .layers = 1,
-            .accessUsage = accessUsage
-        };
+            .srcLayout = Layout::undefined,
+            .dstLayout = Layout::transferDst,
+            .srcStage = ResourcePipelineStageUsageFlagBits::none,
+            .dstStage = ResourcePipelineStageUsageFlagBits::none,
+            .aspect = ImageViewAspect::color,
+            .image = fontImage
+        } });
 
-        auto fontImage = renderer.createImage(fontDescriptor);
-        ImGui::GetIO().Fonts->SetTexID((void*)&fontImage);
-
-        const auto stagingSize = 10 * 1024 * 1024; //10MB
-
-        const auto stagingDescriptor = BufferDescriptor
+    uploadCommandList.transfer(
+        SourceBufferDescriptor
         {
-            .size = stagingSize,
-            .accessUsage = BufferAccessUsage::transferSrc,
-            .memoryUsage = MemoryUsage::cpuOnly
-        };
+            .buffer = stagingBuffer.nativeHandle,
+            .offset = 0
+        },
+        DestinationImageDescriptor
+        {
+            .image = fontImage,
+            .regions = { Region{ 0, 0, 1, glm::uvec3{width, height, 1 }}}
+        }
+        );
 
-        auto stagingBuffer = renderer.createBuffer(stagingDescriptor, DebugLabel{ "Upload Staging Buffer" });
+    uploadCommandList.barrier({ ImageBarrierDescriptor
+        {
+            .srcLayout = Layout::transferDst,
+            .dstLayout = Layout::shaderRead,
+            .srcStage = ResourcePipelineStageUsageFlagBits::none,
+            .dstStage = ResourcePipelineStageUsageFlagBits::fragment,
+            .aspect = ImageViewAspect::color,
+            .image = fontImage
+        } });
+    uploadCommandList.end();
 
-        void* stagingBufferDataPtr;
-        renderer.map(stagingBuffer.nativeHandle, &stagingBufferDataPtr);
-
-        TOY_ASSERT(fontImageSize <= stagingSize);
-
-        std::memcpy(stagingBufferDataPtr, pixels, fontImageSize);
-
-
-        auto uploadCommandList = renderer.acquireCommandList(QueueType::transfer);
-
-        uploadCommandList.begin();
-        uploadCommandList.barrier({ ImageBarrierDescriptor
-            {
-                .srcLayout = Layout::undefined,
-                .dstLayout = Layout::transferDst,
-                .srcStage = ResourcePipelineStageUsageFlagBits::none,
-                .dstStage = ResourcePipelineStageUsageFlagBits::none,
-                .aspect = ImageViewAspect::color,
-                .image = fontImage
-            } });
-
-        uploadCommandList.transfer(
-            SourceBufferDescriptor
-            {
-                .buffer = stagingBuffer.nativeHandle,
-                .offset = 0
-            },
-            DestinationImageDescriptor
-            {
-                .image = fontImage,
-                .regions = { Region{ 0, 0, 1, glm::uvec3{width, height, 1 }}}
-            }
-            );
-
-        uploadCommandList.barrier({ ImageBarrierDescriptor
-            {
-                .srcLayout = Layout::transferDst,
-                .dstLayout = Layout::shaderRead,
-                .srcStage = ResourcePipelineStageUsageFlagBits::none,
-                .dstStage = ResourcePipelineStageUsageFlagBits::fragment,
-                .aspect = ImageViewAspect::color,
-                .image = fontImage
-            } });
-        uploadCommandList.end();
-
-        const auto submit = renderer.submitCommandList(toy::renderer::QueueType::transfer, { uploadCommandList }, {});
-        renderer.submitBatches(toy::renderer::QueueType::transfer, { submit });
+    const auto submit = renderer.submitCommandList(toy::renderer::QueueType::transfer, { uploadCommandList }, {});
+    renderer.submitBatches(toy::renderer::QueueType::transfer, { submit });
 
     
     
@@ -412,7 +412,6 @@ int Application::run()
 
     result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, simpleTriangleFsSpirvCode);
     TOY_ASSERT(result == CompilationResult::success);
-
 
     const auto vertexShaderModule = renderer.createShaderModule(toy::renderer::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleVsSpirvCode });
 
@@ -766,9 +765,9 @@ int Application::run()
         {
 #ifdef TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING
             ImGui::PushID(1);
-            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(150.0/260.0, 68.0f/100.0f, 80.0f/100.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(150.0 / 260.0, 68.0f / 100.0f, 72.0f / 100.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(150.0 / 260.0, 68.0f / 100.0f, 60.0f / 100.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(150.0 / 360.0, 68.0f / 100.0f, 72.0f / 100.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(150.0 / 360.0, 68.0f / 100.0f, 90.0f / 100.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(150.0 / 360.0, 68.0f / 100.0f, 60.0f / 100.0f));
             if (ImGui::Button(ICON_FA_BUG))
             {
                 if (captureTool.isRenderDocInjected())
@@ -777,19 +776,19 @@ int Application::run()
                     LOG(INFO) << "capturing frame " << frameNumber << "...";
                 }
             }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("RenderDoc capture");
             ImGui::PopStyleColor(3);
             ImGui::PopID();
             ImGui::SameLine();
-            ImGui::Dummy(ImVec2(2, 0));
-            ImGui::SameLine();
-            
-            
 #endif
-            ImGui::Checkbox(ICON_FA_VIDEO, &showCameraControls);
+            ImGui::ToggleButton(ICON_FA_VIDEO, &showCameraControls);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Show camera settings");
             ImGui::SameLine();
-            ImGui::Dummy(ImVec2(2, 0));
-            ImGui::SameLine();
-            ImGui::Checkbox(ICON_FA_CHART_LINE, &showStatistics);
+            ImGui::ToggleButton(ICON_FA_CHART_LINE, &showStatistics);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Show statistics");
             nextWindowPos.y = (nextWindowPos.y + pad + ImGui::GetWindowHeight());
         }
         ImGui::End();
