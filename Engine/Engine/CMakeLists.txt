@@ -10,6 +10,9 @@ set(MODULE_HEADERS
 	Source/SceneLoader.h
 	Source/DDSLoader.h
 	Source/TexturePageExtractor.h)
+	Source/DynamicFrameAllocator.h
+	Source/IconsFontAwesome6.h
+	Source/toyimconfig.h)
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -32,8 +35,8 @@ target_link_libraries(${MODULE_NAME}
 		GLSLRuntimeCompiler
 		GraphicsDebugger
 		MPMCQueue::MPMCQueue
+		Freetype::Freetype
 		imgui::imgui
-
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

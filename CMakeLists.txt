@@ -45,6 +45,8 @@ find_package(MPMCQueue CONFIG REQUIRED)
 find_package(glslang CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(Freetype REQUIRED)
+
 
 add_subdirectory(Engine)
 add_subdirectory(Application)

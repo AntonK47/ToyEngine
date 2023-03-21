@@ -16,6 +16,7 @@
     "assimp",
     "mpmcqueue",
     "g3log",
-    "zpp-bits"
+    "zpp-bits",
+    "freetype"
   ]
 }

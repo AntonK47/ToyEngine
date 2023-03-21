@@ -23,7 +23,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
             SDL_WINDOWPOS_CENTERED,
             static_cast<int>(width_),
             static_cast<int>(height_),
-            SDL_WINDOW_VULKAN);
+            SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI);
 
         auto extensionsCount = u32{};
         result = SDL_Vulkan_GetInstanceExtensions(window_, &extensionsCount, nullptr);

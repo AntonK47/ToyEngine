@@ -26,7 +26,9 @@
 #include <algorithm>
 #include <span>
 
+#define IMGUI_USER_CONFIG "toyimconfig.h"
 #include <imgui.h>
+#include "IconsFontAwesome6.h"
 
 using namespace toy::renderer;
 using namespace toy::window;
@@ -147,10 +149,6 @@ int Application::run()
     window.initialize(WindowDescriptor{ 1280, 720 });
     window.setWindowTitle("Toy Engine"); // <- this course memory allocation
 
-    
-    
-
-
     const auto workerCount = 10;
 
     const auto rendererDescriptor = RendererDescriptor
@@ -167,11 +165,21 @@ int Application::run()
     };
     renderer.initialize(rendererDescriptor);
 
-
-
-
     ImGui::CreateContext();
+
+    float baseFontSize = 16.0f;
+    float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
+
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Roboto-Medium.ttf", baseFontSize);
+
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
+    ImFontConfig config;
+    config.MergeMode = true;
+    config.PixelSnapH = true;
+    config.GlyphMinAdvanceX = iconFontSize;
     
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", baseFontSize, &config, icons_ranges);
+
         int width, height;
         unsigned char* pixels = NULL;
         ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
@@ -562,6 +570,7 @@ int Application::run()
         glm::vec3 forward;
         glm::vec3 up;
         float movementSpeed{1.0f};
+        float movementSpeedScale{ 1.0f };
         float sensitivity{ 1.0f };
     };
 
@@ -605,7 +614,7 @@ int Application::run()
     const auto knightData = "E:\\Develop\\ToyEngineContent\\knight.dat";
     const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
 
-    const auto scene = Scene::loadSceneFromFile(renderer, bistroExteriorData);
+    const auto scene = Scene::loadSceneFromFile(renderer, knightData);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, 
@@ -702,57 +711,93 @@ int Application::run()
 
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
         
-        const float PAD = 10.0f;
+        const float pad = 10.0f;
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-        ImVec2 work_size = viewport->WorkSize;
-        ImVec2 window_pos, window_pos_pivot;
-        window_pos.x = (work_pos.x + PAD);
-        window_pos.y = (work_pos.y + PAD);
-        window_pos_pivot.x = 0.0f;
-        window_pos_pivot.y = 0.0f;
-        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        const auto workPos = viewport->WorkPos;
+        const auto workSize = viewport->WorkSize;
+        auto nextWindowPos = ImVec2{};
+        auto windowPosPivot = ImVec2{};
+        nextWindowPos.x = (workPos.x + pad);
+        nextWindowPos.y = (workPos.y + pad);
+        windowPosPivot.x = 0.0f;
+        windowPosPivot.y = 0.0f;
+        ImGui::SetNextWindowPos(nextWindowPos, ImGuiCond_Always, windowPosPivot);
         window_flags |= ImGuiWindowFlags_NoMove;
-        
-        ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+        ImGui::SetNextWindowBgAlpha(0.35f);
 
-        auto statisticsOpen = true;
-        if (ImGui::Begin("Statistics", &statisticsOpen, window_flags))
+        auto toolsBar = true;
+        static auto showStatistics = false;
+        static auto showCameraControls = false;
+        if (ImGui::Begin("ToolsBar", &toolsBar, window_flags))
         {
-      
-            ImGui::Text("Statistics");
-            ImGui::Separator();
-            ImGui::Text("frame time: %.2f ms (%.1f fps)", hertz, 1000.0f / hertz); 
-            ImGui::Separator();
-            ImGui::Separator();
-            ImGui::Text("Scene");
-            ImGui::Separator();
-            ImGui::Text("Total triangles: %d", drawStatistics.scene.totalTrianglesCount);
-            ImGui::Text("Total drawcalls: %d", drawStatistics.scene.drawCalls);
-            ImGui::Separator();
-            ImGui::Separator();
-            ImGui::Text("GUI");
-            ImGui::Separator();
-            ImGui::Text("Total indices: %d", drawStatistics.gui.totalIndicesCount);
-            ImGui::Text("Total vertices: %d", drawStatistics.gui.totalVerticesCount);
-            ImGui::Text("Total drawcalls: %d", drawStatistics.gui.drawCalls);
-
+#ifdef TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING
+            ImGui::PushID(1);
+            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(150.0/260.0, 68.0f/100.0f, 80.0f/100.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(150.0 / 260.0, 68.0f / 100.0f, 72.0f / 100.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(150.0 / 260.0, 68.0f / 100.0f, 60.0f / 100.0f));
+            if (ImGui::Button(ICON_FA_BUG))
+            {
+                if (captureTool.isRenderDocInjected())
+                {
+                    captureTool.captureNextMarkedScope();
+                    LOG(INFO) << "capturing frame " << frameNumber << "...";
+                }
+            }
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::SameLine();
+            ImGui::Dummy(ImVec2(2, 0));
+            ImGui::SameLine();
+            
+            
+#endif
+            ImGui::Checkbox(ICON_FA_VIDEO, &showCameraControls);
+            ImGui::SameLine();
+            ImGui::Dummy(ImVec2(2, 0));
+            ImGui::SameLine();
+            ImGui::Checkbox(ICON_FA_CHART_LINE, &showStatistics);
+            nextWindowPos.y = (nextWindowPos.y + pad + ImGui::GetWindowHeight());
         }
         ImGui::End();
 
-
-
-
-        ImGui::EndFrame();
-
-        if(io.keyboardState.one == toy::io::ButtonState::pressed)
+        if (showStatistics)
         {
-            if(captureTool.isRenderDocInjected())
+            ImGui::SetNextWindowPos(nextWindowPos, ImGuiCond_Always, windowPosPivot);
+            window_flags |= ImGuiWindowFlags_NoMove;
+            ImGui::SetNextWindowBgAlpha(0.35f);
+
+            auto windowOpen = true;
+            if (ImGui::Begin("Statistics", &windowOpen, window_flags))
             {
-                captureTool.captureNextMarkedScope();
-                LOG(INFO) << "capturing frame " << frameNumber << "...";
+                ImGui::SeparatorText("Timings");
+                ImGui::Text("frame time: %.2f ms (%.1f fps)", hertz, 1000.0f / hertz);
+                ImGui::SeparatorText("Scene");
+                ImGui::Text("Total triangles: %d", drawStatistics.scene.totalTrianglesCount);
+                ImGui::Text("Total drawcalls: %d", drawStatistics.scene.drawCalls);
+                ImGui::SeparatorText("GUI");
+                ImGui::Text("Total indices: %d", drawStatistics.gui.totalIndicesCount);
+                ImGui::Text("Total vertices: %d", drawStatistics.gui.totalVerticesCount);
+                ImGui::Text("Total drawcalls: %d", drawStatistics.gui.drawCalls);
+                nextWindowPos.y = (nextWindowPos.y + pad + ImGui::GetWindowHeight());
             }
-        } 
+            ImGui::End();
+        }
+        if (showCameraControls)
+        {
+            ImGui::SetNextWindowPos(nextWindowPos, ImGuiCond_Always, windowPosPivot);
+            window_flags |= ImGuiWindowFlags_NoMove;
+            ImGui::SetNextWindowBgAlpha(0.35f);
+
+            auto windowOpen = true;
+            if (ImGui::Begin("Camera controls", &windowOpen, window_flags))
+            {
+                ImGui::SeparatorText("Camera");
+                ImGui::SliderFloat("Speed", &camera.movementSpeedScale, 1.0f, 15.0f);
+                nextWindowPos.y = (nextWindowPos.y + pad + ImGui::GetWindowHeight());
+            }
+            ImGui::End();
+        }
+        ImGui::EndFrame();
 
 #pragma region Camera Control
         if (!imGuiIo.WantCaptureKeyboard)
@@ -771,19 +816,19 @@ int Application::run()
 
             if (io.keyboardState.w == toy::io::ButtonState::pressed)
             {
-                camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+                camera.position += camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f) * camera.movementSpeedScale;
             }
             if (io.keyboardState.s == toy::io::ButtonState::pressed)
             {
-                camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+                camera.position -= camera.forward * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f) * camera.movementSpeedScale;
             }
             if (io.keyboardState.a == toy::io::ButtonState::pressed)
             {
-                camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+                camera.position += glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f) * camera.movementSpeedScale;
             }
             if (io.keyboardState.d == toy::io::ButtonState::pressed)
             {
-                camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f);
+                camera.position -= glm::normalize(glm::cross(camera.forward, camera.up)) * camera.movementSpeed * (moveCameraFaster ? fastSpeed : 1.0f) * camera.movementSpeedScale;
             }
         }
         
@@ -837,17 +882,6 @@ int Application::run()
 
             renderer.nextFrame();
 
-            
-            
-
-
-            
-
-
-
-
-
-            
             ImGui::Render();
             ImDrawData* drawData = ImGui::GetDrawData();
 
