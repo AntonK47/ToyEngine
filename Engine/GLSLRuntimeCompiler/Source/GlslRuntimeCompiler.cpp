@@ -6,7 +6,7 @@
 #include <glslang/Include/glslang_c_interface.h>
 #pragma warning(default:26495)
 
-using namespace toy::renderer::compiler;
+using namespace toy::graphics::compiler;
 
 namespace 
 {

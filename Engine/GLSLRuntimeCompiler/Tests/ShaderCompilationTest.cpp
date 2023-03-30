@@ -4,7 +4,7 @@
 #include <CommonTypes.h>
 
 using namespace toy::core;
-using namespace toy::renderer::compiler;
+using namespace toy::graphics::compiler;
 
 class ShaderCompilationTest : public ::testing::Test {
 protected:

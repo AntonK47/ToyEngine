@@ -1,13 +1,13 @@
-#include "VulkanRenderInterface.h"
+#include "VulkanRHI/VulkanRenderInterface.h"
 
 #include <iostream>
 #include <g3log/g3log.hpp>
 
-#include "VulkanMappings.h"
+#include "VulkanRHI/VulkanMappings.h"
 
-const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
-using namespace toy::renderer;
-using namespace api::vulkan;
+//const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
+using namespace toy::graphics::rhi;
+using namespace vulkan;
 
 namespace
 {
@@ -130,7 +130,7 @@ namespace
 
         auto queueCreateInfos = std::vector<vk::DeviceQueueCreateInfo>{};
 
-        auto familyIndexQueueMap = std::map<uint32_t, std::vector<std::reference_wrapper<api::vulkan::DeviceQueue>>>{};
+        auto familyIndexQueueMap = std::map<uint32_t, std::vector<std::reference_wrapper<DeviceQueue>>>{};
 
         for (auto& queue : queues)
         {
@@ -349,22 +349,21 @@ namespace
 }
 
 //TODO: make it better
-static int aa = 0;
+inline static int aa = 0;
 std::mutex m;
-VulkanRenderInterface::CommandListType VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const WorkerThreadId workerId, const UsageScope& usageScope)
+vk::CommandBuffer VulkanRenderInterface::getCommandBufferFromThread(const WorkerThreadId& workerId, QueueType queueType)
 {
     //TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
 
-    //TODO: create proper structure to hold per thread data
+            //TODO: create proper structure to hold per thread data
     std::lock_guard lock(m);
     const auto& commandBuffer = perThreadData_[workerId.index].perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers[aa];
     aa++;
-
-    return CommandListType(queueType, *this, commandBuffer);
+    return commandBuffer;
 }
 
 void VulkanRenderInterface::submitBatchesInternal(const QueueType queueType,
-    const std::initializer_list<SubmitBatchType>& batches)
+    const std::initializer_list<SubmitBatch>& batches)
 {
     auto totalCommandBuffers = u32{};
 
@@ -483,9 +482,9 @@ void VulkanRenderInterface::submitBatchesInternal(const QueueType queueType,
     TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
-VulkanRenderInterface::SubmitBatchType VulkanRenderInterface::submitCommandListInternal(
+SubmitBatch VulkanRenderInterface::submitCommandListInternal(
     const QueueType queueType,
-	const std::initializer_list<CommandListType>& commandLists,
+	const std::initializer_list<CommandList>& commandLists,
 	const std::initializer_list<SubmitDependency>& dependencies)
 {
     TOY_ASSERT(!std::empty(commandLists));
@@ -514,10 +513,20 @@ VulkanRenderInterface::SubmitBatchType VulkanRenderInterface::submitCommandListI
         submit.commandBuffers[submit.commandBuffersCount] = commandList.commandBuffer_;
         submit.commandBuffersCount++;
     }
+    auto submitBatch = SubmitBatch{queueType};
+    submitBatch.batch_ = submit;
     
-    return VulkanSubmitBatch{ submit, queueType };
+    return submitBatch;
 }
 
+auto VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const WorkerThreadId& workerId, const UsageScope& usageScope) -> CommandList
+{
+	const auto commandBuffer = getCommandBufferFromThread(workerId, queueType);
+
+	auto commandList = CommandList(queueType, *(RenderInterface*)this); //TODO:: make safe cast
+	commandList.commandBuffer_ = commandBuffer;
+	return commandList;
+}
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
 {
@@ -538,14 +547,16 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
         descriptor.meta.requiredExtensions.end());
 #endif
 
-    const auto& applicationInfo = vk::ApplicationInfo()
+    const auto applicationInfo = vk::ApplicationInfo()
+        .setPNext(0)
         .setPApplicationName(descriptor.instanceName.c_str())
         .setApplicationVersion(descriptor.version)
         .setPEngineName(descriptor.instanceName.c_str())
         .setEngineVersion(descriptor.version)
         .setApiVersion(VK_API_VERSION_1_3);
 
-    const auto& instanceInfo = vk::InstanceCreateInfo()
+    const auto instanceInfo = vk::InstanceCreateInfo()
+        .setPNext(0)
         .setFlags(vk::InstanceCreateFlags())
         .setPApplicationInfo(&applicationInfo)
         .setEnabledExtensionCount(static_cast<uint32_t>(extensions.size()))
@@ -728,6 +739,32 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     nativeBackend_.device = device_;
     nativeBackend_.instance = instance_;
+
+    VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+    vmaGetHeapBudgets(allocator_, budgets);
+
+    memoryProperties_ = adapter_.getMemoryProperties2();
+
+
+    for (auto heapIndex = u32{}; heapIndex < memoryProperties_.memoryProperties.memoryHeapCount; heapIndex++)
+    {
+        const auto heap = memoryProperties_.memoryProperties.memoryHeaps[heapIndex];
+        
+
+        printf("My heap currently has %u allocations taking %llu B,\n",
+            budgets[heapIndex].statistics.allocationCount,
+            budgets[heapIndex].statistics.allocationBytes);
+        printf("allocated out of %u Vulkan device memory blocks taking %llu B,\n",
+            budgets[heapIndex].statistics.blockCount,
+            budgets[heapIndex].statistics.blockBytes);
+        printf("Vulkan reports total usage %llu B with budget %llu B.\n",
+            budgets[heapIndex].usage,
+            budgets[heapIndex].budget);
+        printf("");
+
+    }
+
+    
 
 }
 
@@ -1113,7 +1150,7 @@ void VulkanRenderInterface::presentInternal(const SubmitDependency& dependency)
     TOY_ASSERT(result == vk::Result::eSuccess);
 }
 
-void VulkanRenderInterface::submitCommandListInternal(const CommandListType& commandList)
+void VulkanRenderInterface::submitCommandListInternal(const CommandList& commandList)
 {
     const auto queue = queues_[commandList.getQueueType()].queue;
 

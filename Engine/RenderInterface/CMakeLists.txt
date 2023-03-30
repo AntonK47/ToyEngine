@@ -1,26 +1,42 @@
 set(MODULE_NAME RenderInterface)
 set(MODULE_SOURCES 
-	Source/RenderInterface.cpp
-	Source/BindGroupAllocator.cpp
-	Source/CommandListValidator.h
 	Source/CommandListValidator.cpp
 	Source/CommandList.cpp
-	Source/RenderInterfaceValidator.h
+	Source/RenderInterface.cpp
 	Source/RenderInterfaceValidator.cpp
-	Source/ValidationCommon.h)
+	"Source/VulkanRHI/Vulkan.cpp"
+	"Source/VulkanRHI/VulkanCommandList.cpp"
+	"Source/VulkanRHI/VulkanMappings.cpp"
+	"Source/VulkanRHI/VulkanRenderInterface.cpp"
+)
 set(MODULE_HEADERS 
-	Source/RenderInterface.h
-	Source/BindGroupAllocator.h
 	Source/CommandList.h
-	Source/Resource.h
-	Source/RenderInterfaceCommonTypes.h
-	Source/VirtualTextureStreaming.h)
+	Source/CommandListBase.h
+	Source/CommandListValidator.h
+	Source/Handle.h
+	Source/QueueType.h
+	Source/RenderInterface.h
+	Source/RenderInterfaceBase.h
+	Source/RenderInterfaceTypes.h
+	Source/RenderInterfaceValidator.h
+	Source/SubmitBatch.h
+	Source/SubmitBatchBase.h
+	Source/SubmitDependency.h
+	Source/ValidationCommon.h 
+	Source/VirtualTextureStreaming.h
+	"Source/VulkanRHI/Vulkan.h"
+	"Source/VulkanRHI/VulkanCommandList.h"
+	"Source/VulkanRHI/VulkanMappings.h"
+	"Source/VulkanRHI/VulkanRenderInterface.h"
+	"Source/VulkanRHI/VulkanRenderInterfaceTypes.h"
+	"Source/VulkanRHI/VulkanSubmitBatch.h"
+)
 
 add_library(${MODULE_NAME}
 	STATIC
 		${MODULE_SOURCES}
 		${MODULE_HEADERS}
-  )
+    )
 
 
 target_include_directories(${MODULE_NAME} 
@@ -33,6 +49,9 @@ target_link_libraries(${MODULE_NAME}
 		Core
 		Window
 		glm::glm
+		PUBLIC 
+		unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+		Vulkan::Vulkan
 )
 
-set_property(TARGET ${MODULE_NAME} PROPERTY CXX_STANDARD 20)
+#set_property(TARGET ${MODULE_NAME} PROPERTY CXX_STANDARD 23)

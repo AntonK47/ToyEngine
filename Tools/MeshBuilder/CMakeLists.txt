@@ -24,4 +24,4 @@ target_link_libraries(${APPLICATION_NAME}
 		assimp::assimp
 )
 
-set_property(TARGET ${APPLICATION_NAME} PROPERTY CXX_STANDARD 20)
+#set_property(TARGET ${APPLICATION_NAME} PROPERTY CXX_STANDARD 20)

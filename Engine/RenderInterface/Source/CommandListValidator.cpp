@@ -2,7 +2,7 @@
 #include "RenderInterface.h"
 #include <Logger.h>
 
-using namespace toy::renderer::validation;
+using namespace toy::graphics::rhi::validation;
 
 #define RENDERING_SCOPE_CHECK_PASSED validateRenderingScope(__FUNCTION__)
 

@@ -1,7 +1,7 @@
 #include "RenderInterfaceValidator.h"
 #include <Logger.h>
 
-bool toy::renderer::validation::RenderInterfaceValidator::validateInitialize(const RendererDescriptor& descriptor)
+bool toy::graphics::rhi::validation::RenderInterfaceValidator::validateInitialize(const RendererDescriptor& descriptor)
 {
 	if(hasInitialized_)
 	{
@@ -14,7 +14,7 @@ bool toy::renderer::validation::RenderInterfaceValidator::validateInitialize(con
 	return true;
 }
 
-bool toy::renderer::validation::RenderInterfaceValidator::validateDeinitialize()
+bool toy::graphics::rhi::validation::RenderInterfaceValidator::validateDeinitialize()
 {
 	if(!hasInitialized_)
 	{

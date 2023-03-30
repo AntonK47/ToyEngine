@@ -3,26 +3,11 @@
 #include <vector>
 #include <string>
 
-#include "Common.h"
+#include "Core.h"
 #include "WindowIO.h"
 
 namespace toy::window
 {
-    struct WindowHandler
-    {
-#ifdef WIN32
-        HWND hwnd;
-        HINSTANCE hinstance;
-#endif
-    };
-
-    struct BackendRendererMeta
-    {
-#ifdef TOY_ENGINE_VULKAN_BACKEND
-        std::vector<const char*> requiredExtensions;
-#endif
-    };
-
     enum class Event
     {
         quit

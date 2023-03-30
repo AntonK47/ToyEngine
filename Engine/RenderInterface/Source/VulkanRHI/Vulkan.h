@@ -7,7 +7,7 @@
 #define VULKAN_HPP_ASSERT
 #endif
 
-#include <Common.h>
+#include <Core.h>
 #pragma warning(disable:28251)
 #pragma warning(disable:6031)
 #include <vulkan/vulkan.hpp>
@@ -16,9 +16,9 @@
 
 #include <vk_mem_alloc.h>
 
-#include "RenderInterfaceCommonTypes.h"
+#include "RenderInterfaceTypes.h"
 
-namespace toy::renderer::api::vulkan
+namespace toy::graphics::rhi::vulkan
 {
 	struct VulkanNativeBackend
 	{
@@ -28,7 +28,7 @@ namespace toy::renderer::api::vulkan
 
 	VulkanNativeBackend getVulkanNativeBackend(const NativeBackend& nativeBackend);
 
-	struct VulkanPipeline final : Pipeline
+	struct VulkanPipeline final
 	{
 		vk::Pipeline pipeline{};
 		vk::PipelineLayout layout{};

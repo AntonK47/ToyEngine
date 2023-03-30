@@ -2,8 +2,7 @@
 #include <string>
 #include <vector>
 #include <RenderInterface.h>
-
-#include "VulkanRenderInterface.h"
+#include <RenderInterfaceTypes.h>
 
 struct RuntimeMesh
 {
@@ -19,23 +18,22 @@ struct DrawInstance
 	toy::core::u32 meshIndex;
 };
 
-using RenderInterface = toy::renderer::RenderInterface<toy::renderer::api::vulkan::VulkanRenderInterface>;
 
 class Scene
 {
 public:
-	[[nodiscard]] static Scene loadSceneFromFile(::RenderInterface& renderer, const std::string& path);
+	[[nodiscard]] static Scene loadSceneFromFile(toy::graphics::rhi::RenderInterface& rhi, const std::string& path);
 
 	void buildAccelerationStructure();
 
 private:
 	Scene(const std::vector<RuntimeMesh>& meshes,
 		const std::vector<DrawInstance>& drawInstances,
-		const toy::renderer::Buffer& positionStream,
-		const toy::renderer::Buffer& tangentFrameStream,
-		const toy::renderer::Buffer& uvStream,
-		const toy::renderer::Buffer& triangle,
-		const toy::renderer::Buffer& clusters)
+		const toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer>& positionStream,
+		const toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer>& tangentFrameStream,
+		const toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer>& uvStream,
+		const toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer>& triangle,
+		const toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer>& clusters)
 		: meshes_(meshes),
 		  drawInstances_(drawInstances),
 		  positionStream_(positionStream),
@@ -50,11 +48,10 @@ public:
 	std::vector<RuntimeMesh> meshes_;
 	std::vector<DrawInstance> drawInstances_;
 
-	toy::renderer::Buffer positionStream_;
-	toy::renderer::Buffer tangentFrameStream_;
-	toy::renderer::Buffer uvStream_;
-	toy::renderer::Buffer triangle_;
-	toy::renderer::Buffer clusters_;
-
-	toy::renderer::Buffer index_;
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> positionStream_;
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> tangentFrameStream_;
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> uvStream_;
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> triangle_;
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> clusters_;
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> index_;
 };

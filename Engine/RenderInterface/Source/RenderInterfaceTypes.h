@@ -1,16 +1,38 @@
 #pragma once
-#include <CommonTypes.h>
-#include <functional>
+#include <Core.h>
 #include <optional>
+#include <vector>
+#include <functional>
 #include <string>
+#include <variant>
+#include <glm/glm.hpp>
 
-#include "BindGroupAllocator.h"
-#include "Resource.h"
-#include <Window.h>
-#include <glm/fwd.hpp>
+#include "Handle.h"
 
-namespace toy::renderer
+namespace toy::graphics::rhi
 {
+	enum class ImageViewType
+	{
+		_1D,
+		_2D,
+		_3D
+	};
+
+	enum class ImageViewAspect
+	{
+		color,
+		depth
+	};
+
+	struct ImageView {};
+	struct Image {};
+	struct Buffer {};
+
+	struct Sampler {};
+
+	struct VirtualTexture
+	{};
+
 	struct Rectangle2D
 	{
 		core::i32 x;
@@ -28,14 +50,6 @@ namespace toy::renderer
 		float y;
 		float width;
 		float height;
-	};
-
-
-	enum class QueueType
-	{
-		graphics,
-		asyncCompute,
-		transfer
 	};
 
 	struct Pipeline {};
@@ -82,7 +96,7 @@ namespace toy::renderer
 	struct WindowExtent
 	{
 		core::u32 width;
-		glm::u32 height;
+		core::u32 height;
 	};
 
 	struct RendererDescriptor
@@ -93,7 +107,13 @@ namespace toy::renderer
 		window::BackendRendererMeta meta;
 		std::function<WindowExtent()> windowExtentGetter;
 		core::u32 threadWorkersCount{ 1 };
+	}; 
+	
+	struct WorkerThreadId
+	{
+		core::u32 index;
 	};
+
 
 	struct RenderTarget {};
 	struct Texture {};
@@ -128,7 +148,7 @@ namespace toy::renderer
 		ShaderByteCode code;
 	};
 
-	struct ShaderModule {};
+	
 
 	enum class Format
 	{
@@ -190,6 +210,8 @@ namespace toy::renderer
 		FaceCull faceCulling{ FaceCull::none };
 		Blending blending{ Blending::none };
 	};
+
+	struct ShaderModule{};
 	
 	struct GraphicsPipelineDescriptor
 	{
@@ -217,6 +239,8 @@ namespace toy::renderer
 		core::u32 primitiveCount;
 		core::u32 primitiveOffset;
 	};
+
+	struct BindGroupLayout{};
 
 	struct SetBindGroupMapping
 	{
@@ -301,17 +325,17 @@ namespace toy::renderer
 
 	struct Extent
 	{
-		glm::u32 width{ 1 };
-		glm::u32 height{ 1 };
-		glm::u32 depth{ 1 };
+		core::u32 width{ 1 };
+		core::u32 height{ 1 };
+		core::u32 depth{ 1 };
 	};
 
 	struct ImageDescriptor
 	{
 		Format format{};
 		Extent extent{};
-		glm::u32 mips{};
-		glm::u32 layers{};
+		core::u32 mips{};
+		core::u32 layers{};
 		core::Flags<ImageAccessUsage> accessUsage{ ImageAccessUsage::none };
 		MemoryUsage memoryUsage{ MemoryUsage::gpuOnly };
 		core::Flags<QueuesSharing> queuesSharing{ QueuesSharing::graphics };
@@ -328,5 +352,245 @@ namespace toy::renderer
 	struct VirtualTextureDescriptor
 	{
 
+	};
+
+	template <typename T>
+	class Ref
+	{
+	public:
+		explicit Ref(T* object) : object_{ object }
+		{}
+
+		template <typename R>
+		[[nodiscard]] const R& query() const
+		{
+			return *static_cast<const R*>(object_);
+		}
+	private:
+		T* object_{};
+	};
+
+	enum class Layout
+	{
+		undefined,
+		present,
+		colorRenderTarget,
+		depthStencilRenderTarget,
+		transferSrc,
+		transferDst,
+		shaderRead,
+		shaderReadWrite
+	};
+
+	enum class ShaderStageUsage
+	{
+		vertex,
+		fragment,
+		task
+	};
+
+	enum class ResourcePipelineStageUsageFlagBits : core::FlagBits
+	{
+		none = 0 << 0,
+		vertex = 1 << 0,
+		fragment = 1 << 1,
+		compute = 1 << 2,
+	};
+
+	using ResourcePipelineStageUsageFlags = core::Flags<ResourcePipelineStageUsageFlagBits>;
+
+
+	struct ImageBarrierDescriptor
+	{
+		Layout srcLayout;
+		Layout dstLayout;
+		ResourcePipelineStageUsageFlags srcStage{ ResourcePipelineStageUsageFlagBits::none }; //TODO: I don't like this design desition, because in contextes like data transfer it doesn't make sence.
+		ResourcePipelineStageUsageFlags dstStage{ ResourcePipelineStageUsageFlagBits::none };
+		ImageViewAspect aspect;
+		Handle<Image> image;
+		//???
+	};
+	struct MemoryBarrierDescriptor {};
+	struct BufferBarrierDescriptor {};
+
+
+	using BarrierDescriptor = std::variant<ImageBarrierDescriptor, BufferBarrierDescriptor, MemoryBarrierDescriptor>;
+
+	struct SplitBarrier
+	{
+		/*
+		 * in vulkan for instance, we have to store event and wait for it
+		 */
+	};
+
+	enum class LoadOperation
+	{
+		load,
+		clear,
+		dontCare,
+		none
+	};
+
+	enum class StoreOperation
+	{
+		store,
+		dontCare,
+		none
+	};
+
+	enum class ResolveMode
+	{
+		min,
+		max,
+		avg,
+		none
+	};
+
+	struct ColorClear
+	{
+		float r;
+		float g;
+		float b;
+		float a;
+	};
+
+	struct DepthClear
+	{
+		float depth;
+	};
+
+	using ClearValue = std::variant<ColorClear, DepthClear>;
+
+	struct RenderTargetDescriptor
+	{
+		Handle<ImageView> imageView{};
+		LoadOperation load{};
+		StoreOperation store{};
+		ResolveMode resolveMode{};
+		ClearValue clearValue{};
+	};
+
+	struct RenderingDescriptor
+	{
+		std::vector<RenderTargetDescriptor> colorRenderTargets{};//TODO: smallvector
+		std::optional<RenderTargetDescriptor> depthRenderTarget{};
+		std::optional<RenderTargetDescriptor> stencilRenderTarget{};
+	};
+
+	enum class GeometryBehavior
+	{
+		none,
+		translucent,
+		opaque,
+		hitAnyOnce
+	};
+
+	struct TriangleGeometry
+	{
+		Handle<Buffer> indexBuffer;
+		Handle<Buffer> vertexBuffer;
+		core::u32 totalVertices{ 0 };
+		core::u32 vertexStride{ 0 };
+		GeometryBehavior behavior{ GeometryBehavior::none };
+	};
+
+	struct AccelerationStructureInstance
+	{
+		glm::mat3x4 transform{};
+		core::u32 index{};
+		core::u8 visibilityMask{};
+		//...
+		Handle<AccelerationStructure> blas;
+	};
+
+	struct SourceBufferDescriptor
+	{
+		Handle<Buffer> buffer;
+		core::u32 offset;
+	};
+
+	struct Region
+	{
+		core::u32 mip{};
+		core::u32 baseLayer{};
+		core::u32 layerCount{};
+		glm::uvec3 extent{};
+		glm::ivec3 offset{ 0,0,0 };
+	};
+
+	struct DestinationImageDescriptor
+	{
+		Handle<Image> image;
+		std::vector<Region> regions{};
+	};
+
+	enum class IndexType
+	{
+		index16,
+		index32
+	};
+
+	enum class BindingType
+	{
+		Texture1D,
+		Texture2D,
+		Texture3D,
+		Texture2DArray,
+		UniformBuffer,
+		StorageBuffer,
+		AccelerationStructure,
+		Sampler
+	};
+
+	struct BindingDescriptor
+	{
+		BindingType type{};
+		core::u32 descriptorCount{ 1 };
+	};
+
+	struct Binding
+	{
+		core::u32 binding{};
+		BindingDescriptor descriptor{};
+	};
+
+
+	enum class BindGroupFlag : core::FlagBits
+	{
+		none = 0 << 0,
+		unboundLast = 1 << 0,
+	};
+
+	enum class UsageScope
+	{
+		inFrame,
+		async
+	};
+
+	struct BindGroupDescriptor
+	{
+		std::vector<Binding> bindings;
+		core::Flags<BindGroupFlag> flags{ BindGroupFlag::none };
+
+	};
+
+	struct BindGroup
+	{
+		UsageScope scope;
+	};
+
+	struct DescriptorPoolDefaultSizes
+	{
+		core::u32 accelerationStructures{ 100 };
+		core::u32 storageBuffers{ 10 };
+		core::u32 uniformBuffers{ 100 };
+		core::u32 images{ 100 };
+		core::u32 samplers{ 100 };
+	};
+
+	struct BindGroupAllocatorDescriptor
+	{
+		core::u32 swapchainFrameCount{};
+		DescriptorPoolDefaultSizes size{};
 	};
 }

@@ -5,9 +5,9 @@ set(MODULE_SOURCES
 	Source/Logger.cpp
 	Source/Scene.cpp)
 set(MODULE_HEADERS 
-	Source/CommonTypes.h
+	
 	Source/Hash.h
-	Source/Common.h
+	"Source/Core.h"
 	Source/Logger.h
 	Source/Scene.h)
 

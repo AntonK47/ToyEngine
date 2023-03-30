@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CommonTypes.h"
+#include "Core.h"
 
 namespace toy::io
 {
@@ -32,6 +32,7 @@ namespace toy::io
 
         void reset();
     };
+
     struct KeyboardState
     {
         ButtonState a;

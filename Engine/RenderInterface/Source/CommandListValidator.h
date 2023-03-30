@@ -3,9 +3,9 @@
 #include <initializer_list>
 #include <variant>
 
-#include "RenderInterfaceCommonTypes.h"
+#include "RenderInterfaceTypes.h"
 
-namespace toy::renderer
+namespace toy::graphics::rhi
 {
 	struct ImageBarrierDescriptor;
 	struct BufferBarrierDescriptor;
@@ -15,7 +15,7 @@ namespace toy::renderer
 	using BarrierDescriptor = std::variant<ImageBarrierDescriptor, BufferBarrierDescriptor, MemoryBarrierDescriptor>;
 }
 
-namespace toy::renderer::validation
+namespace toy::graphics::rhi::validation
 {
 	class CommandListValidator
 	{

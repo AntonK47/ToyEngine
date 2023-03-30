@@ -7,14 +7,12 @@ foreach(MODULE
 	Window
 	SDLWindow
 	RenderInterface 
-	VulkanRenderInterface
 	GLSLRuntimeCompiler
 	GraphicsDebugger
 )
 	
 	message(STATUS "Prepare module ${MODULE}")
 	add_subdirectory(${MODULE} EXCLUDE_FROM_ALL)
-	set_property(TARGET ${MODULE} PROPERTY CXX_STANDARD 20)
 	
 	#DOTO: if sanitizer enable
 	#target_compile_options(${MODULE} PRIVATE /fsanitize=address)

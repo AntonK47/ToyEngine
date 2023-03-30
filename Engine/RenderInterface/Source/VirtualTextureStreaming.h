@@ -1,15 +1,15 @@
 #pragma once
 #include <utility>
-#include "RenderInterfaceCommonTypes.h"
+#include "RenderInterfaceTypes.h"
 #include "RenderInterface.h"
 
-#include <Common.h>
+#include <Core.h>
 #include <variant>
 #include <g3log/g3log.hpp>
 
 #include <type_traits>
 
-namespace toy::renderer
+namespace toy::graphics::rhi
 {
 	struct VirtualTextureStreamingDescriptor
 	{

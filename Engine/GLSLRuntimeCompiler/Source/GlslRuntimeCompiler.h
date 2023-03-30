@@ -3,9 +3,9 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 #pragma warning(default:26495)
-#include <CommonTypes.h>
+#include <Core.h>
 
-namespace toy::renderer::compiler
+namespace toy::graphics::compiler
 {
 	using ShaderByteCode = std::vector<core::u32>;
 	using GlslShaderCode = std::string;

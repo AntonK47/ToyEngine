@@ -1,5 +1,5 @@
 #include "RenderDocCapture.h"
-#include <Vulkan.h>
+#include <VulkanRHI/Vulkan.h>
 
 #include <array>
 #include <mutex>
@@ -17,7 +17,7 @@ namespace
     HMODULE dllHandle = nullptr;
 }
 
-using namespace toy::renderer::debugger;
+using namespace toy::graphics::debugger;
 
 void ScopeCapture::start()
 {
@@ -141,7 +141,7 @@ void RenderDocCapture::startCapture()
     if (hasInitialized_)
     {
 #ifdef TOY_ENGINE_VULKAN_BACKEND
-        const auto nativeBackend = api::vulkan::getVulkanNativeBackend(nativeBackend_);
+        const auto nativeBackend = toy::graphics::rhi::vulkan::getVulkanNativeBackend(nativeBackend_);
         const auto instance = static_cast<VkInstance>(nativeBackend.instance);
         const auto devicePointer = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(
             &instance);
@@ -155,7 +155,7 @@ void RenderDocCapture::stopCapture()
     if (hasInitialized_)
     {
 #ifdef TOY_ENGINE_VULKAN_BACKEND
-        const auto nativeBackend = api::vulkan::getVulkanNativeBackend(nativeBackend_);
+        const auto nativeBackend = toy::graphics::rhi::vulkan::getVulkanNativeBackend(nativeBackend_);
         const auto instance = static_cast<VkInstance>(nativeBackend.instance);
         const auto devicePointer = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(
 	        &instance);

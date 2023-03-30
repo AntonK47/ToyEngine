@@ -1,7 +1,7 @@
 #pragma once
 
 #include <city.h>
-#include "CommonTypes.h"
+#include "Core.h"
 
 namespace toy::core
 {

@@ -1,12 +1,12 @@
 #pragma once
 #include "ValidationCommon.h"
 
-namespace toy::renderer
+namespace toy::graphics::rhi
 {
 	struct RendererDescriptor;
 }
 
-namespace toy::renderer::validation
+namespace toy::graphics::rhi::validation
 {
 	class RenderInterfaceValidator
 	{

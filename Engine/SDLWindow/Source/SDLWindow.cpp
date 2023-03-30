@@ -39,6 +39,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
         }
 
         meta_.requiredExtensions = extensions;
+        SDL_ShowCursor(SDL_DISABLE);
 #endif
 
 #ifdef WIN32

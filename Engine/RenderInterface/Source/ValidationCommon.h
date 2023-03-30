@@ -1,6 +1,6 @@
 #pragma once
 #include <assert.h>
-namespace toy::renderer::validation
+namespace toy::graphics::rhi::validation
 {
 //#define LOG(message)
 #define TOY_ASSERT(expression) assert(expression)

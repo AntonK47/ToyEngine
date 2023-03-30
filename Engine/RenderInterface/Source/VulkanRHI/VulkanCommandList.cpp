@@ -1,75 +1,18 @@
-#include "VulkanCommandList.h"
-#include "VulkanMappings.h"
-#include "VulkanRenderInterface.h"
+#include "VulkanRHI/VulkanCommandList.h"
+#include "VulkanRHI/VulkanMappings.h"
+#include "VulkanRHI/VulkanRenderInterface.h"
 
-using namespace toy::renderer;
-using namespace api::vulkan;
+#include "RenderInterfaceTypes.h"
+#include "VulkanRHI/VulkanRenderInterfaceTypes.h"
+
+#include "VulkanRHI/Vulkan.h"
+
+using namespace toy::graphics::rhi;
+using namespace vulkan;
 
 namespace
 {
-	vk::ResolveModeFlagBits mapResolve(ResolveMode resolveMode)
-	{
-		return vk::ResolveModeFlagBits::eNone;
-	}
-
-	vk::AttachmentLoadOp mapLoadOp(LoadOperation load)
-	{
-		switch (load)
-		{
-		case toy::renderer::LoadOperation::load:
-			return vk::AttachmentLoadOp::eLoad;
-			break;
-		case toy::renderer::LoadOperation::clear:
-			return vk::AttachmentLoadOp::eClear;
-			break;
-		case toy::renderer::LoadOperation::dontCare:
-			return vk::AttachmentLoadOp::eDontCare;
-			break;
-		case toy::renderer::LoadOperation::none:
-			return vk::AttachmentLoadOp::eNoneEXT;
-			break;
-		default:
-			break;
-		}
-		return vk::AttachmentLoadOp::eClear;
-
-	}
-
-	vk::ClearValue mapClearValue(const ColorClear& colorClear)
-	{
-		return vk::ClearValue{ vk::ClearColorValue{ std::array<float,4>{colorClear.r,colorClear.g,colorClear.b,colorClear.a} } };
-	}
-
-	vk::ClearValue mapDepthClearValue(const DepthClear& colorClear)
-	{
-		return vk::ClearValue
-		{
-			.depthStencil = vk::ClearDepthStencilValue
-			{
-				colorClear.depth,
-				u32{0}
-			}
-		};
-	}
-
-	vk::AttachmentStoreOp mapStoreOp(StoreOperation store)
-	{
-		switch (store)
-		{
-		case toy::renderer::StoreOperation::store:
-			return vk::AttachmentStoreOp::eStore;
-			break;
-		case toy::renderer::StoreOperation::dontCare:
-			return vk::AttachmentStoreOp::eDontCare;
-			break;
-		case toy::renderer::StoreOperation::none:
-			return vk::AttachmentStoreOp::eNoneKHR;
-			break;
-		default:
-			break;
-		}
-		return vk::AttachmentStoreOp::eStore;
-	}
+	
 
 	bool hasDepthAttachment(const RenderingDescriptor& descriptor)
 	{
@@ -125,7 +68,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 			auto barrier = vk::ImageMemoryBarrier2{};
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.image = renderer_.imageStorage_.get(imageBarrierDescriptor.image).image;
+			barrier.image = rhi_.imageStorage_.get(imageBarrierDescriptor.image).image;
 			barrier.subresourceRange = vk::ImageSubresourceRange
 			{
 				mapViewAspect(imageBarrierDescriptor.aspect), 0, 1, 0, 1
@@ -232,7 +175,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	{
 		const auto& colorRenderTarget = descriptor.colorRenderTargets[i];
 
-		const auto& imageView = renderer_.imageViewStorage_.get(colorRenderTarget.imageView).imageView;
+		const auto& imageView = rhi_.imageViewStorage_.get(colorRenderTarget.imageView).imageView;
 
 		colorAttachments[i] = vk::RenderingAttachmentInfo
 		{
@@ -250,7 +193,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	if(hasDepthAttachment(descriptor))
 	{
 		const auto& renderTarget = descriptor.depthRenderTarget.value();
-		const auto& imageView = renderer_.imageViewStorage_.get(renderTarget.imageView).imageView;
+		const auto& imageView = rhi_.imageViewStorage_.get(renderTarget.imageView).imageView;
 		depthAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -266,7 +209,7 @@ void VulkanCommandList::beginRenderingInternal(const RenderingDescriptor& descri
 	if(hasStencilAttachment(descriptor))
 	{
 		const auto& renderTarget = descriptor.stencilRenderTarget.value();
-		const auto& imageView = renderer_.imageViewStorage_.get(renderTarget.imageView).imageView;
+		const auto& imageView = rhi_.imageViewStorage_.get(renderTarget.imageView).imageView;
 		stencilAttachment = vk::RenderingAttachmentInfo
 		{
 			.imageView = imageView,
@@ -322,8 +265,8 @@ void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBuffer
 	auto regions = std::vector<vk::BufferImageCopy2>{};
 	regions.resize(dstImageDescription.regions.size());
 
-	const auto& buffer = renderer_.bufferStorage_.get(srcBufferDescriptor.buffer);
-	const auto& image = renderer_.imageStorage_.get(dstImageDescription.image);
+	const auto& buffer = rhi_.bufferStorage_.get(srcBufferDescriptor.buffer);
+	const auto& image = rhi_.imageStorage_.get(dstImageDescription.image);
 
 	for (u32 i = {}; i < dstImageDescription.regions.size(); i++)
 	{
@@ -360,13 +303,13 @@ void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBuffer
 
 void VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
 {
-	currentPipeline_ = renderer_.pipelineStorage_.get(pipeline);
+	currentPipeline_ = rhi_.pipelineStorage_.get(pipeline);
 	commandBuffer_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
 }
 
 void VulkanCommandList::bindIndexBufferInternal(const Handle<Buffer>& buffer, const u64 offset, const IndexType indexType)
 {
-	const auto& indexBuffer = renderer_.bufferStorage_.get(buffer);
+	const auto& indexBuffer = rhi_.bufferStorage_.get(buffer);
 
 	const auto type = indexType == IndexType::index16 ? vk::IndexType::eUint16 : vk::IndexType::eUint32; //TODO: maybe i should consider also 8 bit index types
 	commandBuffer_.bindIndexBuffer(indexBuffer.buffer, vk::DeviceSize{ offset }, type);
@@ -396,13 +339,13 @@ void VulkanCommandList::bindGroupInternal(
 {
 	auto vulkanBindGroup = VulkanBindGroup{};
 	//TODO: do something clever
-	if (renderer_.persistentBindGroupStorage_.contains(handle))
+	if (rhi_.persistentBindGroupStorage_.contains(handle))
 	{
-		vulkanBindGroup = renderer_.persistentBindGroupStorage_.get(handle);
+		vulkanBindGroup = rhi_.persistentBindGroupStorage_.get(handle);
 	}
 	else
 	{
-		vulkanBindGroup = renderer_.bindGroupStorage_.get(handle);
+		vulkanBindGroup = rhi_.bindGroupStorage_.get(handle);
 	}
 	//const auto& vulkanBindGroup = renderInterface_->bindGroupStorage_.get(handle);
 	
@@ -415,16 +358,16 @@ std::vector<Handle<AccelerationStructure>> VulkanCommandList::
 buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	const std::vector<AccelerationStructureDescriptor>& descriptors)
 {
-	const auto vertexData = renderer_.device_.getBufferAddress(
+	const auto vertexData = rhi_.device_.getBufferAddress(
 		vk::BufferDeviceAddressInfo
 		{
-			.buffer = renderer_.bufferStorage_.get(geometry.vertexBuffer).buffer
+			.buffer = rhi_.bufferStorage_.get(geometry.vertexBuffer).buffer
 		});
 
-	const auto indexData = renderer_.device_.getBufferAddress(
+	const auto indexData = rhi_.device_.getBufferAddress(
 		vk::BufferDeviceAddressInfo
 		{
-			.buffer = renderer_.bufferStorage_.get(geometry.indexBuffer).buffer
+			.buffer = rhi_.bufferStorage_.get(geometry.indexBuffer).buffer
 		});
 
 	const auto accelerationStructureGeometry = vk::AccelerationStructureGeometryKHR
@@ -447,7 +390,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	};
 
 	auto properties = vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceAccelerationStructurePropertiesKHR>{};
-	renderer_.adapter_.getProperties2(&properties.get());
+	rhi_.adapter_.getProperties2(&properties.get());
 
 	const auto accelerationStructureProperties = properties.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
 
@@ -484,7 +427,7 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 
 		TOY_ASSERT_BREAK(maxPrimitiveCount <= accelerationStructureProperties.maxInstanceCount);
 
-		buildSizes[i] = renderer_.device_.getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfos[i], maxPrimitiveCount);
+		buildSizes[i] = rhi_.device_.getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfos[i], maxPrimitiveCount);
 
 
 		scratchBufferOffsets[i] = totalScratchBufferSize;
@@ -494,14 +437,14 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 		totalScratchBufferSize += buildSizes[i].buildScratchSize + accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment - buildSizes[i].buildScratchSize % accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 	}
 
-	const auto accelerationStructureBuffer = renderer_.createBuffer(
+	const auto accelerationStructureBuffer = rhi_.createBuffer(
 		BufferDescriptor{
 			totalAccelerationStructureBufferSize,
 			BufferAccessUsage::accelerationStructure,
 			MemoryUsage::gpuOnly
 		});
 
-	const auto scratchBuffer = renderer_.createBuffer(BufferDescriptor{ totalScratchBufferSize, BufferAccessUsage::storage, MemoryUsage::gpuOnly });
+	const auto scratchBuffer = rhi_.createBuffer(BufferDescriptor{ totalScratchBufferSize, BufferAccessUsage::storage, MemoryUsage::gpuOnly });
 
 	auto accelerationStructures = std::vector<vk::AccelerationStructureKHR>{};
 	accelerationStructures.resize(descriptors.size());
@@ -510,13 +453,13 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	{
 		const auto accelerationStructureCreateInfo = vk::AccelerationStructureCreateInfoKHR
 		{
-			.buffer = renderer_.bufferStorage_.get(accelerationStructureBuffer.nativeHandle).buffer,
+			.buffer = rhi_.bufferStorage_.get(accelerationStructureBuffer).buffer,
 			.offset = accelerationStructureBufferOffsets[i],
 			.size = buildSizes[i].accelerationStructureSize,
 			.type = vk::AccelerationStructureTypeKHR::eBottomLevel
 		};
 
-		const auto result = renderer_.device_.createAccelerationStructureKHR(accelerationStructureCreateInfo);
+		const auto result = rhi_.device_.createAccelerationStructureKHR(accelerationStructureCreateInfo);
 
 		TOY_ASSERT(result.result == vk::Result::eSuccess);
 
@@ -524,9 +467,9 @@ buildAccelerationStructureInternal(const TriangleGeometry& geometry,
 	}
 
 
-	const auto scratchBufferDeviceAddress = renderer_.device_.getBufferAddress(vk::BufferDeviceAddressInfo
+	const auto scratchBufferDeviceAddress = rhi_.device_.getBufferAddress(vk::BufferDeviceAddressInfo
 		{
-				.buffer = renderer_.bufferStorage_.get(scratchBuffer.nativeHandle).buffer
+				.buffer = rhi_.bufferStorage_.get(scratchBuffer).buffer
 		});
 
 	for (auto i = u32{}; i < descriptors.size(); i++)
@@ -590,10 +533,10 @@ buildAccelerationStructureInternal(
 	 */
 
 	Handle<Buffer> instancesBuffer;
-	const auto instancesData = renderer_.device_.getBufferAddress(
+	const auto instancesData = rhi_.device_.getBufferAddress(
 		vk::BufferDeviceAddressInfo
 		{
-			.buffer = renderer_.bufferStorage_.get(instancesBuffer).buffer
+			.buffer = rhi_.bufferStorage_.get(instancesBuffer).buffer
 		});
 
 	const auto accelerationStructureGeometry = vk::AccelerationStructureGeometryKHR
@@ -611,7 +554,7 @@ buildAccelerationStructureInternal(
 	};
 
 	auto properties = vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceAccelerationStructurePropertiesKHR>{};
-	renderer_.adapter_.getProperties2(&properties.get());
+	rhi_.adapter_.getProperties2(&properties.get());
 
 	const auto accelerationStructureProperties = properties.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
 

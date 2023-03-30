@@ -1,10 +1,18 @@
 cmake_minimum_required(VERSION 3.23)
+#set(VCPKG_TARGET_TRIPLET x64-windows-static)
+
+#set(VCPKG_CXX_FLAGS_RELEASE "${VCPKG_CXX_FLAGS_RELEASE} /MT")
+#set(VCPKG_CXX_FLAGS_DEBUG "${VCPKG_CXX_FLAGS_DEBUG} /MTd")
+#set(VCPKG_C_FLAGS_RELEASE "${VCPKG_C_FLAGS_RELEASE} /MT")
+#set(VCPKG_C_FLAGS_DEBUG "${VCPKG_C_FLAGS_DEBUG} /MTd")
+
 project(ToyEngine)
 
-#set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 #set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_BUILD_TYPE Release) #Debug, Release, RelWithDebInfo and MinSizeRel
-
+#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
 
 option(BUILD_TOY_ENGINE_MODULE_TESTS "Build module tests." on)
 option(TOY_ENGINE_ENABLE_VULKAN_VALIDATION "Enable Vulkan validation layer." on)
@@ -24,7 +32,7 @@ set(TOY_ADDITIONAL_DEFINES
 ) 
 
 #workaround for e2500 in zpp_bits
-add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS=0)
+#add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS=0)
 
 define_property(GLOBAL PROPERTY TOY_SOURCE_DIR)
 
@@ -47,7 +55,45 @@ find_package(SDL2 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(Freetype REQUIRED)
 
+include(FetchContent)
+#imgui-node-editor  
+FetchContent_Declare(imgui-node-editor
+    GIT_REPOSITORY https://github.com/ocornut/imgui_node_editor.git
+    GIT_TAG fix-for-v189.4
+)
+FetchContent_MakeAvailable(imgui-node-editor)
 
+add_library(
+    imgui-node-editor-static 
+STATIC 
+    ${imgui-node-editor_SOURCE_DIR}/crude_json.h
+    ${imgui-node-editor_SOURCE_DIR}/crude_json.cpp
+    ${imgui-node-editor_SOURCE_DIR}/imgui_bezier_math.h
+    ${imgui-node-editor_SOURCE_DIR}/imgui_bezier_math.inl
+    ${imgui-node-editor_SOURCE_DIR}/imgui_canvas.h
+    ${imgui-node-editor_SOURCE_DIR}/imgui_canvas.cpp
+    ${imgui-node-editor_SOURCE_DIR}/imgui_extra_math.h
+    ${imgui-node-editor_SOURCE_DIR}/imgui_extra_math.inl
+    ${imgui-node-editor_SOURCE_DIR}/imgui_node_editor.h
+    ${imgui-node-editor_SOURCE_DIR}/imgui_node_editor.cpp
+    ${imgui-node-editor_SOURCE_DIR}/imgui_node_editor_api.cpp
+    ${imgui-node-editor_SOURCE_DIR}/imgui_node_editor_internal.h
+    ${imgui-node-editor_SOURCE_DIR}/imgui_node_editor_internal.inl)
+        
+    target_link_libraries(
+    imgui-node-editor-static
+PRIVATE
+    imgui::imgui)
+install(TARGETS imgui-node-editor-static LIBRARY DESTINATION lib)
+
+
+set_target_properties(imgui-node-editor-static PROPERTIES FOLDER Misc)
+
+
+
+#list(APPEND CMAKE_MODULE_PATH "${imgui-node-editor_SOURCE_DIR}/misc/cmake-modules")
+#find_package(imgui-node-editor CONFIG REQUIRED)
+message(STATUS "imgui node editor: " ${imgui-node-editor_SOURCE_DIR})
 add_subdirectory(Engine)
 add_subdirectory(Application)
 add_subdirectory(Tools)

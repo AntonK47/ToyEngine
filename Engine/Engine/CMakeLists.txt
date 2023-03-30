@@ -9,10 +9,10 @@ set(MODULE_HEADERS
 	Source/Application.h
 	Source/SceneLoader.h
 	Source/DDSLoader.h
-	Source/TexturePageExtractor.h)
+	Source/TexturePageExtractor.h 
 	Source/DynamicFrameAllocator.h
 	Source/IconsFontAwesome6.h
-	Source/toyimconfig.h)
+	Source/toyimconfig.h "Source/OutlineFeature.h")
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -20,10 +20,10 @@ add_library(${MODULE_NAME}
 		${MODULE_HEADERS}
 )
 
-
 target_include_directories(${MODULE_NAME} 
 	PUBLIC
 		Source/
+		${imgui-node-editor_SOURCE_DIR}
 )
 
 target_link_libraries(${MODULE_NAME}
@@ -31,12 +31,13 @@ target_link_libraries(${MODULE_NAME}
 		Core
 		SDLWindow
 		glm::glm
-		VulkanRenderInterface
+		RenderInterface
 		GLSLRuntimeCompiler
 		GraphicsDebugger
 		MPMCQueue::MPMCQueue
 		Freetype::Freetype
 		imgui::imgui
+		imgui-node-editor-static
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

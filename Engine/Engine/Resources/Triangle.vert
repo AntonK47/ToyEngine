@@ -112,7 +112,7 @@ void main()
     uv = uvStream[index];
 
     vec4 position = vec4(p.x,p.y,p.z,1.0);
-    float s = 0.005f;
+    float s = 0.1f;
     mat4 scale = mat4(  s, 0.0,0.0,0.0,
                         0.0, s, 0.0,0.0,
                         0.0,0.0, s, 0.0,

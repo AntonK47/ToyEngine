@@ -70,12 +70,12 @@ void main()
 
     vec3 lightDirection = vec3(1.0,1.0,1.0);
 
-    float a = max(0, dot(lightDirection, normalize(normal)));
+    //float a = max(0, dot(lightDirection, normalize(normal)));
 
     //outputColor = vec4(vec3(uv, 0.0f), 1.0);
 
     float s = 0.1f;
     int spatialHash = h_ss(s, positionWorldSpace, s*0.1f);
-    outputColor = vec4(hashToColor(hash), 1.0);
+    outputColor = vec4(normal,/*hashToColor(hash),*/ 1.0);
     //outputColor = vec4(vec3(a), 1.0);
 }

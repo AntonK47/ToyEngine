@@ -62,6 +62,27 @@ void processNode(const aiNode& node,
 ProcessResult processScene(const aiScene& scene,
 	std::vector<toy::core::scene::SceneObject>& scenePacked)
 {
+	auto texturePaths = std::vector<std::string>{};
+
+	for (int i = 0; i < scene.mNumMaterials; i++)
+	{
+		const auto material = scene.mMaterials[i];
+		const auto textureCount = material->GetTextureCount(aiTextureType_DIFFUSE);
+		
+
+
+		for (int j = 0; j < textureCount; j++)
+		{
+			aiString path;
+			material->GetTexture(aiTextureType_DIFFUSE, j, &path);
+			texturePaths.push_back(std::string{ path.C_Str() });
+		}
+		
+		
+		const auto textureBaseCount = material->GetTextureCount(aiTextureType_BASE_COLOR);
+		printf("");
+	}
+
 	processNode(*scene.mRootNode, aiMatrix4x4{}, scene, scenePacked);
 	return  ProcessResult::success;
 	if (scene.HasMaterials())
@@ -158,13 +179,22 @@ int MeshBuilderApplication::run(int argc, char* argv[])
 	const auto input1 = std::string{ "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj" };
 
 	const auto input2 = std::string{ "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx" };
-	const auto output2 = std::string{ "E:\\Develop\\ToyEngineContent\\knight.dat"};
+	const auto output2 = std::string{ "E:\\Develop\\ToyEngineContent\\knight.dat" };
 
+	const auto input4 = std::string{ "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\knight_USD_PREVIEW_SURFACE_ANIM_002_1.usd" };
+	const auto output4 = std::string{ "E:\\Develop\\ToyEngineContent\\knightUsd.dat" };
+	
 	const auto input3 = std::string{ "E:\\Develop\\ToyEngineContent\\Z-Anatomy.glb" };
 	const auto output3 = std::string{ "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat" };
 
+
+	const auto input5 = std::string{ "E:\\McGuireComputerGraphicsArchive\\main_sponza\\Main.1_Sponza\\NewSponza_Main_glTF_002.gltf" };
+	const auto output5 = std::string{ "E:\\Develop\\ToyEngineContent\\sponza.dat" };
+
+	const auto input6 = std::string{ "E:\\Develop\\ToyEngineContent\\splashGltf\\splash.glb" };
+	const auto output6 = std::string{ "E:\\Develop\\ToyEngineContent\\splash.dat" };
 	auto format = float{ defaultFormat };
-	if (process(input3, output3, ProcessOptions{ format }) == ProcessResult::success)
+	if (process(input6, output6, ProcessOptions{ format }) == ProcessResult::success)
 	{
 		std::cout << output << " generation finished." << std::endl;
 		return EXIT_SUCCESS;

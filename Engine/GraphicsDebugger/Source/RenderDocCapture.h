@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Common.h>
+#include <Core.h>
 
-namespace toy::renderer::debugger
+namespace toy::graphics::debugger
 {
 	class RenderDocCapture;
 

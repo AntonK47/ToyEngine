@@ -31,4 +31,4 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CopyResources.cmake" AND EXISTS "${CMAKE_
     set_target_properties(${MODULE_NAME}_tests_copy_resource_files PROPERTIES FOLDER Misc)
 endif()
 
-set_property(TARGET ${MODULE_NAME}_tests PROPERTY CXX_STANDARD 20)
+#set_property(TARGET ${MODULE_NAME}_tests PROPERTY CXX_STANDARD 20)

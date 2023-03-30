@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <CommonTypes.h>
+#include <Core.h>
 #include <variant>
 #include <span>
 #include <fstream>
