@@ -35,6 +35,7 @@
 #include <imgui_node_editor.h>
 
 #include "OutlineFeature.h"
+
 using namespace toy::graphics::rhi;
 
 using namespace toy::window;
@@ -209,7 +210,7 @@ int Application::run()
     };
     renderer.initialize(rendererDescriptor);
     
-    auto outlineFeature = features::OutlineFeature();
+    auto outlineFeature = features::OutlineFeature(renderer);
     outlineFeature.initialize();
 
 
@@ -313,10 +314,6 @@ int Application::run()
 
     const auto submit = renderer.submitCommandList(QueueType::transfer, { uploadCommandList }, {});
     renderer.submitBatches(QueueType::transfer, { submit });
-
-    
-    
-    
 
     const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
     {
@@ -701,11 +698,11 @@ int Application::run()
     auto frameStartTime = std::chrono::high_resolution_clock::now();
     auto frameEndTime = std::chrono::high_resolution_clock::now();
 
-    using Batch = SubmitBatch;
-
-    std::unique_ptr<Batch> prepareBatch;
-    auto perThreadSubmits = std::array<std::unique_ptr<Batch>, 10>{};
-    std::unique_ptr<Batch> postRenderingBatch;
+    SubmitBatch prepareBatch;
+    auto prepareBatchValide = false;
+    auto perThreadSubmits = std::vector<SubmitBatch>{};
+	perThreadSubmits.resize(10);
+    SubmitBatch postRenderingBatch;
 
 
     struct SceneDrawStaticstics
@@ -1049,7 +1046,7 @@ int Application::run()
                 batches[i] = instances.subspan(batchSpanOffset, itemsPerBatch);
                 batchSpanOffset += itemsPerBatch;
             }
-            batches[batchSize - 1] = instances.subspan(batchSpanOffset, scene.drawInstances_.size() - batchSpanOffset);
+            batches[batchSize - std::size_t{1}] = instances.subspan(batchSpanOffset, scene.drawInstances_.size() - batchSpanOffset);
 
             auto setIndicies = std::vector<int>{};
             setIndicies.resize(batchSize);
@@ -1127,17 +1124,18 @@ int Application::run()
                 cmd.endRendering();
                 cmd.end();
 
-                if (postRenderingBatch != nullptr)
+                if(prepareBatchValide)
                 {
-                    auto dependency = postRenderingBatch->barrier();
-                    prepareBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, {dependency}));
+                    auto dependency = postRenderingBatch.barrier();
+	                prepareBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, {dependency});
                 }
                 else
                 {
-                    prepareBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, {}));
+	                prepareBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, {});
+                    prepareBatchValide = true;
                 }
             }
-            renderer.submitBatches(QueueType::graphics, { *prepareBatch });
+            renderer.submitBatches(QueueType::graphics, { prepareBatch });
 
 
             auto perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
@@ -1251,11 +1249,10 @@ int Application::run()
                 cmd.endRendering();
                 cmd.end();
 
-                auto perThreadBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, { prepareBatch->barrier() });
-                perThreadSubmits[index] = std::make_unique<Batch>(perThreadBatch);
+                auto perThreadBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, { prepareBatch.barrier() });
+                perThreadSubmits[index] = perThreadBatch;
 
-            }
-            );
+            });
 
             auto gatheredStatistics = std::vector<SceneDrawStaticstics>{};
             gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
@@ -1272,25 +1269,12 @@ int Application::run()
                 });
 
 
-            renderer.submitBatches(QueueType::graphics, 
-                { 
-                    *perThreadSubmits[0],
-                    *perThreadSubmits[1],
-                    *perThreadSubmits[2],
-                    *perThreadSubmits[3],
-                    *perThreadSubmits[4],
-                    *perThreadSubmits[5],
-                    *perThreadSubmits[6],
-                    *perThreadSubmits[7],
-                    *perThreadSubmits[8],
-                    *perThreadSubmits[9]
-                });
+            renderer.submitBatches(QueueType::graphics, perThreadSubmits);
 
             renderer.endDebugLabel(QueueType::graphics);
 
-            auto guiBatch = std::unique_ptr<Batch>{};
+            auto guiBatch = SubmitBatch{};
             {
-
                 drawStatistics.gui = GuiDrawStatistics{};
                 renderer.beginDebugLabel(QueueType::graphics, DebugLabel{ "GUI" });
                 auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
@@ -1404,27 +1388,19 @@ int Application::run()
                 }
                 cmd.endRendering();
                 cmd.end();
-                guiBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd },
-                    { 
-                        perThreadSubmits[0]->barrier(),
-                        perThreadSubmits[1]->barrier(),
-                        perThreadSubmits[2]->barrier(),
-                        perThreadSubmits[3]->barrier(),
-                        perThreadSubmits[4]->barrier(),
-                        perThreadSubmits[5]->barrier(),
-                        perThreadSubmits[6]->barrier(),
-                        perThreadSubmits[7]->barrier(),
-                        perThreadSubmits[8]->barrier(),
-                        perThreadSubmits[9]->barrier() 
-                    }));
 
-                renderer.submitBatches(QueueType::graphics, { *guiBatch });
+                auto submits = std::vector<SubmitDependency>{};
+            	submits.resize(10);
+                std::transform(perThreadSubmits.begin(), perThreadSubmits.end(), submits.begin(), [](auto& a){ return a.barrier();} );
+                guiBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, submits);
+
+                renderer.submitBatches(QueueType::graphics, { guiBatch });
                 renderer.endDebugLabel(QueueType::graphics);
             }
             
             {
                 renderer.beginDebugLabel(QueueType::graphics, {"prepare present"});
-                auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
+                auto cmd = renderer.acquireCommandList(QueueType::graphics);
                 cmd.begin();
                 cmd.barrier({
                         ImageBarrierDescriptor
@@ -1436,18 +1412,15 @@ int Application::run()
                     });
 
                 cmd.end();
-                postRenderingBatch = std::make_unique<Batch>(renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd },
-                    {
-                        guiBatch->barrier()
-                    }));
+                postRenderingBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, {guiBatch.barrier() });
             }
 
-            renderer.submitBatches(QueueType::graphics, { *postRenderingBatch });
+            renderer.submitBatches(QueueType::graphics, { postRenderingBatch} );
 
 
             outlineFeature.render();
 
-            renderer.present(postRenderingBatch->barrier());
+            renderer.present(postRenderingBatch.barrier());
 
             time += 0.01f;
             captureTool.stopAndOpenCapture();

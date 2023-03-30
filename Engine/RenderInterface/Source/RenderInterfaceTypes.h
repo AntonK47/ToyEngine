@@ -569,7 +569,7 @@ namespace toy::graphics::rhi
 
 	struct BindGroupDescriptor
 	{
-		std::vector<Binding> bindings;
+		std::vector<Binding> bindings{};
 		core::Flags<BindGroupFlag> flags{ BindGroupFlag::none };
 
 	};

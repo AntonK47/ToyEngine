@@ -22,6 +22,9 @@ struct NativeBackend
 	void* nativeBackend;
 };
 
+template <typename R, typename V>
+concept RangeOf = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, V>;
+
 namespace toy::window
 {
 	struct WindowHandler

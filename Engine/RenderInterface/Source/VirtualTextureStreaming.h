@@ -53,8 +53,8 @@ namespace toy::graphics::rhi
 		Rectangle region;
 	};
 
-	template <typename T>
-	concept Texture2DLoader = requires(T a, const auto& b, const TextureRegion& c)
+	template <typename T, typename T1>
+	concept Texture2DLoader = requires(T a, const T1& b, const TextureRegion& c)
 	{
 		{a.load(b, c)};
 	};
@@ -63,14 +63,14 @@ namespace toy::graphics::rhi
 	{
 	};
 
-	template <Texture2DLoader Loader>
+	template <typename Descriptor, Texture2DLoader<Descriptor> Loader>
 	class Texture2DAsyncDataSource
 	{
 		
 
 	public:
 
-		auto request(const auto& textureDataDescriptor, const TextureRegion& region)
+		auto request(const Descriptor& textureDataDescriptor, const TextureRegion& region)
 		{
 			loader_.load(textureDataDescriptor, region);
 		}
@@ -101,7 +101,7 @@ namespace toy::graphics::rhi
 		auto initialize(const VirtualTextureStreamingDescriptor& descriptor) -> void
 		{
 			//renderInterface_ = *descriptor.renderInterface;
-			auto dataSource = Texture2DAsyncDataSource<DDSTextureLoader>{};
+			auto dataSource = Texture2DAsyncDataSource<DDSTextureDataDescriptor, DDSTextureLoader>{};
 
 			auto testDescriptor = DDSTextureDataDescriptor{};
 

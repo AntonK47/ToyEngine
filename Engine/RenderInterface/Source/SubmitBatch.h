@@ -12,6 +12,7 @@ namespace toy::graphics::rhi
 	{
 	public:
 		SubmitBatch(const QueueType type) : VulkanSubmitBatch(type){}
+		SubmitBatch() : VulkanSubmitBatch(QueueType::graphics) {};
 		[[nodiscard]] auto barrier() -> SubmitDependency
 		{
 			return barrierInternal();

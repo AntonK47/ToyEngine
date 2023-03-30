@@ -2,6 +2,8 @@
 #include <vector>
 #include <optional>
 #include <concepts>
+#include <ranges>
+#include <concepts>
 
 #include "RenderInterfaceTypes.h"
 
@@ -11,6 +13,7 @@
 #include "VulkanRHI/VulkanRenderInterface.h"
 #include "QueueType.h"
 #include "SubmitBatch.h"
+
 
 namespace toy::graphics::rhi
 {
@@ -37,12 +40,12 @@ namespace toy::graphics::rhi
 			return getNativeBackendInternal();
 		}
 		
-		auto initialize(const RendererDescriptor& descriptor)
+		auto initialize(const RendererDescriptor& descriptor) -> void
 		{
 			VALIDATE(validateInitialize(descriptor));
 			initializeInternal(descriptor);
 		}
-		auto deinitialize()
+		auto deinitialize() -> void
 		{
 			VALIDATE(validateDeinitialize());
 			deinitializeInternal();
@@ -56,22 +59,48 @@ namespace toy::graphics::rhi
 			return acquireCommandListInternal(queueType, workerId, usageScope);
 		}
 		
-		auto submitCommandList(const CommandList& commandList) -> void
-		{
-			submitCommandListInternal(commandList);
-		}
-		
 		[[nodiscard]] auto submitCommandList(
 			QueueType queueType,
-			const std::initializer_list<CommandList>& commandLists,
-			const std::initializer_list<SubmitDependency>& dependencies) -> SubmitBatch
+			const std::initializer_list<CommandList> commandLists,
+			const std::initializer_list<SubmitDependency> dependencies) -> SubmitBatch
 		{
 			return submitCommandListInternal(queueType, commandLists, dependencies);
 		}
 
+		[[nodiscard]] auto submitCommandList(
+			QueueType queueType,
+			const std::initializer_list<CommandList> commandLists,
+			const std::span<SubmitDependency> dependencies) -> SubmitBatch
+		{
+			return submitCommandListInternal(queueType, commandLists, dependencies);
+		}
+
+		[[nodiscard]] auto submitCommandList(
+			QueueType queueType,
+			const std::span<CommandList> commandLists,
+			const std::initializer_list<SubmitDependency> dependencies) -> SubmitBatch
+		{
+			return submitCommandListInternal(queueType, commandLists, dependencies);
+		}
+
+		[[nodiscard]] auto submitCommandList(
+			QueueType queueType,
+			const std::span<CommandList> commandLists,
+			const std::span<SubmitDependency> dependencies) -> SubmitBatch
+		{
+			return submitCommandListInternal(queueType, commandLists, dependencies);
+		}
+		
 		auto submitBatches(
 			const QueueType queueType,
-			const std::initializer_list<SubmitBatch>& batches) ->void
+			const std::initializer_list<SubmitBatch> batches) ->void
+		{
+			submitBatchesInternal(queueType, batches);
+		}
+
+		auto submitBatches(
+			const QueueType queueType,
+			const std::span<SubmitBatch> batches) ->void
 		{
 			submitBatchesInternal(queueType, batches);
 		}
@@ -205,7 +234,14 @@ namespace toy::graphics::rhi
 		//TODO This function should be thread safe??????????, internally there are no storage write, but only read access
 		auto updateBindGroup(
 			const Handle<BindGroup>& bindGroup,
-			const std::initializer_list<BindingDataMapping>& mappings) -> void
+			const std::initializer_list<BindingDataMapping> mappings) -> void
+		{
+			updateBindGroupInternal(bindGroup, mappings);
+		}
+
+		auto updateBindGroup(
+			const Handle<BindGroup>& bindGroup,
+			const std::span<BindingDataMapping> mappings) -> void
 		{
 			updateBindGroupInternal(bindGroup, mappings);
 		}
