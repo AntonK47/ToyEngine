@@ -7,7 +7,7 @@ set(MODULE_SOURCES
 set(MODULE_HEADERS 
 	
 	Source/Hash.h
-	"Source/Core.h"
+	Source/Core.h
 	Source/Logger.h
 	Source/Scene.h)
 

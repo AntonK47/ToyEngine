@@ -12,7 +12,9 @@ set(MODULE_HEADERS
 	Source/TexturePageExtractor.h 
 	Source/DynamicFrameAllocator.h
 	Source/IconsFontAwesome6.h
-	Source/toyimconfig.h "Source/OutlineFeature.h")
+	Source/toyimconfig.h
+	Source/OutlineFeature.h
+	Source/MaterialEditor.h)
 
 add_library(${MODULE_NAME}
 	STATIC

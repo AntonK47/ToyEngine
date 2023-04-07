@@ -59,7 +59,7 @@ include(FetchContent)
 #imgui-node-editor  
 FetchContent_Declare(imgui-node-editor
     GIT_REPOSITORY https://github.com/ocornut/imgui_node_editor.git
-    GIT_TAG fix-for-v189.4
+    GIT_TAG origin/fix-for-v189.4 #fix-for-v189.4
 )
 FetchContent_MakeAvailable(imgui-node-editor)
 

@@ -92,25 +92,22 @@ layout(location = 1) out vec3 normal;
 layout(location = 2) out vec2 uv;
 layout(location = 3) out vec3 positionWorldSpace;
 
-
 void main()
 {
     InstanceData instance = instances[drawId];
-
 
     int meshletId = int(instance.clusterOffset)+gl_VertexIndex/(64*3);
     int triangleId = gl_VertexIndex % (64*3);
     clusterId = uint(meshletId);
     Meshlet meshlet = meshlets[meshletId];
 
-    
 	if(triangleId >= meshlet.triangleCount*3) return;
     int index = int(instance.positionStreamOffset) + meshlet.positionStreamOffset + int(uint(triangles[int(instance.triangleOffset) + meshlet.triangleOffset + triangleId]));
+    
     Position p = positionStream[index];
-
     normal = tangentFrameStream[index].normal;
     uv = uvStream[index];
-
+    
     vec4 position = vec4(p.x,p.y,p.z,1.0);
     float s = 0.1f;
     mat4 scale = mat4(  s, 0.0,0.0,0.0,

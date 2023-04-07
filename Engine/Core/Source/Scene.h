@@ -3,6 +3,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <Core.h>
 
 //#pragma warning(disable:2500)
 #include <zpp_bits.h>
@@ -82,7 +83,7 @@ namespace toy::core::scene
 		using serialize = zpp::bits::members<4>;
 		float midpoint[3];
 		float halfSize[3];
-		uint32_t coneCenter;
+		u32 coneCenter;
 		ConeAxis coneAxisConeOpening;
 	};
 

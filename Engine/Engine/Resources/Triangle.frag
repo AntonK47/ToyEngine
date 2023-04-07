@@ -77,5 +77,5 @@ void main()
     float s = 0.1f;
     int spatialHash = h_ss(s, positionWorldSpace, s*0.1f);
     outputColor = vec4(normal,/*hashToColor(hash),*/ 1.0);
-    //outputColor = vec4(vec3(a), 1.0);
+    //outputColor = vec4(id, 1.0);
 }

@@ -46,7 +46,6 @@ TEST(DDSLoaderTest, readTextureInfoOverStreamOperator)
 TEST(DDSLoaderTest, lodSizesInBytes)
 {
     auto dataSource = FilestreamTextureDataSourceDescriptor{ "Resources/test_image_argb_8888.DDS" };
-   
     auto info = dataSource.getTextureInfo();
 
     const auto testValues = std::array{ 65536 * 4, 16384 * 4, 4096 * 4, 1024 * 4, 256 * 4, 64 * 4, 16 * 4, 4 * 4, 4 };
@@ -80,7 +79,6 @@ TEST(DDSLoaderTest, lastMipLevelValue)
     EXPECT_EQ(dataSpan[1], (std::byte)testValue[1]);
     EXPECT_EQ(dataSpan[2], (std::byte)testValue[2]);
     EXPECT_EQ(dataSpan[3], (std::byte)testValue[3]);
-
 }
 
 TEST(DDSLoaderTest, readTextureInfoCompressed)

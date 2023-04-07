@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#include "Core.h"
+#include <Core.h>
 #include "WindowIO.h"
 
 namespace toy::window
