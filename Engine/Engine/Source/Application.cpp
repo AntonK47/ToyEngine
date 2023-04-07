@@ -42,13 +42,13 @@
 
 #include "OutlineFeature.h"
 
+#include "MaterialEditor.h"
+
 using namespace toy::graphics::rhi;
 
 using namespace toy::window;
 using namespace toy::graphics::compiler;
 using namespace toy::graphics;
-
-namespace ed = ax::NodeEditor;
 
 
 namespace 
@@ -249,9 +249,6 @@ int Application::run()
     const auto texelSize = 1;
     const auto fontImageSize = width * height * texelSize;
 
-    ed::Config nodeConfig;
-    nodeConfig.SettingsFile = "Simple.json";
-    auto nodeContext = ed::CreateEditor(&nodeConfig);
 
 
     Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
@@ -681,7 +678,9 @@ int Application::run()
     const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
     const auto splashData = "E:\\Develop\\ToyEngineContent\\splash.dat";
 
-    const auto scene = Scene::loadSceneFromFile(renderer, splashData);
+    const auto blaseRunnderCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
+
+    const auto scene = Scene::loadSceneFromFile(renderer, knightData);
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, 
@@ -802,26 +801,7 @@ int Application::run()
 
 
 #pragma endregion
-        if (ImGui::Begin("Node Editor"))
-        {
-            ed::SetCurrentEditor(nodeContext);
-            ed::Begin("My Editor", ImVec2(0.0, 0.0f));
-            int uniqueId = 1;
-            // Start drawing nodes.
-            ed::BeginNode(uniqueId++);
-            ImGui::Text("Node A");
-            ed::BeginPin(uniqueId++, ed::PinKind::Input);
-            ImGui::Text("-> In");
-            ed::EndPin();
-            ImGui::SameLine();
-            ed::BeginPin(uniqueId++, ed::PinKind::Output);
-            ImGui::Text("Out ->");
-            ed::EndPin();
-            ed::EndNode();
-            ed::End();
-            ed::SetCurrentEditor(nullptr);
-        }
-        ImGui::End();
+        materialEditor.drawMaterialEditor();
 
         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
         
