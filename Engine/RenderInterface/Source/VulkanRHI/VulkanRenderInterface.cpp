@@ -162,6 +162,7 @@ namespace
         auto extensions = std::vector
         {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
 #ifdef TOY_ENGINE_ENABLE_RAY_TRACING
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
@@ -373,7 +374,10 @@ auto VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, cons
 
 void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descriptor)
 {
-    auto extensions = std::vector<const char*>{};
+    auto extensions = std::vector<const char*>
+	{
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+    };
 
     auto layers = std::vector<const char*>{};
 #ifdef TOY_ENGINE_ENABLE_VULKAN_VALIDATION
@@ -467,7 +471,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     const auto allocatorCreateInfo = VmaAllocatorCreateInfo
     {
-        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT |  VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT,
         .physicalDevice = adapter_,
         .device = device_,
         .instance = instance_,
@@ -483,7 +487,13 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
         .hinstance = descriptor.handler.hinstance,
         .hwnd = descriptor.handler.hwnd
     };
-    surface_ = instance_.createWin32SurfaceKHR(surfaceCreateInfo).value;
+
+    {
+	    const auto result = instance_.createWin32SurfaceKHR(surfaceCreateInfo);
+		TOY_ASSERT(result.result == vk::Result::eSuccess);
+		surface_ = result.value;
+    }
+    
     const auto& formats = adapter_.getSurfaceFormatsKHR(surface_).value;
     const auto& supportedFormat = formats.front();
 
@@ -512,8 +522,9 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
             .clipped = vk::Bool32{true},
             .oldSwapchain = nullptr
         };
-
-        swapchain_ = device_.createSwapchainKHR(swapchainCreateInfo).value;
+        const auto result = device_.createSwapchainKHR(swapchainCreateInfo);
+        TOY_ASSERT(result.result == vk::Result::eSuccess);
+        swapchain_ = result.value;
     }
 
     swapchainImageAfterPresentFences_.resize(swapchainImagesCount_);
@@ -583,33 +594,54 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     nativeBackend_.device = device_;
     nativeBackend_.instance = instance_;
+}
 
-    VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
-    vmaGetHeapBudgets(allocator_, budgets);
-
+auto VulkanRenderInterface::requestMemoryBudgetInternal() -> MemoryBudget
+{
     memoryProperties_ = adapter_.getMemoryProperties2();
 
-
-    for (auto heapIndex = u32{}; heapIndex < memoryProperties_.memoryProperties.memoryHeapCount; heapIndex++)
+    auto budget = MemoryBudget
     {
-        const auto& heap = memoryProperties_.memoryProperties.memoryHeaps[heapIndex];
+        .heapCount = memoryProperties_.memoryProperties.memoryHeapCount
+    };
+
+    auto budgets = std::array<VmaBudget, VK_MAX_MEMORY_HEAPS>{};
+
+    vmaGetHeapBudgets(allocator_, budgets.data());
+
+
+    for(auto i = u32{}; i < memoryProperties_.memoryProperties.memoryHeapCount; i++)
+    {
         
-
-        printf("My heap currently has %u allocations taking %llu B,\n",
-            budgets[heapIndex].statistics.allocationCount,
-            budgets[heapIndex].statistics.allocationBytes);
-        printf("allocated out of %u Vulkan device memory blocks taking %llu B,\n",
-            budgets[heapIndex].statistics.blockCount,
-            budgets[heapIndex].statistics.blockBytes);
-        printf("Vulkan reports total usage %llu B with budget %llu B.\n",
-            budgets[heapIndex].usage,
-            budgets[heapIndex].budget);
-        printf("");
-
+	    budget.budget[i].totalMemory = memoryProperties_.memoryProperties.memoryHeaps[i].size;
+	    budget.budget[i].availableMemory = budgets[i].usage;
+	    budget.budget[i].budgetMemory = budgets[i].budget;
     }
 
-    
+    for(auto i = u32{}; i < memoryProperties_.memoryProperties.memoryTypeCount; i++)
+    {
+        const auto index = memoryProperties_.memoryProperties.memoryTypes[i].heapIndex;
+        const auto type = memoryProperties_.memoryProperties.memoryTypes[i].propertyFlags;
 
+        if((type & vk::MemoryPropertyFlagBits::eDeviceLocal) == vk::MemoryPropertyFlagBits::eDeviceLocal)
+        {
+            budget.budget[index].type = HeapType::device;
+            continue;
+        }
+
+        /*if((type & vk::MemoryPropertyFlagBits::eHostVisible) == vk::MemoryPropertyFlagBits::eHostVisible)
+        {
+            budget.budget[index].type = HeapType::coherent;
+            continue;
+        }
+
+         if((type & vk::MemoryPropertyFlagBits::eDeviceLocal) != vk::MemoryPropertyFlagBits::eDeviceLocal && (type & vk::MemoryPropertyFlagBits::eHostVisible) != vk::MemoryPropertyFlagBits::eHostVisible)
+        {
+            budget.budget[index].type = HeapType::host;
+            continue;
+        }*/
+    }
+    return budget;
 }
 
 
@@ -745,7 +777,7 @@ void VulkanRenderInterface::nextFrameInternal()
     currentFrame_++;
     //TODO: hack
     aa = 0;
-    const auto& nextFramesFence = swapchainImageAfterPresentFences_[(currentFrame_ + u64{ 1 }) % maxDeferredFrames_];
+    const auto& nextFramesFence = swapchainImageAfterPresentFences_[(currentFrame_) % maxDeferredFrames_];
     auto result = device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
     TOY_ASSERT(result == vk::Result::eSuccess);
 
@@ -756,6 +788,7 @@ void VulkanRenderInterface::nextFrameInternal()
         result = device_.resetCommandPool(pool);
         TOY_ASSERT(result == vk::Result::eSuccess);
     }
+    vmaSetCurrentFrameIndex(allocator_, 0 );
     
 
     resetDescriptorPoolsUntilFrame(currentFrame_);
@@ -1133,7 +1166,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
     {
         depthStencilState.depthTestEnable = vk::Bool32{ descriptor.state.depthTestEnabled };
         depthStencilState.depthWriteEnable = vk::Bool32{ descriptor.state.depthTestEnabled };
-        depthStencilState.depthCompareOp = vk::CompareOp::eLess;
+        depthStencilState.depthCompareOp = vk::CompareOp::eGreater;
 
         depthStencilState.depthBoundsTestEnable = vk::Bool32{ false };
         depthStencilState.minDepthBounds = 0.0f;
@@ -1251,9 +1284,16 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
 
 
     //TODO: consider to use allocated pools
+
+    auto flags = VmaAllocationCreateFlags{};
+    if(descriptor.memoryUsage != MemoryUsage::gpuOnly)
+    {
+        flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    }
+
     const auto allocationCreateInfo = VmaAllocationCreateInfo
     {
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, //TODO: it should depend on access pattern
+        .flags = flags, //TODO: it should depend on access pattern
         .usage = descriptor.memoryUsage == MemoryUsage::gpuOnly? VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE : descriptor.memoryUsage == MemoryUsage::cpuOnly ? VMA_MEMORY_USAGE_AUTO_PREFER_HOST : VMA_MEMORY_USAGE_AUTO
     };
 
@@ -1280,6 +1320,13 @@ Handle<Buffer> VulkanRenderInterface::createBufferInternal(
     const auto handle = bufferStorage_.add(VulkanBuffer{ buffer, allocation }, descriptor);
 
 	return handle;
+}
+
+auto VulkanRenderInterface::destroyBufferInternal(const Handle<Buffer> handle) -> void
+{
+    const auto buffer = bufferStorage_.get(handle);
+    vmaDestroyBuffer(allocator_, buffer.buffer, buffer.allocation);
+    bufferStorage_.remove(handle);
 }
 
 auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDescriptor& descriptor, const DebugLabel label) -> Handle<VirtualTexture>

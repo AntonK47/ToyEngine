@@ -5,12 +5,35 @@
 #include <functional>
 #include <string>
 #include <variant>
+#include <array>
 #include <glm/glm.hpp>
 
 #include "Handle.h"
 
 namespace toy::graphics::rhi
 {
+	enum class HeapType
+	{
+		unknown,
+		host,
+		device,
+		coherent
+	};
+
+	struct PerHeapBudget
+	{
+		HeapType type{HeapType::unknown};
+		core::u64 totalMemory;
+		core::u64 availableMemory;
+		core::u64 budgetMemory;
+	};
+
+	struct MemoryBudget
+	{
+		core::u32 heapCount{};
+		std::array<PerHeapBudget, 16> budget{};
+	};
+
 	enum class ImageViewType
 	{
 		_1D,

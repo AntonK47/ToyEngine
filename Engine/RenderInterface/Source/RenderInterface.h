@@ -39,6 +39,11 @@ namespace toy::graphics::rhi
 		{
 			return getNativeBackendInternal();
 		}
+
+		[[nodiscard]] auto requestMemoryBudget() -> MemoryBudget
+		{
+			return requestMemoryBudgetInternal();
+		}
 		
 		auto initialize(const RendererDescriptor& descriptor) -> void
 		{
@@ -93,7 +98,7 @@ namespace toy::graphics::rhi
 		
 		auto submitBatches(
 			const QueueType queueType,
-			const std::initializer_list<SubmitBatch> batches) ->void
+			const std::initializer_list<SubmitBatch> batches) -> void
 		{
 			submitBatchesInternal(queueType, batches);
 		}
@@ -128,6 +133,11 @@ namespace toy::graphics::rhi
 			const BufferDescriptor& descriptor, [[maybe_unused]] const DebugLabel label = {}) -> Handle<Buffer>
 		{
 			return createBufferInternal(descriptor, label);
+		}
+
+		auto destroyBuffer(const Handle<Buffer> handle) -> void
+		{
+			destroyBufferInternal(handle);
 		}
 
 		/*struct ResourceDescriptor{};

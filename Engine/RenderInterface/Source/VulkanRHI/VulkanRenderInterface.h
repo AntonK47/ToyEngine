@@ -49,6 +49,8 @@ namespace toy::graphics::rhi::vulkan
 
 		auto nextFrameInternal() -> void;
 
+		auto requestMemoryBudgetInternal() -> MemoryBudget;
+
 		[[nodiscard]] auto acquireNextSwapchainImageInternal() -> SwapchainImage;
 
 		auto presentInternal(const SubmitDependency& dependency) -> void;
@@ -86,6 +88,8 @@ namespace toy::graphics::rhi::vulkan
 		[[nodiscard]] auto createBufferInternal(
 			const BufferDescriptor& descriptor,
 			[[maybe_unused]] const DebugLabel label) -> Handle<Buffer>;
+
+		auto destroyBufferInternal(const Handle<Buffer> handle) -> void;
 
 		[[nodiscard]] auto createVirtualTextureInternal(
 			const VirtualTextureDescriptor& descriptor,

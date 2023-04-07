@@ -1,6 +1,14 @@
-#define GLM_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_common.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+//TODO: Move glm defines into its own common header
+
 #include "Application.h"
+#include <Core.h>
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
@@ -8,9 +16,7 @@
 #include <Scene.h>
 
 #include <SDLWindow.h>
-#include <glm/glm.hpp>
-#include <glm/ext/matrix_common.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+
 #include <thread>
 #include <mutex>
 #include <rigtorp/MPMCQueue.h>
@@ -22,11 +28,11 @@
 #include <RenderInterfaceTypes.h>
 
 #include "SceneLoader.h"
-#include <glm/ext/matrix_transform.hpp>
 
 #include <execution>
 #include <algorithm>
 #include <span>
+#include <stack>
 
 #define IMGUI_USER_CONFIG "toyimconfig.h"
 #include <imgui.h>
@@ -189,9 +195,17 @@ int Application::run()
     auto renderer = RenderInterface{};
     auto graphicsDebugger = debugger::RenderDocCapture{};
     auto virtualTextureStreaming = VirtualTextureStreaming{};
-    
-    window.initialize(WindowDescriptor{ 1280, 720 });
+
+
+    const auto windowWidth = u32{1920};//u32{2560};
+    const auto windowHeight = u32{1080};//u32{1440};
+
+    window.initialize(WindowDescriptor{ windowWidth, windowHeight });
     window.setWindowTitle("Toy Engine"); // <- this course memory allocation
+
+    auto materialEditor = toy::editor::materials::MaterialEditor{};
+
+    materialEditor.initialize();
 
 
     const auto workerCount = 10;
@@ -880,25 +894,74 @@ int Application::run()
                 ImGui::Text("Total drawcalls: %d", drawStatistics.gui.drawCalls);
                 ImGui::SeparatorText("GPU Memory");
 
-                
-
                 auto drawList = ImGui::GetWindowDrawList();
 
                 const auto itemWidth = 200u;
                 const auto itemHeight = 20u;
 
-                ImGui::Text("");
-                ImGui::SameLine(100);
-                ImGui::Text("heap 0");
+                const auto budget = renderer.requestMemoryBudget();
 
-                ImVec2 p = ImGui::GetCursorScreenPos();
-                drawList->AddRectFilled(p, ImVec2(p.x + itemWidth, p.y + 20), glm::packUnorm4x8(glm::vec4(0.2, 0.2, 0.2, 0.7)));
-                drawList->AddRectFilled(p, ImVec2(p.x + 70, p.y + 20), glm::packUnorm4x8(glm::vec4(0.1, 0.7, 0.1, 0.7)));
-                drawList->AddRectFilled(p, ImVec2(p.x + 40,p.y + 20), glm::packUnorm4x8(glm::vec4(0.7,0.1,0.1,0.7)));
-                ImGui::Dummy(ImVec2(itemWidth, 20));
+                for(auto i = u32{}; i < budget.heapCount; i++)
+                {
+                    const auto total = budget.budget[i].totalMemory/(1024*1024);
+                    const auto available = budget.budget[i].availableMemory/(1024*1024);
+                    const auto budgetValue = budget.budget[i].budgetMemory/(1024*1024);
 
+                    auto type = std::string{};
+                    switch(budget.budget[i].type)
+                    {
+                    case HeapType::device:
+                        type = "VRAM";
+                        break;
+                    case HeapType::host:
+                        type = "RAM";
+                        break;
+                    case HeapType::coherent:
+                        type = "ReBAR";
+                        break;
+                    }
+
+	                ImGui::Text("");
+	                ImGui::SameLine(60);
+	                ImGui::Text("heap %i, (%s), (%i MB/%i MB/%i MB)", i,type.c_str(),  available, budgetValue, total);
+
+
+	                ImVec2 p = ImGui::GetCursorScreenPos();
+	                drawList->AddRectFilled(p, ImVec2(p.x + itemWidth, p.y + 20), glm::packUnorm4x8(glm::vec4(0.2, 0.2, 0.2, 0.7)));
+	                drawList->AddRectFilled(p, ImVec2(p.x + itemWidth*(budgetValue)/(float)total, p.y + 20), glm::packUnorm4x8(glm::vec4(0.1, 0.7, 0.1, 0.7)));
+	                drawList->AddRectFilled(p, ImVec2(p.x + itemWidth*(available)/(float)total,p.y + 20), glm::packUnorm4x8(glm::vec4(0.7,0.1,0.1,0.7)));
+	                ImGui::Dummy(ImVec2(itemWidth, 20));
+
+                    
+                }
 
                 nextWindowPos.y = (nextWindowPos.y + pad + ImGui::GetWindowHeight());
+
+                static std::stack<Handle<Buffer>> allocations;
+
+                    if(ImGui::Button("allocate memory"))
+                    {
+                        const auto desc = BufferDescriptor
+                        {
+                            .size = 1024*1024*100,
+                            .accessUsage = BufferAccessUsage::storage,
+                            .memoryUsage = MemoryUsage::gpuOnly
+                        };
+                        auto b = renderer.createBuffer(desc);
+	                    allocations.push(b);
+                    }
+
+                    if(ImGui::Button("dealocate memory"))
+                    {
+                        if(!allocations.empty())
+                        {
+                            const auto b = allocations.top();
+                            renderer.destroyBuffer(b);
+                            allocations.pop();
+                        }
+                    }
+
+                    ImGui::LabelText("allocations", "%i", allocations.size());
             }
             ImGui::End();
         }
@@ -917,6 +980,39 @@ int Application::run()
             }
             ImGui::End();
         }
+
+
+
+
+        viewport = ImGui::GetMainViewport();
+        ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+        ImVec2 work_size = viewport->WorkSize;
+        ImVec2 window_pos, window_pos_pivot;
+        window_pos.x = (work_pos.x + work_size.x);
+        window_pos.y = (work_pos.y);
+        window_pos_pivot.x = 1.0f;
+        window_pos_pivot.y = 0.0f;
+        ImGui::SetNextWindowBgAlpha(0.0f);
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+    	auto windowControlBar = true;
+        ImGui::PushID(1);
+    	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 0.2)));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 0.4)));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 0.8)));
+        ImGui::PushStyleColor(ImGuiCol_Text, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 1.0)));
+        if (ImGui::Begin("WindowControBar", &windowControlBar, windowFlags))
+        {
+            if (ImGui::Button(ICON_FA_CIRCLE_XMARK))
+            {
+                stillRunning = false;
+            }
+        }
+        ImGui::End();
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar();
+        ImGui::PopID();
+
         ImGui::EndFrame();
 
 #pragma region Camera Control
@@ -1000,6 +1096,9 @@ int Application::run()
         {
             captureTool.start();
             renderer.nextFrame();
+
+            const auto b = renderer.requestMemoryBudget();
+
             ImGui::Render();
             const auto drawData = ImGui::GetDrawData();
 
@@ -1009,7 +1108,7 @@ int Application::run()
 
             {
                 const auto aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
-                const auto projection = glm::infinitePerspective(glm::radians(60.0f), aspectRatio, 0.001f);
+                const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 1000.0f, 0.001f);//inverse z trick
                 const auto view = glm::lookAt(camera.position, camera.position + camera.forward, camera.up);
 
                 const auto viewData = View
@@ -1077,11 +1176,11 @@ int Application::run()
                     .load = LoadOperation::clear,
                     .store = StoreOperation::store,
                     .resolveMode = ResolveMode::none,
-                    .clearValue = DepthClear{ 1.0f }
+                    .clearValue = DepthClear{ 0.0f }
                 }
             };
 
-            constexpr auto area = RenderArea{ 0,0,1280,720 };
+            constexpr auto area = RenderArea{ 0,0,windowWidth,windowHeight };
 
             {
                 renderer.beginDebugLabel(QueueType::graphics, {"prepare render target"});
@@ -1194,8 +1293,8 @@ int Application::run()
                 cmd.beginRendering(renderingDescriptor, area);
 
                 {
-                    constexpr auto scissor = Scissor{ 0,0,1280, 720 };
-                    constexpr auto viewport = Viewport{ 0.0,0.0,1280.0,720.0 };
+                    const auto scissor = Scissor{ 0,0,windowWidth, windowHeight };
+                    const auto viewport = Viewport{ 0.0,0.0,(float)windowWidth, (float)windowHeight };
 
 
                     cmd.bindPipeline(simpleTrianglePipeline);
@@ -1295,7 +1394,7 @@ int Application::run()
 
                 cmd.beginRendering(renderingDescriptor, area);
                
-                constexpr auto viewport = Viewport{ 0.0,720.0,1280.0,-720.0 };
+                const auto viewport = Viewport{ 0.0, (float)windowHeight,(float)windowWidth, -(float)windowHeight };
 
                 cmd.bindPipeline(guiPipeline);
                 cmd.setViewport(viewport);
