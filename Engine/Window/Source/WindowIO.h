@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core.h>
+#include <string>
 
 namespace toy::io
 {
@@ -122,11 +123,18 @@ namespace toy::io
         void reset();
 
     };
+
+    struct TextState
+    {
+        std::string text;
+        void reset();
+    };
     //struct GamepadState {};
 
     struct WindowIo
     {
         MouseState mouseState;
         KeyboardState keyboardState;
+        TextState textState;
     };
 }

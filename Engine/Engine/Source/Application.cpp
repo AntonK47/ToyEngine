@@ -135,6 +135,11 @@ namespace
         io.AddKeyEvent(ImGuiKey::ImGuiKey_F10, windowIo.keyboardState.f10 == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_F11, windowIo.keyboardState.f11 == toy::io::ButtonState::pressed);
         io.AddKeyEvent(ImGuiKey::ImGuiKey_F12, windowIo.keyboardState.f12 == toy::io::ButtonState::pressed);
+
+        for(const auto& c : windowIo.textState.text)
+        {
+            io.AddInputCharacter(c);
+        }
     }
 
 	std::string loadShaderFile(const std::string& filePath)

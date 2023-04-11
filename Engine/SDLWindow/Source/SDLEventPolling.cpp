@@ -219,6 +219,9 @@ void SDLWindow::pollEventsInternal()
 
             break;
         }
+        case SDL_TEXTINPUT:
+            windowIo_.textState.text = std::string(event.text.text, strlen(event.text.text));
+            break;
         default:
             break;
         }

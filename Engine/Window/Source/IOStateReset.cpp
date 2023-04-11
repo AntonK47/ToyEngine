@@ -12,6 +12,11 @@ void MouseState::reset()
     wheel.y = 0.0f;
 }
 
+void TextState::reset()
+{
+    text = "";
+}
+
 void KeyboardState::reset()
 {
     a = ButtonState::unpressed;

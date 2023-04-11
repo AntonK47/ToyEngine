@@ -56,6 +56,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 
         windowIo_.keyboardState.reset();
 		windowIo_.mouseState.reset();
+        windowIo_.textState.reset();
     }
 }
 
@@ -63,6 +64,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 void SDLWindow::resetPolledEventsAndIo()
 {
     currentPolledEvents_.clear();
+    windowIo_.textState.reset();
     /*windowIo_.keyboardState.reset();
     windowIo_.mouseState.reset();*/
 }
