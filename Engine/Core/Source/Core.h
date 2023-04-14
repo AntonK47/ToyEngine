@@ -128,5 +128,16 @@ namespace toy::core
 		const char* name{};
 		Color color{ 0,0,0 };
 	};
+
+
+	struct UIDGenerator
+	{
+		inline static auto generate() -> const core::u32
+		{
+			return id++;
+		}
+	private:
+		inline static core::u32 id{1};
+	};
 }
 

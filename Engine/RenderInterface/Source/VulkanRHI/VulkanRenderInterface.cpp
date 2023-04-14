@@ -1,11 +1,10 @@
 #include "VulkanRHI/VulkanRenderInterface.h"
 
 #include <iostream>
-#include <g3log/g3log.hpp>
+#include <Logger.h>
 
 #include "VulkanRHI/VulkanMappings.h"
 
-//const LEVELS VULKAN_VALIDATION_ERROR{ WARNING.value + 1, {"VULKAN_VALIDATION_ERROR_LEVEL"} };
 using namespace toy::graphics::rhi;
 using namespace vulkan;
 

@@ -91,7 +91,7 @@ namespace toy::graphics::rhi
 
 		auto load(const DDSTextureDataDescriptor& descriptor, const TextureRegion& region) -> void
 		{
-			LOG(INFO) << "DDS Texture loading...!";
+			//LOG(INFO) << "DDS Texture loading...!";
 		}
 	};
 
