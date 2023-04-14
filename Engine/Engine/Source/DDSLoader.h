@@ -134,7 +134,7 @@ namespace toy::io::loaders::dds
 			bytesPerTexel = 4;
 			break;
 		case TextureFormat::bc7:
-			bytesPerTexel = 16;
+			bytesPerTexel = 1;
 			break;
 		default:
 			break;

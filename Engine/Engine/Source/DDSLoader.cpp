@@ -228,10 +228,43 @@ namespace toy::io::loaders::dds
 
 		const auto isNew = isCompressed && header.ddspf.dwFourCC == dx10;
 		auto textureInfo = TextureInfo{};
+
+		enum class DimensionType
+		{
+			unknown,
+			cubemap,
+			_1d,
+			_2d,
+			_3d,
+		};
+
+		auto dimension = DimensionType::unknown;
+
 		if (isNew)
 		{
 			auto header10 = DDS_HEADER_DXT10{};
 			file.read((char*)&header10, sizeof(header10));
+			switch(header10.dxgiFormat)
+			{
+			case DXGI_FORMAT_BC7_TYPELESS:
+			case DXGI_FORMAT_BC7_UNORM:
+			case DXGI_FORMAT_BC7_UNORM_SRGB:
+				textureInfo.format = TextureFormat::bc7;
+				break;
+			}
+
+			switch (header10.resourceDimension)
+			{
+			case D3D10_RESOURCE_DIMENSION_TEXTURE1D:
+				dimension = DimensionType::_1d;
+				break;
+			case D3D10_RESOURCE_DIMENSION_TEXTURE2D:
+				dimension = DimensionType::_2d;
+				break;
+			case D3D10_RESOURCE_DIMENSION_TEXTURE3D:
+				dimension = DimensionType::_3d;
+			}
+			textureInfo.arrayCount = header10.arraySize;
 		}
 		else
 		{
@@ -245,45 +278,61 @@ namespace toy::io::loaders::dds
 			{
 				TOY_ASSERT(false);
 			}
-
-
-
-
 			textureInfo.arrayCount = 1;
-			textureInfo.mipCount = header.dwMipMapCount;
 			if ((header.dwCaps2 & DDSCAPS2_CUBEMAP) == DDSCAPS2_CUBEMAP)
 			{
-				textureInfo.dimensionInfo = TextureCubeDimensionInfo
-				{
-					.width = header.dwWidth,
-					.height = header.dwHeight
-				};
+				dimension = DimensionType::cubemap;
 			}
 			else if (header.dwHeight <= 1)
 			{
-				textureInfo.dimensionInfo = Texture1DDimensionInfo
-				{
-					.width = header.dwWidth
-				};
+				dimension = DimensionType::_1d;
 			}
 			else if (header.dwDepth <= 1)
 			{
-				textureInfo.dimensionInfo = Texture2DDimensionInfo
-				{
-					.width = header.dwWidth,
-					.height = header.dwHeight
-				};
+				dimension = DimensionType::_2d;
 			}
 			else
 			{
-				textureInfo.dimensionInfo = Texture3DDimensionInfo
-				{
-					.width = header.dwWidth,
-					.height = header.dwHeight,
-					.depth = header.dwDepth
-				};
+				dimension = DimensionType::_3d;
 			}
 		}
+
+		textureInfo.mipCount = header.dwMipMapCount;
+
+		switch (dimension)
+		{
+		case DimensionType::unknown:
+			break;
+		case DimensionType::cubemap:
+			textureInfo.dimensionInfo = TextureCubeDimensionInfo
+			{
+				.width = header.dwWidth,
+				.height = header.dwHeight
+			};
+			break;
+		case DimensionType::_1d:
+			textureInfo.dimensionInfo = Texture1DDimensionInfo
+			{
+				.width = header.dwWidth
+			};
+			break;
+		case DimensionType::_2d:
+			textureInfo.dimensionInfo = Texture2DDimensionInfo
+			{
+				.width = header.dwWidth,
+				.height = header.dwHeight
+			};
+			break;
+		case DimensionType::_3d:
+			textureInfo.dimensionInfo = Texture3DDimensionInfo
+			{
+				.width = header.dwWidth,
+				.height = header.dwHeight,
+				.depth = header.dwDepth
+			};
+			break;
+		}
+
 		return textureInfo;
 	}
 
