@@ -66,12 +66,13 @@ namespace toy::graphics::rhi::vulkan
 		auto endDebugLabelInternal(const QueueType queueType) -> void;
 
 		[[nodiscard]] auto createBindGroupLayoutInternal(
-			const BindGroupDescriptor& descriptor) -> Handle<BindGroupLayout>;
+			const BindGroupDescriptor& descriptor, const DebugLabel& label) -> Handle<BindGroupLayout>;
 
 		[[nodiscard]] auto allocateBindGroupInternal(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
-			const UsageScope& scope) -> std::vector<Handle<BindGroup>>; //TODO: smallvector
+			const UsageScope& scope,
+			const DebugLabel& label) -> std::vector<Handle<BindGroup>>; //TODO: smallvector
 
 		[[nodiscard]] auto createPipelineInternal(
 			const GraphicsPipelineDescriptor& descriptor,
@@ -107,6 +108,8 @@ namespace toy::graphics::rhi::vulkan
 		auto mapInternal(
 			const Handle<Buffer>& buffer,
 			void** data) -> void;
+
+		auto unmapInternal(const Handle<Buffer>& buffer) -> void;
 
 		[[nodiscard]] auto createPipelineInternal(
 			const ComputePipelineDescriptor& descriptor,
@@ -153,6 +156,7 @@ namespace toy::graphics::rhi::vulkan
 		static constexpr core::u32 maxCommandListsPerFrame_{ 10 };
 		static constexpr core::u32 maxDeferredFrames_{ 3 };
 
+		u32 lastTransferSignalValue{0};
 
 		core::u32 currentFrame_{};
 		std::thread::id renderThreadId_;
@@ -383,6 +387,14 @@ namespace toy::graphics::rhi::vulkan
 				}
 			);
 		}
+
+		//TODO: Don't like it
+		if(lastTransferSignalValue >= value)
+		{
+			value = lastTransferSignalValue;
+		}
+
+		lastTransferSignalValue++;
 
 		const auto signalInfo = vk::SemaphoreSubmitInfo
 		{

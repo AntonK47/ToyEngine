@@ -169,29 +169,34 @@ namespace toy::graphics::rhi
 		}
 
 		auto unmap(const Handle<Buffer>& buffer) -> void
-		{}
+		{
+			unmapInternal(buffer);
+		}
 
 		[[nodiscard]] auto createBindGroupLayout(
-			const BindGroupDescriptor& descriptor) -> Handle<BindGroupLayout>
+			const BindGroupDescriptor& descriptor,
+			[[maybe_unused]] const DebugLabel& label = {}) -> Handle<BindGroupLayout>
 		{
-			return createBindGroupLayoutInternal(descriptor);
+			return createBindGroupLayoutInternal(descriptor, label);
 		}
 
 		[[nodiscard]] auto allocateBindGroup(
 			const Handle<BindGroupLayout>& bindGroupLayout,
-			const UsageScope& scope = UsageScope::inFrame) -> Handle<BindGroup>
+			const UsageScope& scope = UsageScope::inFrame,
+			[[maybe_unused]] const DebugLabel& label = {}) -> Handle<BindGroup>
 		{
 			//TODO: this should be thread safe
-			return allocateBindGroupInternal(bindGroupLayout, 1, scope).front();
+			return allocateBindGroupInternal(bindGroupLayout, 1, scope, label).front();
 		}
 
 		[[nodiscard]] auto allocateBindGroup(
 			const Handle<BindGroupLayout>& bindGroupLayout,
 			u32 bindGroupCount,
-			const UsageScope& scope = UsageScope::inFrame) ->
+			const UsageScope& scope = UsageScope::inFrame,
+			[[maybe_unused]] const DebugLabel& label = {}) ->
 		std::vector<Handle<BindGroup>>//TODO: smallvector
 		{
-			return allocateBindGroupInternal(bindGroupLayout, bindGroupCount, scope);
+			return allocateBindGroupInternal(bindGroupLayout, bindGroupCount, scope, label);
 		}
 
 		//this function should be thread save????

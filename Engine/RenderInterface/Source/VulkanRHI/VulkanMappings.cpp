@@ -137,6 +137,10 @@ namespace toy::graphics::rhi::vulkan
 			break;
 		case Format::r8:
 			vulkanFormat = vk::Format::eR8Unorm;
+			break;
+		case Format::bc7:
+			vulkanFormat = vk::Format::eBc7UnormBlock;
+			break;
 		}
 		return vulkanFormat;
 	}

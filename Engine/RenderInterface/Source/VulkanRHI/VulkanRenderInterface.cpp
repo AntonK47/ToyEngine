@@ -178,7 +178,7 @@ namespace
                 {
                     .shaderInt64 = vk::Bool32{true},
                     .sparseBinding = vk::Bool32{true},
-                    .sparseResidencyImage2D = vk::Bool32{true}
+                    .sparseResidencyImage2D = vk::Bool32{true},
                 }
             },
             vk::PhysicalDeviceVulkan11Features
@@ -286,8 +286,6 @@ namespace
 
     vk::PhysicalDevice selectAdapter(vk::Instance instance, const Features& requestedFeatures)
     {
-        
-
         const auto& adapters = instance.enumeratePhysicalDevices().value;
         TOY_ASSERT(!adapters.empty());
         const auto& adapter = adapters.front();
@@ -298,7 +296,7 @@ namespace
     }
 
 
-    vk::DescriptorSetLayout createGroupLayout(const vk::Device device, const BindGroupDescriptor& descriptor)
+    vk::DescriptorSetLayout createGroupLayout(const vk::Device device, const BindGroupDescriptor& descriptor, const DebugLabel& label)
     {
         auto bindings = std::vector<vk::DescriptorSetLayoutBinding>{};
         auto bindingFlags = std::vector<vk::DescriptorBindingFlags>{};
@@ -318,7 +316,7 @@ namespace
                 const auto isLastBinding = i == bindings.size() - 1;
                 if (descriptor.flags.containBit(BindGroupFlag::unboundLast) && isLastBinding)
                 {
-                    bindingFlags[i] |= vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+                    bindingFlags[i] |= vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::ePartiallyBound;
                 }
 
             }
@@ -342,8 +340,8 @@ namespace
         };
 
         const auto result = device.createDescriptorSetLayout(createInfo.get());
-
-        setObjectName(device, result.value, "DSL[" + std::to_string(bindings.size()) + "]");
+        TOY_ASSERT(result.result == vk::Result::eSuccess);
+        setObjectName(device, result.value, label.name);
         return result.value;
     }
 }
@@ -793,7 +791,7 @@ void VulkanRenderInterface::nextFrameInternal()
     resetDescriptorPoolsUntilFrame(currentFrame_);
 }
 
-Handle<BindGroupLayout> VulkanRenderInterface::createBindGroupLayoutInternal(const BindGroupDescriptor& descriptor)
+Handle<BindGroupLayout> VulkanRenderInterface::createBindGroupLayoutInternal(const BindGroupDescriptor& descriptor, const DebugLabel& label)
 {
     const auto hash = Hasher::hash32(descriptor);
     if (bindGroupLayoutCache_.contains(hash))
@@ -803,7 +801,7 @@ Handle<BindGroupLayout> VulkanRenderInterface::createBindGroupLayoutInternal(con
 
     auto bindGroup = VulkanBindGroupLayout{};
 
-	bindGroup.layout = createGroupLayout(device_, descriptor);
+	bindGroup.layout = createGroupLayout(device_, descriptor, label);
     if(descriptor.flags.containBit(BindGroupFlag::unboundLast))
     {
         bindGroup.lastBindVariableSize = descriptor.bindings.back().descriptor.descriptorCount;
@@ -816,7 +814,7 @@ Handle<BindGroupLayout> VulkanRenderInterface::createBindGroupLayoutInternal(con
 
 std::vector<Handle<BindGroup>> VulkanRenderInterface::
 allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
-	const u32 bindGroupCount, const UsageScope& scope)
+	const u32 bindGroupCount, const UsageScope& scope, const DebugLabel& label)
 {
     const auto currentPoolsIndex = currentFrame_ % swapchainImagesCount_;
     auto& currentPools = 
@@ -844,6 +842,11 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                 {
                     .type = vk::DescriptorType::eStorageBuffer,
                     .descriptorCount = 10
+                },
+                vk::DescriptorPoolSize
+                {
+                    .type = vk::DescriptorType::eSampledImage,
+                    .descriptorCount = 2000
                 }
             };
 
@@ -899,7 +902,11 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                 for(auto i = u32{}; i < bindGroupCount; i++)
                 {
 #ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
-                    setObjectName(device_, descriptorSets[i], "DS");
+                    if(label.name)
+                    {
+                        auto name = label.name + std::string{"_"} + std::to_string(i);
+                        setObjectName(device_, descriptorSets[i], name.c_str());
+                    }
 #endif
                     if(scope == UsageScope::async)
                     {
@@ -1567,6 +1574,14 @@ void VulkanRenderInterface::mapInternal(const Handle<Buffer>& buffer, void** dat
     vmaMapMemory(allocator_, vulkanBuffer.allocation, data);
 }
 
+auto VulkanRenderInterface::unmapInternal(const Handle<Buffer>& buffer) -> void
+{
+    auto& vulkanBuffer = bufferStorage_.get(buffer);
+    vulkanBuffer.isMapped = false;
+    vmaUnmapMemory(allocator_, vulkanBuffer.allocation);
+}
+
+
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const ComputePipelineDescriptor& descriptor,
 	const std::vector<SetBindGroupMapping>& bindGroups,
@@ -1711,7 +1726,7 @@ Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
         .format = mapFormat(descriptor.format),
         .subresourceRange = vk::ImageSubresourceRange
         {
-            mapViewAspect(descriptor.aspect), 0, 1, 0, 1
+            mapViewAspect(descriptor.aspect), 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS
         }
     };
     const auto result = device_.createImageView(imageViewCreateInfo);
@@ -1735,7 +1750,7 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
 
     constexpr auto graphicsCommandListPerFrame = u32{ 100 };//TODO:
     constexpr auto asyncComputeCommandListPerFrame = u32{ 10 };
-    constexpr auto transferCommandListPerFrame = u32{ 10 };
+    constexpr auto transferCommandListPerFrame = u32{ 20 };
 
     for (u32 i{}; i < maxDeferredFrames_; i++)
     {

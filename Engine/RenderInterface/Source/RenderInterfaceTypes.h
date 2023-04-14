@@ -179,7 +179,8 @@ namespace toy::graphics::rhi
 		rgba8,
 		rgba16,
 		d16,
-		d32
+		d32,
+		bc7
 	};
 
 	enum class ColorFormat
@@ -539,6 +540,7 @@ namespace toy::graphics::rhi
 		core::u32 layerCount{};
 		glm::uvec3 extent{};
 		glm::ivec3 offset{ 0,0,0 };
+		core::u32 bufferOffset{};
 	};
 
 	struct DestinationImageDescriptor

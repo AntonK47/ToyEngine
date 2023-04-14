@@ -71,7 +71,7 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 			barrier.image = rhi_.imageStorage_.get(imageBarrierDescriptor.image).image;
 			barrier.subresourceRange = vk::ImageSubresourceRange
 			{
-				mapViewAspect(imageBarrierDescriptor.aspect), 0, 1, 0, 1
+				mapViewAspect(imageBarrierDescriptor.aspect), 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS
 			};
 			//TODO: it might be incorrect!!
 			switch (imageBarrierDescriptor.srcLayout)
@@ -280,7 +280,7 @@ void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBuffer
 		};
 		regions[i] = vk::BufferImageCopy2
 		{
-			.bufferOffset = srcBufferDescriptor.offset,
+			.bufferOffset = region.bufferOffset,
 			.bufferRowLength = 0,
 			.bufferImageHeight = 0,
 			.imageSubresource = subresource,
