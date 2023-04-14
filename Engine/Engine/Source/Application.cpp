@@ -36,6 +36,7 @@
 
 #define IMGUI_USER_CONFIG "toyimconfig.h"
 #include <imgui.h>
+#include <imgui_stdlib.h>
 #include "IconsFontAwesome6.h"
 
 #include <imgui_node_editor.h>
@@ -43,13 +44,19 @@
 #include "OutlineFeature.h"
 
 #include "MaterialEditor.h"
+#include "Editor.h"
+
+#include "DDSLoader.h"
+using namespace toy::io::loaders::dds;
+
+//#include <compressonator.h>
 
 using namespace toy::graphics::rhi;
 
 using namespace toy::window;
 using namespace toy::graphics::compiler;
 using namespace toy::graphics;
-
+using namespace toy::editor;
 
 namespace 
 {
@@ -193,13 +200,145 @@ namespace ImGui
     }
 }
 
+
+struct TextureDataSource
+{
+    std::string path;
+};
+
+template<toy::io::loaders::dds::TextureDataSourceDescriptor T>
+struct TextureDescriptor
+{
+     T source;
+};
+
+
+struct TextureManager
+{
+    template<toy::io::loaders::dds::TextureDataSourceDescriptor T>
+    auto addTextureFromSource(const TextureDescriptor<T> descriptor);
+};
+
+struct Texture2D
+{
+    u32 width;
+    u32 height;
+    Handle<Image> image;
+    Handle<ImageView> view;
+    bool hasMips;
+    u32 bytesPerTexel;
+};
+
+struct ImageDataUploader
+{
+    auto initialize(RenderInterface& rhi) -> void
+    {
+        rhi_ = &rhi;
+        stagingSize = 100 * 1024 * 1024; //100MB
+
+        const auto stagingDescriptor = BufferDescriptor
+        {
+            .size = stagingSize,
+            .accessUsage = BufferAccessUsage::transferSrc,
+            .memoryUsage = MemoryUsage::cpuOnly
+        };
+
+        stagingBuffer = rhi_->createBuffer(stagingDescriptor, DebugLabel{ "Upload Staging Buffer" });
+        rhi_->map(stagingBuffer, &stagingBufferDataPtr);
+    }
+
+    auto deinitialize() -> void
+    {
+        rhi_->unmap(stagingBuffer);
+        rhi_->destroyBuffer(stagingBuffer);
+    }
+
+
+    auto upload(const std::vector<std::byte>& srcData, const Texture2D& dstTexture)
+    {
+        
+        auto width = dstTexture.width;
+        auto height = dstTexture.height;
+
+        const auto maxMips = static_cast<u32>(std::ceilf(std::log2f(std::max(dstTexture.width, dstTexture.height)))+1);
+        const auto mips = dstTexture.hasMips ? maxMips : u32{1};
+        auto uploadRegions = std::vector<Region>{};
+        uploadRegions.resize(mips);
+
+        auto totalImageSize = u32{};
+        for(auto i = u32{}; i < mips; i++)
+        {
+            uploadRegions[i] = Region{i, 0, 1, glm::uvec3{width, height, 1 },{}, totalImageSize};
+            totalImageSize += std::max(u32{16}, ((width) * (height) * dstTexture.bytesPerTexel));
+
+
+            width >>= 1;
+            height >>= 1;
+        }
+
+        TOY_ASSERT(totalImageSize <= stagingSize);
+        std::memcpy(stagingBufferDataPtr, srcData.data(), totalImageSize);
+
+
+        auto uploadCommandList = rhi_->acquireCommandList(QueueType::transfer, WorkerThreadId{ 0 }, UsageScope::async);
+
+        uploadCommandList.begin();
+        uploadCommandList.barrier({ ImageBarrierDescriptor
+            {
+                .srcLayout = Layout::undefined,
+                .dstLayout = Layout::transferDst,
+                .srcStage = ResourcePipelineStageUsageFlagBits::none,
+                .dstStage = ResourcePipelineStageUsageFlagBits::none,
+                .aspect = ImageViewAspect::color,
+                .image = dstTexture.image
+            } });
+
+        uploadCommandList.transfer(
+            SourceBufferDescriptor
+            {
+                .buffer = stagingBuffer,
+                .offset = 0
+            },
+            DestinationImageDescriptor
+            {
+                .image = dstTexture.image,
+                .regions = uploadRegions
+            });
+
+        uploadCommandList.barrier({ ImageBarrierDescriptor
+            {
+                .srcLayout = Layout::transferDst,
+                .dstLayout = Layout::shaderRead,
+                .srcStage = ResourcePipelineStageUsageFlagBits::none,
+                .dstStage = ResourcePipelineStageUsageFlagBits::fragment,
+                .aspect = ImageViewAspect::color,
+                .image = dstTexture.image
+            } });
+        uploadCommandList.end();
+
+        const auto submit = rhi_->submitCommandList(QueueType::transfer, { uploadCommandList }, {});
+        rhi_->submitBatches(QueueType::transfer, { submit });
+    }
+
+private:
+    void* stagingBufferDataPtr;
+    Handle<Buffer> stagingBuffer;
+    u32 stagingSize;
+    RenderInterface* rhi_;
+};
+
+
 int Application::run()
 {
+    //CMP_InitFramework();
+
     logger::initialize();
     auto window = SDLWindow{};
     auto renderer = RenderInterface{};
     auto graphicsDebugger = debugger::RenderDocCapture{};
     auto virtualTextureStreaming = VirtualTextureStreaming{};
+    auto editor = Editor{};
+    auto textureUploader = ImageDataUploader{};
 
 
     const auto windowWidth = u32{1920};//u32{2560};
@@ -228,6 +367,8 @@ int Application::run()
         .threadWorkersCount = workerCount
     };
     renderer.initialize(rendererDescriptor);
+
+    textureUploader.initialize(renderer);
     
     auto outlineFeature = features::OutlineFeature(renderer);
     outlineFeature.initialize();
@@ -272,64 +413,27 @@ int Application::run()
     auto fontImage = renderer.createImage(fontDescriptor);
     ImGui::GetIO().Fonts->SetTexID((void*)&fontImage);
 
-    const auto stagingSize = 10 * 1024 * 1024; //10MB
-
-    const auto stagingDescriptor = BufferDescriptor
+    const auto fontView = renderer.createImageView(ImageViewDescriptor
     {
-        .size = stagingSize,
-        .accessUsage = BufferAccessUsage::transferSrc,
-        .memoryUsage = MemoryUsage::cpuOnly
+        .image = fontImage,
+        .format = Format::r8,
+        .type = ImageViewType::_2D
+    });
+
+    const auto fontSampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+
+
+    const auto fontTexture = Texture2D
+    {
+        .width = (u32)width,
+        .height = (u32)height,
+        .image = fontImage,
+        .view = fontView,
+        .hasMips = false,
+        .bytesPerTexel = texelSize
     };
 
-    auto stagingBuffer = renderer.createBuffer(stagingDescriptor, DebugLabel{ "Upload Staging Buffer" });
-
-    void* stagingBufferDataPtr;
-    renderer.map(stagingBuffer, &stagingBufferDataPtr);
-
-    TOY_ASSERT(fontImageSize <= stagingSize);
-
-    std::memcpy(stagingBufferDataPtr, pixels, fontImageSize);
-
-
-    auto uploadCommandList = renderer.acquireCommandList(QueueType::transfer);
-
-    uploadCommandList.begin();
-    uploadCommandList.barrier({ ImageBarrierDescriptor
-        {
-            .srcLayout = Layout::undefined,
-            .dstLayout = Layout::transferDst,
-            .srcStage = ResourcePipelineStageUsageFlagBits::none,
-            .dstStage = ResourcePipelineStageUsageFlagBits::none,
-            .aspect = ImageViewAspect::color,
-            .image = fontImage
-        } });
-
-    uploadCommandList.transfer(
-        SourceBufferDescriptor
-        {
-            .buffer = stagingBuffer,
-            .offset = 0
-        },
-        DestinationImageDescriptor
-        {
-            .image = fontImage,
-            .regions = { Region{ 0, 0, 1, glm::uvec3{width, height, 1 }}}
-        }
-        );
-
-    uploadCommandList.barrier({ ImageBarrierDescriptor
-        {
-            .srcLayout = Layout::transferDst,
-            .dstLayout = Layout::shaderRead,
-            .srcStage = ResourcePipelineStageUsageFlagBits::none,
-            .dstStage = ResourcePipelineStageUsageFlagBits::fragment,
-            .aspect = ImageViewAspect::color,
-            .image = fontImage
-        } });
-    uploadCommandList.end();
-
-    const auto submit = renderer.submitCommandList(QueueType::transfer, { uploadCommandList }, {});
-    renderer.submitBatches(QueueType::transfer, { submit });
+    textureUploader.upload(std::vector<std::byte>( (std::byte*)pixels, (std::byte*)pixels + fontImageSize ), fontTexture);
 
     const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
     {
@@ -361,7 +465,32 @@ int Application::run()
     //=================================================================================
 #pragma endregion
 #pragma region Pipeline creation 
-    //R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
+
+    auto bindlessFlags = Flags<BindGroupFlag>{BindGroupFlag::none};
+    bindlessFlags |= BindGroupFlag::unboundLast;
+
+    const auto bindlessTextureGroup = BindGroupDescriptor
+    {
+        .bindings =
+	    {
+            {
+                .binding = 0,
+                .descriptor = BindingDescriptor{BindingType::Sampler}
+            },
+		    {
+			    .binding = 1,
+			    .descriptor = BindingDescriptor{BindingType::Texture2D, 20}
+		    }
+	    },
+    	.flags = BindGroupFlag::unboundLast
+    };
+    const auto bindlessGroupLayout = renderer.createBindGroupLayout(bindlessTextureGroup, DebugLabel{ .name = "bindlessTextures" });
+    const auto bindlessGroup = renderer.allocateBindGroup(bindlessGroupLayout, UsageScope::async, DebugLabel{"bindlesTextureBindGroup"});
+    
+
+    
+
+	//R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
     const auto simpleTriangleGroup = BindGroupDescriptor
     {
 	    .bindings =
@@ -410,6 +539,7 @@ int Application::run()
             }
         }
     };
+
 
     const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
     const auto simpleTriangleMeshDataGroupLayout = renderer.createBindGroupLayout(simpleTriangleMeshDataGroup);
@@ -474,7 +604,8 @@ int Application::run()
         {
             SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
             SetBindGroupMapping{1, simpleTriangleGroupLayout},
-            SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout}
+            SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout},
+            SetBindGroupMapping{3, bindlessGroupLayout }
         },
         {
             PushConstant({ .size = sizeof(u32)})
@@ -558,15 +689,10 @@ int Application::run()
     const auto guiVertexDataGroupLayout = renderer.createBindGroupLayout(guiVertexDataGroup);
     const auto guiFontGroupLayout = renderer.createBindGroupLayout(guiFontGroup);
 
-    const auto fontView = renderer.createImageView(ImageViewDescriptor
-        {
-            .image = fontImage,
-            .format = Format::r8,
-            .type = ImageViewType::_2D
-        });
+    
 
 
-    const auto fontSampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+    
 
     Handle<BindGroup> guiFontBindGroup = renderer.allocateBindGroup(guiFontGroupLayout, UsageScope::async);
     renderer.updateBindGroup(guiFontBindGroup,
@@ -672,6 +798,24 @@ int Application::run()
     auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
     auto mouseButtonPressed = false;
     //==============================
+
+    using namespace std::string_literals;
+    const auto knightTextureSet = std::array
+    {
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_D.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_F.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_H.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\cloth_diffuse_D.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\cloth_normal_D.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\leather_diffuse_D.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\shield_final_diffuse_A.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\shield_final_normal_A.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\sword_diffuse_C.DDS"s,
+        "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\sword_rough_D.DDS"s,
+    };
+
+
+
     const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
     const auto p2 = "E:\\Develop\\ToyEngineContent\\crystal_palace.glb";
     const auto bistroExterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj";
@@ -686,6 +830,140 @@ int Application::run()
     const auto blaseRunnderCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
 
     const auto scene = Scene::loadSceneFromFile(renderer, knightData);
+
+    auto bindlessTextures = std::vector<Texture2D>{};
+
+    for(const auto& textureFile : knightTextureSet)
+    {
+        auto dataSource = FilestreamTextureDataSourceDescriptor{ textureFile };
+
+        const auto& info = dataSource.getTextureInfo();
+        const auto& texture2dInfo = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
+        TOY_ASSERT(info.format == TextureFormat::bc7);
+
+        Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
+        accessUsage |= ImageAccessUsage::transferDst;
+
+        const auto fontDescriptor = ImageDescriptor
+        {
+            .format = Format::bc7,
+            .extent = Extent{ static_cast<u32>(texture2dInfo.width), static_cast<u32>(texture2dInfo.height)},
+            .mips = info.mipCount,
+            .layers = info.arrayCount,
+            .accessUsage = accessUsage
+        };
+
+        auto image = renderer.createImage(fontDescriptor);
+
+        const auto view = renderer.createImageView(ImageViewDescriptor
+        {
+            .image = image,
+            .format = Format::bc7,
+            .type = ImageViewType::_2D
+        });
+
+        const auto texture = Texture2D
+        {
+            .width = (u32)texture2dInfo.width,
+            .height = (u32)texture2dInfo.height,
+            .image = image,
+            .view = view,
+            .hasMips = info.mipCount > 1,
+            .bytesPerTexel = bytesPerTexel(info.format)
+        };
+
+
+        auto totalSize = u32{};
+        for(auto i = u32{}; i < info.mipCount; i++)
+        {
+            totalSize += lodSizeInBytes(info, i);
+        }
+
+        auto data = std::vector<std::byte>{};
+        data.resize(totalSize);
+        auto dataSpan = std::span(data);
+        loadTexture2D(dataSource, (TextureData)dataSpan);
+
+
+        textureUploader.upload(data, texture);
+
+        bindlessTextures.push_back(texture);
+
+    }
+
+    //===========================BINDLESS================================
+
+    renderer.updateBindGroup(bindlessGroup, { BindingDataMapping{0, SamplerSRV{fontSampler}, 0 } });
+    for(auto i = u32{}; i < bindlessTextures.size(); i++)
+    {
+        renderer.updateBindGroup(bindlessGroup, { BindingDataMapping{1, Texture2DSRV{bindlessTextures[i].view}, i } });
+    }
+
+    //===========================EDITOR==================================
+
+
+
+
+
+    struct TransformComponent
+    {
+        glm::mat4 tranform;
+    };
+
+    struct MeshComponent
+    {
+        u32 meshIndex;
+    };
+
+    struct EditorSceneObject
+    {
+        std::string name;
+        TransformComponent transform;
+        MeshComponent mesh;
+    };
+
+    struct EditorScene
+    {
+        std::vector<EditorSceneObject> scene;
+    };
+
+
+    auto editorScene = EditorScene();
+
+    for(const auto& object : scene.drawInstances_)
+    {
+        const auto editorObject = EditorSceneObject
+        {
+            .name = std::format("object_{}", object.meshIndex),
+            .transform = TransformComponent{ .tranform = object.model },
+            .mesh = MeshComponent{ .meshIndex = object.meshIndex }
+        };
+
+        editorScene.scene.push_back(editorObject);
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
     Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
 	renderer.updateBindGroup(meshDataBindGroup, 
@@ -783,30 +1061,173 @@ int Application::run()
 
 #pragma region scene editor
 
+        
+        
+        static auto selectedObject = u32{0};
+
         auto showSceneHierarchy = true;
-        //ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
+
         if (ImGui::Begin("Scene Hierarchy", &showSceneHierarchy))
         {
-            static int selected = 0;
+            //TODO: remove table
+            if (ImGui::BeginTable("table_item_width", 2, ImGuiTableFlags_RowBg))
             {
-                ImGui::BeginChild("left pane");
-                for (int i = 0; i < 100; i++)
+                ImGui::TableSetupColumn("name");
+                ImGui::TableSetupColumn("visible", ImGuiTableColumnFlags_WidthFixed, 26);
+                //ImGui::TableHeadersRow();
+
+                for (int i = 0; i < editorScene.scene.size(); i++)
                 {
-                    // FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
-                    char label[128];
-                    sprintf(label, "MyObject %d", i);
-                    if (ImGui::Selectable(label, selected == i))
-                        selected = i;
+                    const auto height = ImGui::GetTextLineHeightWithSpacing();
+                    ImGui::TableNextRow(ImGuiTableRowFlags_None, height);
+                    
+                    ImGui::PushID(i);
+                    ImGui::TableSetColumnIndex(0);
+                    if (ImGui::Selectable(editorScene.scene[i].name.c_str(), selectedObject == i))
+                    {
+                        selectedObject = i;
+                    }
+                    ImGui::TableSetColumnIndex(1);
+                    static bool v = true;
+                    if(v)
+                    {
+                        ImGui::ToggleButton(ICON_FA_EYE, &v);
+                    }
+                    else
+                    {
+                        ImGui::ToggleButton(ICON_FA_EYE_SLASH, &v);
+                    }
+
+                    ImGui::PopID();
                 }
-                ImGui::EndChild();
             }
+            ImGui::EndTable();
+        }
+        
+        ImGui::End();
+
+        auto showInspector = true;
+        ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+
+        if (ImGui::Begin("Inspector", &showInspector))
+        {
+            auto& editorObject = editorScene.scene[selectedObject];
+        
+            ImGui::InputText("##", &editorObject.name, ImGuiInputTextFlags_CharsNoBlank);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
+            
+          
+            ImGui::PushID(selectedObject);
+                
+            if (ImGui::TreeNodeEx("Object", ImGuiTreeNodeFlags_DefaultOpen, "%s Transform", ICON_FA_CUBE))
+            {
+                ImGui::PushID(0);
+                ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[0], "%.2f", ImGuiInputTextFlags_None);
+                ImGui::PopID();
+                ImGui::PushID(1);
+                ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[1], "%.2f", ImGuiInputTextFlags_None);
+                ImGui::PopID();
+                ImGui::PushID(2);
+                ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[2], "%.2f", ImGuiInputTextFlags_None);
+                ImGui::PopID();
+                ImGui::PushID(3);
+                ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[3], "%.2f", ImGuiInputTextFlags_None);
+                ImGui::PopID();
+                ImGui::TreePop();
+            }
+
+
+            
+
+            if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen, "%s Material", ICON_FA_CARROT))
+            {
+                ImGui::PushID(0);
+                static auto onCreateNewMaterial = false;
+                static auto hasMaterial = false;
+                static auto materialName = std::string{};
+                static auto materialUID = u32{};
+                if(!hasMaterial && !onCreateNewMaterial && ImGui::Button(ICON_FA_PLUS))
+                {
+                    onCreateNewMaterial = true;
+                    
+                }
+
+                if(!hasMaterial && onCreateNewMaterial)
+                {
+                    auto flags = ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue;
+                    if(ImGui::InputTextWithHint("##", "Name", &materialName, flags))
+                    {
+                        hasMaterial = true;
+                        onCreateNewMaterial = false;
+
+                        auto& assetManager = AssetManager::get();
+                        materialUID = assetManager.createNewMaterial(MaterialAssetDescriptor{.name = materialName });
+
+                    }
+                }
+
+                if(hasMaterial)
+                {
+                    ImGui::Text(materialName.c_str());
+                    ImGui::SameLine();
+                    if(ImGui::Button(ICON_FA_TRASH_CAN))
+                    {
+                        hasMaterial = false;
+                        auto& assetManager = AssetManager::get();
+                        assetManager.deleteMaterial(materialUID);
+                    }
+                    ImGui::SameLine();
+                    if(ImGui::Button(ICON_FA_PEN_TO_SQUARE))
+                    {
+                        editor.tabManager().openMaterialEditorTab(materialUID);
+                    }
+                }
+
+                ImGui::PopID();
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+            ImGui::PopStyleVar();
         }
         ImGui::End();
 
+        auto showAssetBrowser = true;
+
+        static auto contentZoom = 1.0f;
+
+        ImVec2 assetItemSize(40 * contentZoom, 40 * contentZoom);
+        if (ImGui::Begin("AssetBrowser", &showAssetBrowser))
+        {
+            ImGui::SliderFloat("##", &contentZoom, 1.0f, 5.0f, "%.1f");
+
+            const auto contentWidth = ImGui::GetWindowPos().x
+                + ImGui::GetWindowContentRegionMax().x;
+            const auto& style = ImGui::GetStyle();
+            for(auto i = u32{}; i < 100; i++)
+            {
+                ImGui::PushID(i);
+                ImGui::Button("Box", assetItemSize);
+
+                const auto prevItemWidth = ImGui::GetItemRectMax().x;
+                const auto widthAfterItemPush = prevItemWidth + style.ItemSpacing.x + assetItemSize.x;
+                if(widthAfterItemPush < contentWidth)
+                {
+                    ImGui::SameLine();
+                }
+                ImGui::PopID();
+            }
+                
+        }
+        ImGui::End();
+
+        editor.showEditorGui();
 
 
 #pragma endregion
-        materialEditor.drawMaterialEditor();
+
+        //materialEditor.drawMaterialEditor();
+        
 
         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
         
@@ -1288,6 +1709,7 @@ int Application::run()
                     cmd.bindGroup(0, meshDataBindGroup);
                     cmd.bindGroup(1, bindGroup);
                     cmd.bindGroup(2, perInstanceGroup);
+                    cmd.bindGroup(3, bindlessGroup);
 
                         
                     auto setOffset = batchOffsets[index] * dataMemSize;
@@ -1514,7 +1936,7 @@ int Application::run()
 
     ImGui::DestroyContext();
 
-    
+    textureUploader.deinitialize();
     graphicsDebugger.deinitialize();
     renderer.deinitialize();
     window.deinitialize();

@@ -1,10 +1,15 @@
 #version 460
-
+#extension GL_EXT_nonuniform_qualifier : require
 layout(location = 0) out vec4 outputColor;
 layout(location = 0) in flat uint clusterId;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 uv;
 layout(location = 3) in vec3 positionWorldSpace;
+
+layout(set = 3, binding = 0) uniform sampler textureSampler;
+layout(set = 3, binding = 1) uniform texture2D textures[];
+
+//nonuniformEXT
 
 #define PI 3.14159265358979f
 
@@ -77,5 +82,9 @@ void main()
     float s = 0.1f;
     int spatialHash = h_ss(s, positionWorldSpace, s*0.1f);
     outputColor = vec4(normal,/*hashToColor(hash),*/ 1.0);
+
+
+    vec3 c = texture(sampler2D(textures[9], textureSampler), vec2(uv)).xyz;
+    outputColor = vec4(c, 1.0f);
     //outputColor = vec4(id, 1.0);
 }

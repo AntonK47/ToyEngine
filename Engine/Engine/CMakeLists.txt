@@ -14,7 +14,8 @@ set(MODULE_HEADERS
 	Source/IconsFontAwesome6.h
 	Source/toyimconfig.h
 	Source/OutlineFeature.h
-	Source/MaterialEditor.h)
+	Source/MaterialEditor.h
+	Source/Editor.h)
 
 add_library(${MODULE_NAME}
 	STATIC

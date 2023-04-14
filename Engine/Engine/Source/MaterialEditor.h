@@ -6,27 +6,79 @@
 #include <format>
 #include <optional>
 #include <unordered_map>
+#include <array>
 
 #define IMGUI_USER_CONFIG "toyimconfig.h"
 #include <imgui.h>
 #include "IconsFontAwesome6.h"
 
 #include <imgui_node_editor.h>
+#include <Core.h>
+#include <ValidationCommon.h>
 
 
 namespace ed = ax::NodeEditor;
 
 namespace toy::editor::materials
 {
-	struct UID
+
+	enum class NodeType
 	{
-		inline static auto generate() -> const u32
-		{
-			return id++;
-		}
-	private:
-		inline static u32 id{1};
+		none,
+		color,
+		materialOutput
 	};
+
+	using Vec4Type = std::array<float, 4>;
+	using Vec3Type = std::array<float, 3>;
+	using Vec2Type = std::array<float, 2>;
+	using FloatType = float;
+
+	using ValueType = std::variant<Vec4Type, Vec3Type, Vec2Type, FloatType>;
+
+	namespace model
+	{
+		struct Node;
+
+		
+
+		struct OutputPin
+		{
+			Node* owner;
+		};
+
+		struct InputPin
+		{
+			core::u64 nodeId;
+			core::u64 outputIndex;
+		};
+
+		struct Node
+		{
+			NodeType type;
+			std::vector<InputPin> input;
+			std::vector<ValueType> content;
+			std::vector<OutputPin> output;
+		};
+	}
+
+	namespace resolver
+	{
+		namespace glslGenerator
+		{
+		}
+
+		struct ColorNodeResolver
+		{
+			static constexpr core::u32 inputCount = 0;
+			static constexpr core::u32 outputCount = 1;
+			static constexpr core::u32 contentCount = 1;
+
+			std::array<std::string, 1> outputs = { std::string{"<content1>"}};
+		};
+	}
+
+	
 
 	enum class PinType
 	{
@@ -36,18 +88,9 @@ namespace toy::editor::materials
 		vector4Type
 	};
 
-	enum class NodeType
-	{
-		none,
-		color
-	};
+	
 
-	using Vec4Type = std::array<float, 4>;
-	using Vec3Type = std::array<float, 3>;
-	using Vec2Type = std::array<float, 2>;
-	using FloatType = float;
-
-	using ValueType = std::variant<Vec4Type, Vec3Type, Vec2Type, FloatType>;
+	
 
 	struct Pin
 	{
@@ -62,6 +105,12 @@ namespace toy::editor::materials
 	{
 		Pin pin;
 		std::optional<ValueType> value{};
+	};
+
+	struct OutputPin
+	{
+		Pin pin;
+		std::optional<ed::PinId> connection;
 	};
 
 
@@ -86,6 +135,7 @@ namespace toy::editor::materials
 	};
 
 	struct NoneExtension{};
+
 	struct ColorSelectionNode
 	{
 		enum class ColorSpace
@@ -98,22 +148,45 @@ namespace toy::editor::materials
 		
 		ColorSpace selectedColorSpace{ColorSpace::RGBA};
 		core::u32 id;
+		Vec4Type color{};
 
 		void draw()
 		{
 			const char* items[] = { "RGB", "HSV" };
-            int selected = (int)selectedColorSpace;
+			int selected = (int)selectedColorSpace;
 
 			ImGui::PushID(id);
 			ImGui::RadioButton(items[0], &selected, 0);
 			ImGui::SameLine();
 			ImGui::RadioButton(items[1], &selected, 1);
+
+			
+
+			auto flags = ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoOptions |ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoDragDrop;
+
+			switch (selectedColorSpace)
+			{
+			case toy::editor::materials::ColorSelectionNode::ColorSpace::RGBA:
+				flags |= ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_DisplayRGB;
+				break;
+			case toy::editor::materials::ColorSelectionNode::ColorSpace::HSV:
+				flags |= ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_DisplayHSV;
+				break;
+			default:
+				break;
+			}
+
+			ImGui::SetNextItemWidth(200);
+			ImGui::ColorEdit4("", color.data(), flags);
+
 			ImGui::PopID();
 
 			selectedColorSpace = (ColorSpace)selected;
 		}
 	};
+
 	using ExtenstionType = std::variant<NoneExtension, ColorSelectionNode>;
+
 	struct Node
 	{
 		ed::NodeId id{};
@@ -124,40 +197,94 @@ namespace toy::editor::materials
 		std::vector<Pin> outputPins{};
 
 		ExtenstionType extension{};
+
+		NodeType type;
 	};
 
-	
-
-	
-	auto createColorNode() -> Node
+	struct MaterialOutputNode
 	{
-		auto color = Pin{};
-		color.id = ed::PinId{UID::generate()};
-		color.name = "color";
-		color.accentColor = ImColor(0,150,0);//<< vec2 type color
-		color.valueType = PinType::vector4Type;
+		static auto create() -> Node
+		{
+			auto surface = Pin{};
+			surface.id = ed::PinId{UIDGenerator::generate()};
+			surface.name = "Surface";
+			surface.accentColor = ImColor(0,150,0);
+			surface.valueType = PinType::vector4Type;
+
+			const auto nodeId = UIDGenerator::generate();
+
+			auto node = Node{};
+			node.id = ed::NodeId{nodeId};
+			node.title = "Material Output";
+			node.accentColor = ImColor(100,0,0);
+			node.inputPins.push_back(surface);
+			node.type = NodeType::materialOutput;
+
+			return node;
+		}
+
+		static auto generateModel(const Node& node) -> model::Node
+		{
+			TOY_ASSERT(node.type == NodeType::materialOutput);
+			TOY_ASSERT(node.inputPins.size() == 1);
+			TOY_ASSERT(node.outputPins.size() == 0);
+			auto model = model::Node{};
+
+			auto input = model::InputPin{};
+
+			input.nodeId = (const core::u64)node.inputPins[0].id;
+
+			TOY_ASSERT(std::holds_alternative<NoneExtension>(node.extension));
+			model.input.push_back(model::InputPin{});
+			return model;
+		}
+	};
+
+	struct ColorNode
+	{
+		static auto create() -> Node
+		{
+			auto color = Pin{};
+			color.id = ed::PinId{UIDGenerator::generate()};
+			color.name = "color";
+			color.accentColor = ImColor(0,150,0);//<< vec2 type color
+			color.valueType = PinType::vector4Type;
 			
-		const auto nodeId = UID::generate();
+			const auto nodeId = UIDGenerator::generate();
 
-		auto node = Node{};
-		node.id = ed::NodeId{nodeId};
-		node.title = "Color";
-		node.accentColor = ImColor(100,0,0);
-		node.outputPins.push_back(color);
+			auto node = Node{};
+			node.id = ed::NodeId{nodeId};
+			node.title = "Color";
+			node.accentColor = ImColor(100,0,0);
+			node.outputPins.push_back(color);
 
-		node.extension = ColorSelectionNode{nodeId};
-		return node;
-	}
+			node.extension = ColorSelectionNode{nodeId};
+			node.type = NodeType::color;
+			return node;
+		}
+
+		static auto generateModel(const Node& node) -> model::Node
+		{
+			auto model = model::Node{};
+
+			TOY_ASSERT(std::holds_alternative<ColorSelectionNode>(node.extension));
+			auto colorExtension = std::get<ColorSelectionNode>(node.extension);
+			model.content.push_back(colorExtension.color);
+			model.output.push_back(model::OutputPin{});
+			return model;
+		}
+	};
+	
 
 	auto createMaterialOutputNode() -> Node
 	{
 		auto surface = Pin{};
-		surface.id = ed::PinId{UID::generate()};
+		surface.id = ed::PinId{UIDGenerator::generate()};
 		surface.name = "Surface";
 		surface.accentColor = ImColor(0,150,0);
 		surface.valueType = PinType::vector4Type;
 
-		const auto nodeId = UID::generate();
+		const auto nodeId = UIDGenerator::generate();
 
 		auto node = Node{};
 		node.id = ed::NodeId{nodeId};
@@ -340,6 +467,8 @@ namespace toy::editor::materials
         bool isFirstFrame_ = true;
 		std::vector<Node> nodes_;
 		std::vector<Link> links_;
+
+		std::unordered_map<core::u32, model::Node> graphModel_;
 	};
 
 	auto MaterialEditor::drawNode(Node& node) -> void
@@ -396,8 +525,36 @@ namespace toy::editor::materials
 	{
 		if (ImGui::Begin("Node Editor"))
         {
-			ed::SetCurrentEditor(context_);
+			static auto generatedCode = std::string{};
 
+			if(ImGui::Button("generate"))
+			{
+				
+				graphModel_.clear();
+
+				for(const auto& node : nodes_)
+				{
+					if(node.type == NodeType::color)
+					{
+						const auto model = ColorNode::generateModel(node);
+						graphModel_.insert(std::make_pair(UIDGenerator::generate(), model));
+					}
+
+					if(node.type == NodeType::materialOutput)
+					{
+						const auto model = MaterialOutputNode::generateModel(node);
+						graphModel_.insert(std::make_pair(UIDGenerator::generate(), model));
+					}
+				}
+
+				
+
+				generatedCode = "!!!!";
+			}
+
+			ImGui::Text(generatedCode.c_str());
+
+			ed::SetCurrentEditor(context_);
 
 			auto selectedLinks = std::vector<ed::LinkId>{};
 			auto selectedNodes = std::vector<ed::NodeId>{};
@@ -417,7 +574,7 @@ namespace toy::editor::materials
 			//Workaround: It fixes the bug with strange behaved clipping
 			ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(5, 5),ImVec2(6, 6), IM_COL32(0, 0, 0, 1));
 
-			ed::Begin("My Editor", ImVec2(0.0, 0.0f));
+			ed::Begin("My Node Editor");
 			auto cursorTopLeft = ImGui::GetCursorScreenPos();
 
 			ed::PushStyleColor(ed::StyleColor_PinRect, ImColor(0,0,0,0));
@@ -446,7 +603,7 @@ namespace toy::editor::materials
 	                    // ed::AcceptNewItem() return true when user release mouse button.
 	                    if (ed::AcceptNewItem())
 	                    {
-							const auto linkId = UID::generate();
+							const auto linkId = UIDGenerator::generate();
 							links_.push_back(Link{linkId, iPinId, oPinId });
 	                        // Draw new link.
 	                        ed::Link(linkId, iPinId, oPinId);
@@ -536,12 +693,12 @@ namespace toy::editor::materials
 			{
 				if(ImGui::MenuItem("Add Material Output"))
 				{
-					auto node = createMaterialOutputNode();
+					auto node = MaterialOutputNode::create();
 					nodes_.push_back(node);
 				}
 				if(ImGui::MenuItem("Add Color Node"))
 				{
-					auto node = createColorNode();
+					auto node = ColorNode::create();
 					nodes_.push_back(node);
 				}
 
