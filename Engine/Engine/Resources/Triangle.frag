@@ -2,12 +2,13 @@
 #extension GL_EXT_nonuniform_qualifier : require
 layout(location = 0) out vec4 outputColor;
 layout(location = 0) in flat uint clusterId;
-layout(location = 1) in vec3 normal;
-layout(location = 2) in vec2 uv;
-layout(location = 3) in vec3 positionWorldSpace;
+layout(location = 1) in vec2 uv;
+layout(location = 2) in vec3 positionWorldSpace;
+layout(location = 3) in mat3 ntb;
 
-layout(set = 3, binding = 0) uniform sampler textureSampler;
-layout(set = 3, binding = 1) uniform texture2D textures[];
+layout(set = 3, binding = 0) uniform texture2D textures[];
+layout(set = 4, binding = 0) uniform sampler textureSampler;
+
 
 //nonuniformEXT
 
@@ -73,18 +74,26 @@ void main()
 
     vec3 id = hashToColor(hash);
 
-    vec3 lightDirection = vec3(1.0,1.0,1.0);
+   
 
-    //float a = max(0, dot(lightDirection, normalize(normal)));
-
-    //outputColor = vec4(vec3(uv, 0.0f), 1.0);
+    vec3 lightDirection = normalize(vec3(1.0,1.0,1.0));
 
     float s = 0.1f;
     int spatialHash = h_ss(s, positionWorldSpace, s*0.1f);
-    outputColor = vec4(normal,/*hashToColor(hash),*/ 1.0);
+
+    vec3 diffuse = texture(sampler2D(textures[6], textureSampler), vec2(uv)).xyz;
+
+    vec3 normalTS = texture(sampler2D(textu
+    vec3 normalWS = ntb * normalTS;
 
 
-    vec3 c = texture(sampler2D(textures[9], textureSampler), vec2(uv)).xyz;
-    outputColor = vec4(c, 1.0f);
-    //outputColor = vec4(id, 1.0);
+    float radiance = max(0, dot(lightDirection, normalize(normalWS)));
+
+
+    vec3 shadowColor = vec3(130.f/255.0f, 163.f/255.0f, 255.f/255.0f) * 0.15;
+    vec3 diffuseColor = vec3(0.9f, 0.4f, 0.1f);
+
+    vec3 color = mix(shadowColor, diffuse, radiance);
+
+    outputColor = vec4(color, 1.0f);
 }

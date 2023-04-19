@@ -129,15 +129,16 @@ namespace toy::core
 		Color color{ 0,0,0 };
 	};
 
+	using UID = u32;
 
 	struct UIDGenerator
 	{
-		inline static auto generate() -> const core::u32
+		inline static auto generate() -> const UID
 		{
 			return id++;
 		}
 	private:
-		inline static core::u32 id{1};
+		inline static UID id{1};
 	};
 }
 

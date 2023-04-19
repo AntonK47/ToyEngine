@@ -20,6 +20,7 @@ layout(set = 0, binding = 0, scalar) buffer VertexStreamBlock
 struct ScaleTranslate{
     vec2 scale;
     vec2 translate;
+    uint textureId;
 };
 
 layout(push_constant) uniform constants
@@ -33,7 +34,8 @@ struct GuiVStoFs
     vec2 uv;
 };
 
-layout(location = 0) out GuiVStoFs vsOut;
+layout(location = 0) out flat uint textureId;
+layout(location = 1) out GuiVStoFs vsOut;
 
 vec4 colorDecode(uint c)
 {
@@ -52,5 +54,6 @@ void main()
 
     vsOut.color = colorDecode(vertex.color);
     vsOut.uv = vertex.uv;
+    textureId = scaleTranslate.textureId;
     gl_Position = vec4(vertex.position * scaleTranslate.scale + scaleTranslate.translate, 0.0, 1.0);
 }

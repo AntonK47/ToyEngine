@@ -523,6 +523,7 @@ namespace toy::editor::materials
 
 	auto MaterialEditor::drawMaterialEditor() -> void
 	{
+		ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiCond_FirstUseEver);
 		if (ImGui::Begin("Node Editor"))
         {
 			static auto generatedCode = std::string{};
@@ -556,7 +557,7 @@ namespace toy::editor::materials
 
 			ed::SetCurrentEditor(context_);
 
-			auto selectedLinks = std::vector<ed::LinkId>{};
+			/*auto selectedLinks = std::vector<ed::LinkId>{};
 			auto selectedNodes = std::vector<ed::NodeId>{};
 
 			const auto selectedObjectCount = ed::GetSelectedObjectCount();
@@ -568,11 +569,11 @@ namespace toy::editor::materials
 			const auto selectedNodeCount = ed::GetSelectedNodes(selectedNodes.data(), selectedNodes.size());
 
 			selectedLinks.resize(selectedLinkCount);
-			selectedNodes.resize(selectedNodeCount);
+			selectedNodes.resize(selectedNodeCount);*/
 
 
-			//Workaround: It fixes the bug with strange behaved clipping
-			ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(5, 5),ImVec2(6, 6), IM_COL32(0, 0, 0, 1));
+			////Workaround: It fixes the bug with strange behaved clipping
+			//ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(5, 5),ImVec2(6, 6), IM_COL32(0, 0, 0, 1));
 
 			ed::Begin("My Node Editor");
 			auto cursorTopLeft = ImGui::GetCursorScreenPos();
@@ -653,18 +654,18 @@ namespace toy::editor::materials
 			ImGui::SetCursorScreenPos(cursorTopLeft);
 
 			auto openPopupPosition = ImGui::GetMousePos();
-	        ed::Suspend();
+			ed::Suspend();
 	        if (ed::ShowNodeContextMenu(&selectedNodeId))
 	        {
 	            ImGui::OpenPopup("NodeContextMenu");
 	        }
 	        else if (ed::ShowPinContextMenu(&selectedPinId))
 	        {
-		        ImGui::OpenPopup("PinContextMenu");
+	          ImGui::OpenPopup("PinContextMenu");
 	        }
 	        else if (ed::ShowLinkContextMenu(&selectedLinkId))
 	        {
-		        ImGui::OpenPopup("LinkContextMenu");
+				ImGui::OpenPopup("LinkContextMenu");
 	        }
 	        else if (ed::ShowBackgroundContextMenu())
 	        {
@@ -704,11 +705,10 @@ namespace toy::editor::materials
 
 				ImGui::EndPopup();
 			}
-
 			ed::Resume();
 
 			ed::End();
-            ed::SetCurrentEditor(nullptr);
+			ed::SetCurrentEditor(nullptr);
         }
 		ImGui::End();
         isFirstFrame_ = false;

@@ -87,10 +87,12 @@ layout(push_constant) uniform constants
 	uint drawId;
 };
 
+
+
 layout(location = 0) out uint clusterId;
-layout(location = 1) out vec3 normal;
-layout(location = 2) out vec2 uv;
-layout(location = 3) out vec3 positionWorldSpace;
+layout(location = 1) out vec2 uv;
+layout(location = 2) out vec3 positionWorldSpace;
+layout(location = 3) out mat3 ntb;
 
 void main()
 {
@@ -105,7 +107,13 @@ void main()
     int index = int(instance.positionStreamOffset) + meshlet.positionStreamOffset + int(uint(triangles[int(instance.triangleOffset) + meshlet.triangleOffset + triangleId]));
     
     Position p = positionStream[index];
-    normal = tangentFrameStream[index].normal;
+
+    vec3 normal = tangentFrameStream[index].normal;
+    vec3 tangent = tangentFrameStream[index].tangent;
+    vec3 bitangent = tangentFrameStream[index].bitangent;
+    
+    ntb = mat3(normal, tangent, bitangent);
+    
     uv = uvStream[index];
     
     vec4 position = vec4(p.x,p.y,p.z,1.0);

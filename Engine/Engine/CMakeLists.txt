@@ -4,7 +4,9 @@ set(MODULE_NAME Engine)
 set(MODULE_SOURCES 
 	Source/Application.cpp
 	Source/SceneLoader.cpp
-	Source/DDSLoader.cpp)
+	Source/DDSLoader.cpp
+	Source/MapIO.cpp
+	Source/TextureManager.cpp)
 set(MODULE_HEADERS 
 	Source/Application.h
 	Source/SceneLoader.h
@@ -15,7 +17,10 @@ set(MODULE_HEADERS
 	Source/toyimconfig.h
 	Source/OutlineFeature.h
 	Source/MaterialEditor.h
-	Source/Editor.h)
+	Source/Editor.h
+	Source/ImageDataUploader.h
+	Source/TextureManager.h
+	Source/Texture2D.h)
 
 add_library(${MODULE_NAME}
 	STATIC
