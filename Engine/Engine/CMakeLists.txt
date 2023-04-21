@@ -46,7 +46,6 @@ target_link_libraries(${MODULE_NAME}
 		Freetype::Freetype
 		imgui::imgui
 		imgui-node-editor-static
-		Win32Window
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

@@ -131,10 +131,18 @@ namespace toy::io
     };
     //struct GamepadState {};
 
+    enum class DragDropEvent
+    {
+        none,
+        dragBegin,
+        dragEnd
+    };
+
     struct WindowIo
     {
         MouseState mouseState;
         KeyboardState keyboardState;
         TextState textState;
+        DragDropEvent dragDropState;
     };
 }

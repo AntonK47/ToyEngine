@@ -7,7 +7,7 @@ struct SDL_Window;
 
 namespace toy::window
 {
-
+    
     class SDLWindow final : public Window
     {
     public:
@@ -16,12 +16,15 @@ namespace toy::window
     private:
         [[nodiscard]] io::WindowIo getIoInternal() override;
         [[nodiscard]] std::vector<Event> getEventsInternal() override;//TODO: smallvector
+        [[nodiscard]] std::vector<std::filesystem::path> getDragedFilePathsInternal() override;
+        void registerExternalDragExtensionInternal(const std::string& extension) override;
         void pollEventsInternal() override;
         void initializeInternal(const WindowDescriptor& descriptor) override;
         void deinitializeInternal() override;
         void resizeInternal(core::u32 width, core::u32 height) override;
 
         void resetPolledEventsAndIo();
+        io::DragDropEvent pollDragDropEvent();
     protected:
         void setWindowTitleInternal(const std::string& title) override;
     private:

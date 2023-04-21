@@ -1,10 +1,8 @@
 #pragma once
-#include <assert.h>
+
 namespace toy::graphics::rhi::validation
 {
 //#define LOG(message)
-#define TOY_ASSERT(expression) assert(expression)
-#define TOY_ASSERT_BREAK(expression) if(!(expression)) __debugbreak()
 
 #ifdef TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION
 #define DECLARE_VALIDATOR(type) type validatorObject_{}

@@ -161,33 +161,63 @@ namespace toy::editor
 		}
 	};
 
-	struct MenuTabManager
+	struct TextureImportTab : public Tab
+	{
+		TextureImportTab() : Tab(std::string{"Texture Import"})
+		{}
+		auto addFiles(const std::vector<std::filesystem::path>& files) -> void
+		{
+			for (const auto& f : files)
+			{
+				fileList_.push_back(f);
+			}
+		}
+
+	protected:
+		auto showInternal() -> void override
+		{
+			ImGui::PushStyleColor(ImGuiCol_ResizeGrip, ImVec4(0, 0, 0, 0));
+			ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered, ImVec4(0, 0, 0, 0));
+			ImGui::PushStyleColor(ImGuiCol_ResizeGripActive, ImVec4(0, 0, 0, 0));
+
+			
+			static bool op = true;
+			static bool use_work_area = true;
+			static ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+			auto windowSize = viewport->WorkSize;
+			windowSize.x = windowSize.x / 4;
+
+			ImGui::SetNextWindowSizeConstraints(ImVec2(0, -1), ImVec2(FLT_MAX, -1));
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(windowSize, ImGuiCond_Appearing);
+
+			if (ImGui::Begin("Example: Fullscreen window", &op, flags))
+			{
+				for (const auto& file : fileList_)
+				{
+					ImGui::Text("%s", file.filename().generic_string().c_str());
+				}
+
+				if (&op && ImGui::Button("Close this window"))
+					op = false;
+			}
+			ImGui::End();
+			
+			
+
+			ImGui::PopStyleColor(3);
+		}
+	private:
+		std::vector<std::filesystem::path> fileList_{};
+	};
+
+	struct TabManager
 	{
 		auto showTabBar(const float barWidth) -> void
 		{
-
-
-			//const auto tabBarFlags = ImGuiTabBarFlags_None;// | ImGuiTabBarFlags_FittingPolicyScroll | ImGuiTabBarFlags_Reorderable;
-			//if (ImGui::BeginTabBar("TabBar###1", tabBarFlags))
-			//{
-			//	for(auto& [tabUID, tab] : tabs)
-			//	{
-			//		auto flags = 0;
-			//		if(tabUID == activTab)
-			//		{
-			//			flags |= ImGuiTabItemFlags_SetSelected;
-			//		}
-
-			//		static bool t = true;
-			//		if (t && ImGui::BeginTabItem(tab->title().c_str()), &t, ImGuiTabItemFlags_None )
-			//		{
-			//			ImGui::EndTabItem();
-			//		}
-
-
-			//	}
-			//	ImGui::EndTabBar();
-			//}
 
 			const auto tabBarFlags = ImGuiTabBarFlags_None;// | ImGuiTabBarFlags_FittingPolicyScroll | ImGuiTabBarFlags_Reorderable;
 			if (ImGui::BeginTabBar("TabBar###1", tabBarFlags))
@@ -205,6 +235,22 @@ namespace toy::editor
 
 			applyTabClose();
 			
+		}
+
+		auto showTabContent() -> void
+		{
+			for (auto& [tabUID, tab] : tabs)
+			{
+				tab->show();
+			}
+		}
+
+		auto openTextureImportTab() -> TextureImportTab*
+		{
+			auto tab = std::make_unique<TextureImportTab>();
+			const auto tabUID = core::UIDGenerator::generate();
+			tabs.insert(std::make_pair(tabUID, std::move(tab)));
+			return (TextureImportTab*)tabs.at(tabUID).get();
 		}
 
 		auto openMaterialEditorTab(const MaterialUID materialUID) -> void
@@ -240,11 +286,14 @@ namespace toy::editor
 
 			for(const auto& uid : delitionQueue)
 			{
-				const auto assetUID = tabUIDToAssetUID.at(uid);
+				/*const auto assetUID = tabUIDToAssetUID.at(uid);
 				assetUIDToTabUID.erase(assetUID);
-				tabUIDToAssetUID.erase(uid);
+				tabUIDToAssetUID.erase(uid);*/
 				tabs.erase(uid);
 			}
+
+
+			
 		}
 		
 
@@ -608,9 +657,19 @@ namespace toy::editor
 		auto showEditorGui() -> void
 		{
 			showMenuBar();
+
+			tabManager_.showTabContent();
+			//showAssetBrowser();
 		}
 
-		auto tabManager() -> MenuTabManager&
+
+		auto openTextureImport(const std::vector<std::filesystem::path>& files) -> void
+		{
+			auto textureImportTab = tabManager_.openTextureImportTab();
+			textureImportTab->addFiles(files);
+		}
+
+		auto tabManager() -> TabManager&
 		{
 			return tabManager_;
 		}
@@ -618,7 +677,7 @@ namespace toy::editor
 
 		RenderInterface* rhi_;
 		ImageDataUploader* uploader_;
-		MenuTabManager tabManager_;
+		TabManager tabManager_;
 
 		struct SceneDrawStaticstics
 		{

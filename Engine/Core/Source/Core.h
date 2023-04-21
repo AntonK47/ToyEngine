@@ -12,12 +12,9 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
-
-
-
-
 #include <cstdint>
 #include <vector>
+#include <assert.h>
 
 struct NativeBackend
 {
@@ -140,5 +137,8 @@ namespace toy::core
 	private:
 		inline static UID id{1};
 	};
+
+#define TOY_ASSERT(expression) assert(expression)
+#define TOY_ASSERT_BREAK(expression) if(!(expression)) __debugbreak()
 }
 

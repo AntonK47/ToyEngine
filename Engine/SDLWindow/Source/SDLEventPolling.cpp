@@ -19,6 +19,10 @@ void SDLWindow::pollEventsInternal()
 {
     resetPolledEventsAndIo();
 
+
+    windowIo_.dragDropState = pollDragDropEvent();
+
+
     windowIo_.mouseState.wheel.x = 0.0;
     windowIo_.mouseState.wheel.y = 0.0;
 
@@ -225,5 +229,11 @@ void SDLWindow::pollEventsInternal()
         default:
             break;
         }
+
+        /*if (windowIo_.dragDropState != toy::io::DragDropEvent::none)
+        {
+            windowIo_.mouseState.position.x = event.motion.x;
+            windowIo_.mouseState.position.y = event.motion.y;
+        }*/
     }
 }

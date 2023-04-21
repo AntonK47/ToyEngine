@@ -51,7 +51,6 @@
 
 #include "DDSLoader.h"
 
-#include <Win32Window.h>
 
 using namespace toy::io::loaders::dds;
 
@@ -290,8 +289,6 @@ struct TextureDescriptor
 
 int Application::run()
 {
-	//CMP_InitFramework();
-
 	logger::initialize();
 	auto window = SDLWindow{};
 	auto renderer = RenderInterface{};
@@ -307,6 +304,7 @@ int Application::run()
 
 	window.initialize(WindowDescriptor{ windowWidth, windowHeight });
 	window.setWindowTitle("Toy Engine"); // <- this course memory allocation
+	window.registerExternalDragExtension(".png");
 
 	auto materialEditor = toy::editor::materials::MaterialEditor{};
 
@@ -341,9 +339,10 @@ int Application::run()
 	//editor.initialize(renderer, textureUploader);
 
 
-
-
 	ImGui::CreateContext();
+
+	ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+	ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
 
 	float baseFontSize = 16.0f;
 	float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
@@ -1191,6 +1190,41 @@ int Application::run()
 		}
 		ImGui::End();
 
+		
+		static bool drag = false;
+
+		if (io.dragDropState == io::DragDropEvent::dragBegin)
+		{
+			drag = true;
+		}
+		if (io.dragDropState == io::DragDropEvent::dragEnd)
+		{
+			drag = false;
+		}
+
+		if (io.dragDropState == io::DragDropEvent::dragEnd)
+			LOG(INFO) << "END";
+		if(io.dragDropState == io::DragDropEvent::dragBegin)
+			LOG(INFO) << "BEGIN";
+	
+
+	
+
+		if(drag)
+		{
+			//HACK
+			ImGui::GetIO().MouseDown[ImGuiMouseButton_Left] = true;
+
+			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
+			{
+				ImGui::SetDragDropPayload("FILES", nullptr, 0);
+				ImGui::BeginTooltip();
+				ImGui::Text(ICON_FA_FILE_IMAGE);
+				ImGui::EndTooltip();
+				ImGui::EndDragDropSource();
+			}
+		}
+
 		auto showAssetBrowser = true;
 
 		static auto contentZoom = 1.0f;
@@ -1199,14 +1233,37 @@ int Application::run()
 		if (ImGui::Begin("AssetBrowser", &showAssetBrowser))
 		{
 			ImGui::SliderFloat("##", &contentZoom, 1.0f, 5.0f, "%.1f");
+			auto& style = ImGui::GetStyle();
+
+			ImGui::ProgressBar(0.3);
+			const auto gridStartPosition = ImGui::GetCursorPos();
+			ImGui::Dummy(ImGui::GetContentRegionAvail());
+			
+			if (ImGui::BeginDragDropTarget())
+			{
+				if (auto t = ImGui::AcceptDragDropPayload("FILES"))  // or: const ImGuiPayload* payload = ... if you sent a payload in the block above
+				{
+					const auto& paths = window.getDragedFilePaths();
+					for (const auto& path : paths)
+					{
+						std::cout << path.generic_string() << std::endl;
+					}
+					
+					// draggedFiles is my vector of strings, how you handle your payload is up to you
+					editor.openTextureImport(paths);
+				}
+
+				ImGui::EndDragDropTarget();
+			}
+			ImGui::SetCursorPos(gridStartPosition);
 
 			const auto contentWidth = ImGui::GetWindowPos().x
 				+ ImGui::GetWindowContentRegionMax().x;
-			const auto& style = ImGui::GetStyle();
+			ImGui::BeginGroup();
 			for(auto i = u32{}; i < assetTextures.size(); i++)
 			{
 				ImGui::PushID(i);
-				ImGui::ImageButton((void*)assetTextures[i], assetItemSize);
+				ImGui::ImageButton("b", (void*)assetTextures[i], assetItemSize);
 
 				const auto prevItemWidth = ImGui::GetItemRectMax().x;
 				const auto widthAfterItemPush = prevItemWidth + style.ItemSpacing.x + assetItemSize.x;
@@ -1216,6 +1273,8 @@ int Application::run()
 				}
 				ImGui::PopID();
 			}
+			ImGui::EndGroup();
+			
 				
 		}
 		ImGui::End();

@@ -1,16 +1,225 @@
 #include "SDLWindow.h"
 #define SDL_MAIN_HANDLED
 
-
+#include <Core.h>
 #include <SDL2/SDL_vulkan.h>
 #include <SDL2/SDL_syswm.h>
 #include <Logger.h>
+#include <filesystem>
+#include <set>
+#include <WindowIO.h>
 
 using namespace toy::window;
 using namespace toy::core;
 
+
+
+#ifdef WIN32
+
+//NOTE: https://github.com/ocornut/imgui/issues/2602
+class DropManager : public IDropTarget
+{
+    auto QueryInterface(
+        REFIID riid,
+        void** ppvObject) -> HRESULT override
+    {
+        if (riid == IID_IDropTarget)
+        {
+            *ppvObject = this;
+            return S_OK;
+        }
+
+        *ppvObject = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    auto AddRef(void) -> ULONG override
+    {
+        return 1;
+    }
+
+    auto Release(void) -> ULONG override
+    {
+        return 0;
+    }
+
+    auto DragEnter(
+        IDataObject* pDataObj,
+        DWORD grfKeyState,
+        POINTL pt,
+        DWORD* pdwEffect) -> HRESULT override
+    {
+        FORMATETC fmte = { CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
+        STGMEDIUM stgm;
+
+        dragedFiles.clear();
+        isDragAccepted = true;
+
+        if (SUCCEEDED(pDataObj->GetData(&fmte, &stgm)))
+        {
+            HDROP hdrop = (HDROP)stgm.hGlobal; // or reinterpret_cast<HDROP> if preferred
+            UINT file_count = DragQueryFile(hdrop, 0xFFFFFFFF, NULL, 0);
+
+            auto paths = std::vector<std::string>{};
+
+            // we can drag more than one file at the same time, so we have to loop here
+            for (UINT i = 0; i < file_count; i++)
+            {
+                TCHAR szFile[MAX_PATH];
+                UINT cch = DragQueryFile(hdrop, i, szFile, MAX_PATH);
+                if (cch > 0 && cch < MAX_PATH)
+                {
+                    const auto path = std::filesystem::path{ std::format("{}", szFile) };
+                    const auto extension = path.extension().generic_string();
+                    
+                    if (!registredExtensions.contains(extension))
+                    {
+                        LOG(INFO) << std::format("File extention is not supported by application: {}", path.generic_string());
+                        isDragAccepted = false;
+                    }
+                    else
+                    {
+                        dragedFiles.push_back(path);
+                    }
+                }
+
+
+            }
+
+            ReleaseStgMedium(&stgm);
+
+        }
+
+        if (!isDragAccepted)
+        {
+            *pdwEffect &= DROPEFFECT_NONE;
+        }
+        else
+        {
+            *pdwEffect &= DROPEFFECT_COPY;
+            
+        }
+        events.push_back(toy::io::DragDropEvent::dragBegin);
+        return S_OK;
+    }
+
+    auto DragOver(
+        DWORD grfKeyState,
+        POINTL pt,
+        DWORD* pdwEffect) -> HRESULT override
+    {
+
+        POINT p;
+        p.x = pt.x;
+        p.y = pt.y;
+        ScreenToClient(windowOwner, &p);
+        mouseX = p.x;
+        mouseY = p.y;
+
+        if (!isDragAccepted)
+        {
+            *pdwEffect &= DROPEFFECT_NONE;
+        }
+        else
+        {
+            *pdwEffect &= DROPEFFECT_COPY;
+        }
+
+        return S_OK;
+    }
+
+    auto DragLeave(void) -> HRESULT override
+    {
+        events.push_back(toy::io::DragDropEvent::dragEnd);
+        return S_OK;
+    }
+
+    auto Drop(
+        IDataObject* pDataObj,
+        DWORD grfKeyState,
+        POINTL pt,
+        DWORD* pdwEffect) -> HRESULT  override
+    {
+        
+        events.push_back(toy::io::DragDropEvent::dragEnd);
+        *pdwEffect &= DROPEFFECT_COPY;
+        return S_OK;
+    }
+
+    
+
+
+    bool isDragAccepted{ false };
+    bool isDraging{ false };
+    friend class SDLWindow;
+
+    std::vector<toy::io::DragDropEvent> events;
+    std::set<std::string> registredExtensions;
+    std::vector<std::filesystem::path> dragedFiles;
+    
+    u32 mouseX;
+    u32 mouseY;
+
+    HWND windowOwner;
+};
+
+namespace
+{
+    DropManager dropManager;
+}
+#endif
+
+toy::io::DragDropEvent SDLWindow::pollDragDropEvent()
+{
+    auto lastEvent = toy::io::DragDropEvent::none;
+    for (auto e : dropManager.events)
+    {
+        if (lastEvent == toy::io::DragDropEvent::dragEnd)
+        {
+            continue;
+        }
+
+        lastEvent = e;
+    }
+    dropManager.events.clear();
+
+    if (lastEvent == toy::io::DragDropEvent::dragBegin)
+    {
+        dropManager.isDraging = true;
+    }
+
+    if (lastEvent == toy::io::DragDropEvent::dragEnd)
+    {
+        dropManager.isDraging = false;
+    }
+
+    if (dropManager.isDraging)
+    {
+        windowIo_.mouseState.position.x = dropManager.mouseX;
+        windowIo_.mouseState.position.y = dropManager.mouseY;
+    }
+    
+    return lastEvent;
+}
+
+std::vector<std::filesystem::path> SDLWindow::getDragedFilePathsInternal()
+{
+    return dropManager.dragedFiles;
+}
+
+void SDLWindow::registerExternalDragExtensionInternal(const std::string& extension)
+{
+    if (!dropManager.registredExtensions.contains(extension))
+    {
+        dropManager.registredExtensions.insert(extension);
+    }
+}
+
 void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 {
+#ifdef WIN32
+    OleInitialize(NULL);
+#endif
     {
         auto result = SDL_Init(SDL_INIT_VIDEO);
         if (result)
@@ -49,7 +258,13 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 
         handler_.hwnd = info.info.win.window;
         handler_.hinstance = info.info.win.hinstance;
+        
+        {
+            const auto result = RegisterDragDrop(handler_.hwnd, &dropManager);
+            TOY_ASSERT(result == S_OK);
+        }
 
+        dropManager.windowOwner = handler_.hwnd;
 #endif
 
         currentPolledEvents_ = std::vector<Event>{};//TODO: smallvector
@@ -73,6 +288,8 @@ void SDLWindow::resetPolledEventsAndIo()
     }
     currentPolledEvents_.clear();
     windowIo_.textState.reset();
+
+    
     /*windowIo_.keyboardState.reset();
     windowIo_.mouseState.reset();*/
 }
@@ -94,8 +311,16 @@ std::vector<Event> SDLWindow::getEventsInternal()//TODO: smallvector
 
 void SDLWindow::deinitializeInternal()
 {
+#ifdef WIN32
+    RevokeDragDrop(handler_.hwnd);
+#endif
+
     SDL_DestroyWindow(window_);
     SDL_Quit();
+#ifdef WIN32
+    OleUninitialize();
+#endif
+    
 }
 
 void SDLWindow::resizeInternal(core::u32 width, core::u32 height)
