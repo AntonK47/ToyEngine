@@ -23,7 +23,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
             SDL_WINDOWPOS_CENTERED,
             static_cast<int>(width_),
             static_cast<int>(height_),
-            SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI);
+            SDL_WINDOW_VULKAN);// | SDL_WINDOW_BORDERLESS);
 
         auto extensionsCount = u32{};
         result = SDL_Vulkan_GetInstanceExtensions(window_, &extensionsCount, nullptr);
@@ -39,7 +39,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
         }
 
         meta_.requiredExtensions = extensions;
-        SDL_ShowCursor(SDL_DISABLE);
+        //SDL_ShowCursor(SDL_DISABLE);
 #endif
 
 #ifdef WIN32
@@ -63,6 +63,14 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 
 void SDLWindow::resetPolledEventsAndIo()
 {
+    if (windowIo_.keyboardState.b == toy::io::ButtonState::pressed)
+    {
+        SDL_SetWindowBordered(window_, SDL_TRUE);
+    }
+    if (windowIo_.keyboardState.n == toy::io::ButtonState::pressed)
+    {
+        SDL_SetWindowBordered(window_, SDL_FALSE);
+    }
     currentPolledEvents_.clear();
     windowIo_.textState.reset();
     /*windowIo_.keyboardState.reset();

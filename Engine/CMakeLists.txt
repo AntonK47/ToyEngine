@@ -6,6 +6,7 @@ foreach(MODULE
 	Engine
 	Window
 	SDLWindow
+	Win32Window
 	RenderInterface 
 	GLSLRuntimeCompiler
 	GraphicsDebugger
