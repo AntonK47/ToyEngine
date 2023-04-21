@@ -6,8 +6,8 @@ layout(location = 1) in vec2 uv;
 layout(location = 2) in vec3 positionWS;
 layout(location = 3) in mat3 ntb;
 
-layout(set = 3, binding = 0) uniform sampler textureSampler;
-layout(set = 3, binding = 1) uniform texture2D textures2D[];
+layout(set = 3, binding = 0) uniform texture2D textures2D[];
+layout(set = 4, binding = 0) uniform sampler textureSampler;
 //layout(set = 4, binding = 0) uniform texture3D textures3D[];
 //nonuniformEXT
 

@@ -160,7 +160,7 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	glslang_shader_t* shader = glslang_shader_create(&input);
 
 	if (!glslang_shader_preprocess(shader, &input)) {
-		printf("GLSL preprocessing failed %s\n", "aa.txt");
+		printf("GLSL preprocessing failed!\n");
 		printf("%s\n", glslang_shader_get_info_log(shader));
 		printf("%s\n", glslang_shader_get_info_debug_log(shader));
 		printf("%s\n", input.code);
@@ -169,7 +169,7 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	}
 
 	if (!glslang_shader_parse(shader, &input)) {
-		printf("GLSL parsing failed %s\n", "aa.txt");
+		printf("GLSL parsing failed!\n");
 		printf("%s\n", glslang_shader_get_info_log(shader));
 		printf("%s\n", glslang_shader_get_info_debug_log(shader));
 		printf("%s\n", glslang_shader_get_preprocessed_code(shader));
@@ -181,7 +181,7 @@ CompilationResult GlslRuntimeCompiler::compileToSpirv(const ShaderInfo& info, Sh
 	glslang_program_add_shader(program, shader);
 
 	if (!glslang_program_link(program, GLSLANG_MSG_SPV_RULES_BIT | GLSLANG_MSG_VULKAN_RULES_BIT)) {
-		printf("GLSL linking failed %s\n", "aa.txt");
+		printf("GLSL linking failed!\n");
 		printf("%s\n", glslang_program_get_info_log(program));
 		printf("%s\n", glslang_program_get_info_debug_log(program));
 		glslang_program_delete(program);

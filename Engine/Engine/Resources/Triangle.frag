@@ -70,20 +70,11 @@ vec3 hashToColor(int hash)
 
 void main()
 {
-    int hash = hash(hash(int(clusterId)));
-
-    vec3 id = hashToColor(hash);
-
-   
-
     vec3 lightDirection = normalize(vec3(1.0,1.0,1.0));
-
-    float s = 0.1f;
-    int spatialHash = h_ss(s, positionWorldSpace, s*0.1f);
 
     vec3 diffuse = texture(sampler2D(textures[6], textureSampler), vec2(uv)).xyz;
 
-    vec3 normalTS = texture(sampler2D(textu
+    vec3 normalTS = texture(sampler2D(textures[7], textureSampler), vec2(uv)).xyz;
     vec3 normalWS = ntb * normalTS;
 
 

@@ -50,9 +50,10 @@
 #include "TextureManager.h"
 
 #include "DDSLoader.h"
-using namespace toy::io::loaders::dds;
 
-//#include <compressonator.h>
+#include <Win32Window.h>
+
+using namespace toy::io::loaders::dds;
 
 using namespace toy::graphics::rhi;
 
@@ -92,6 +93,7 @@ namespace
 		Handle<BindGroupLayout> geometryLayout;
 		Handle<BindGroupLayout> perInstanceDataLayout;
 		Handle<BindGroupLayout> perFrameDataLayout;
+		Handle<BindGroupLayout> samplerLayout;
 	};
 
 	struct MaterialCompiolationDescriptor
@@ -200,7 +202,8 @@ namespace
 					SetBindGroupMapping{0, descriptor.frameContext.geometryLayout},
 					SetBindGroupMapping{1, descriptor.frameContext.perFrameDataLayout},
 					SetBindGroupMapping{2, descriptor.frameContext.perInstanceDataLayout},
-					SetBindGroupMapping{3, descriptor.frameContext.texturesLayout}
+					SetBindGroupMapping{3, descriptor.frameContext.texturesLayout},
+					SetBindGroupMapping{4, descriptor.frameContext.samplerLayout}
 				},
 				{
 					PushConstant({.size = sizeof(u32)})
@@ -518,7 +521,8 @@ int Application::run()
 		.texturesLayout = textureManager.getTextureBindGroupLayout(),
 		.geometryLayout = simpleTriangleMeshDataGroupLayout,
 		.perInstanceDataLayout = simpleTrianglePerInstanceGroupLayout,
-		.perFrameDataLayout = simpleTriangleGroupLayout
+		.perFrameDataLayout = simpleTriangleGroupLayout,
+		.samplerLayout = samplingGroupLayout
 	};
 
 	const auto sharedMaterial = MaterialGenerator::compilePipeline(renderer,
@@ -832,7 +836,7 @@ int Application::run()
 		Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
 		accessUsage |= ImageAccessUsage::transferDst;
 
-		const auto fontDescriptor = ImageDescriptor
+		const auto imageDescriptor = ImageDescriptor
 		{
 			.format = Format::bc7,
 			.extent = Extent{ static_cast<u32>(texture2dInfo.width), static_cast<u32>(texture2dInfo.height)},
@@ -841,7 +845,7 @@ int Application::run()
 			.accessUsage = accessUsage
 		};
 
-		auto image = renderer.createImage(fontDescriptor);
+		auto image = renderer.createImage(imageDescriptor);
 
 		const auto view = renderer.createImageView(ImageViewDescriptor
 		{
@@ -959,8 +963,7 @@ int Application::run()
 	bool stillRunning = true;
 	auto captureTool = graphicsDebugger.getScopeCapture();
 
-	auto frameStartTime = std::chrono::high_resolution_clock::now();
-	auto frameEndTime = std::chrono::high_resolution_clock::now();
+	
 
 	SubmitBatch prepareBatch;
 	auto prepareBatchValide = false;
@@ -1022,7 +1025,8 @@ int Application::run()
 
 
 
-
+	auto frameStartTime = std::chrono::high_resolution_clock::now();
+	auto frameEndTime = std::chrono::high_resolution_clock::now();
 
 
 	while (stillRunning)
@@ -1724,6 +1728,7 @@ int Application::run()
 					cmd.bindGroup(1, bindGroup);
 					cmd.bindGroup(2, perInstanceGroup);
 					cmd.bindGroup(3, textureManager.getTextureBindGroup());
+					cmd.bindGroup(4, samplingGroup);
 
 						
 					auto setOffset = batchOffsets[index] * dataMemSize;

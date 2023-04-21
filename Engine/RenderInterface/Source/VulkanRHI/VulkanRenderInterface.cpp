@@ -207,7 +207,7 @@ namespace
                 .descriptorBindingUpdateUnusedWhilePending = vk::Bool32{ true },
                 .descriptorBindingPartiallyBound = vk::Bool32{ true },
                 .descriptorBindingVariableDescriptorCount = vk::Bool32{true},
-
+                .runtimeDescriptorArray = vk::Bool32{true},
                 .scalarBlockLayout = vk::Bool32{true},
                 .timelineSemaphore = vk::Bool32{ true },
                 .bufferDeviceAddress = vk::Bool32{ true},
@@ -847,6 +847,11 @@ allocateBindGroupInternal(const Handle<BindGroupLayout>& bindGroupLayout,
                 {
                     .type = vk::DescriptorType::eSampledImage,
                     .descriptorCount = 2000
+                },
+                vk::DescriptorPoolSize
+                {
+                    .type = vk::DescriptorType::eSampler,
+                    .descriptorCount = 10
                 }
             };
 
