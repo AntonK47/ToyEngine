@@ -764,10 +764,24 @@ namespace toy::editor
 		DrawStatistics drawStatistics_{};
 		std::vector<SceneDrawStaticstics> gatheredStatistics_{};
 
+
+		bool progressQueueEnabled_{ true };
+		bool progressQueueListOpened_{ false };
+		core::u32 progressQueueWidgetWidth_{ 300 };
+		float progressValue_{ 0.0f };
+
 		auto showMenuBar() -> void
 		{
+			auto pos = ImGui::GetCursorPos();
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+			const auto windowWidth = viewport->WorkSize.x;
+
+
+			auto progressQueuePos = ImVec2(0, 0);
+
 			if (ImGui::BeginMainMenuBar())
 			{
+				pos = ImGui::GetCursorPos();
 				if (ImGui::BeginMenu("File"))
 				{
 
@@ -786,8 +800,250 @@ namespace toy::editor
 				ImGui::Separator();
 				tabManager_.showTabBar(200);
 
+				
+
+				/*ImGui::Button("toggle");
+				ImGui::ProgressBar(0.32);*/
+
+				
+				
+				/*auto pos = ImGui::GetCursorPos();
+				
+
+				const ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+				auto windowSize = viewport->WorkSize;
+
+				ImGui::SetNextWindowPos(pos + ImGui::)
+				*/
+
+				struct TaskStatus
+				{
+					std::string taskName;
+					float progress;
+				};
+
+				auto inProcessingList = std::vector<TaskStatus>{};
+				auto inWaitList = std::vector<TaskStatus>{};
+
+				inProcessingList.push_back({ "testTexture MipMap generation", 0.76f });
+				inProcessingList.push_back({ "testTexture2 BC7 compressing", 0.12f });
+				
+				inWaitList.push_back({ "testTexture3 MipMap generation", 0.0f });
+				inWaitList.push_back({ "testTexture4 MipMap generation", 0.0f });
+				//const auto& style = ImGui::GetStyle();
+
+				progressValue_ += ImGui::GetIO().DeltaTime / 4.0;
+				progressValue_ = std::fmodf(progressValue_, 1.0f);
+
+				if (progressQueueEnabled_)
+				{
+					const auto& style = ImGui::GetStyle();
+
+					ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
+						ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_NoSavedSettings |
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoNav |
+						ImGuiWindowFlags_NoMove;
+
+					pos.x = windowWidth - progressQueueWidgetWidth_ - style.WindowPadding.x;
+
+					const auto menuPadding = style.FramePadding;
+					ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
+					ImGui::SetNextWindowBgAlpha(0.1);
+
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
+					ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0);
+					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+
+					progressQueuePos = pos;
+					
+
+					if (ImGui::BeginChild("##processQueue", ImVec2(progressQueueWidgetWidth_, 20), true, windowFlags))
+					{
+						auto availableSize = ImGui::GetContentRegionAvail();
+						const auto arrowWitdh = ImGui::CalcTextSize(ICON_FA_ANGLE_LEFT);
+						const auto iconWitdh = ImGui::CalcTextSize(ICON_FA_BARS_PROGRESS);
+
+						pos = ImGui::GetCursorPos() + style.FramePadding;
+						ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
+						if (ImGui::Selectable("##processQueueSelectable", progressQueueListOpened_))
+						{
+							progressQueueListOpened_ = !progressQueueListOpened_;
+						};
+						ImGui::SetItemAllowOverlap();
+						ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
+						ImGui::Text(ICON_FA_BARS_PROGRESS);//TODO: design a better one, use drawList
+						ImGui::SameLine();
+						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+						ImGui::BeginGroup();
+						pos = ImGui::GetCursorPos();
+						ImGui::SetCursorPos(ImVec2(pos.x, pos.y - 2));
+						ImGui::Text("processing..");
+						const auto barWidth = windowWidth - progressQueuePos.x - style.FramePadding.x * 2 - style.ItemInnerSpacing.x - style.WindowPadding.x * 2 - menuPadding.x - iconWitdh.x;
+						ImGui::ProgressBar(progressValue_, ImVec2(barWidth, 4), "");
+						ImGui::EndGroup();
+						ImGui::SameLine();
+						pos = ImGui::GetCursorPos();
+						ImGui::SetCursorPos(ImVec2(pos.x - arrowWitdh.x, pos.y - 4));
+						if (progressQueueListOpened_)
+						{
+							ImGui::Text(ICON_FA_ANGLE_DOWN);
+						}
+						else
+						{
+							ImGui::Text(ICON_FA_ANGLE_LEFT);
+						}
+						
+						ImGui::PopStyleVar();
+					}
+
+					ImGui::EndChild();
+					ImGui::PopStyleVar(3);
+				}
+
+				const auto menuHeight = ImGui::GetFrameHeight();
+
 				ImGui::EndMainMenuBar();
+
+
+				if (progressQueueListOpened_)
+				{
+					const auto& style = ImGui::GetStyle();
+
+					ImGui::SetNextWindowPos(progressQueuePos + ImVec2(0, menuHeight), ImGuiCond_Always);
+					ImGui::SetNextWindowSizeConstraints(ImVec2(progressQueueWidgetWidth_, 40), ImVec2(progressQueueWidgetWidth_, 100));
+
+					ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar |
+						ImGuiWindowFlags_NoResize |
+						ImGuiWindowFlags_NoCollapse |
+						ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_NoSavedSettings |
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoNav |
+						ImGuiWindowFlags_NoMove;
+
+
+					if (ImGui::Begin("progressQueueList", &progressQueueListOpened_, windowFlags | ImGuiWindowFlags_NoScrollbar))
+					{
+						const auto canselButtonHeight = 20;
+						const auto& style = ImGui::GetStyle();
+						const auto iconWidth = ImGui::CalcTextSize(ICON_FA_XMARK).x;
+
+						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
+
+						ImGui::BeginChild("##list", ImGui::GetContentRegionAvail() - ImVec2(0, canselButtonHeight), false, windowFlags | ImGuiWindowFlags_NoBackground);
+						for (auto i = core::u32{}; i < inProcessingList.size(); i++)
+						{
+							ImGui::PushID(std::format("queue{}", i).c_str());
+
+							ImGui::BeginGroup();
+							ImGui::Text(inProcessingList[i].taskName.c_str());
+							ImGui::SameLine(ImGui::GetContentRegionAvail().x - iconWidth - style.FramePadding.x - style.WindowPadding.x);
+							ImGui::Button(ICON_FA_XMARK);
+
+							ImGui::ProgressBar(inProcessingList[i].progress, ImVec2(-1, 4), "");
+							
+							ImGui::EndGroup();
+							ImGui::PopID();
+							if (i < inProcessingList.size() - 1)
+							{
+								ImGui::Separator();
+							}
+						}
+						ImGui::SeparatorText("On Wait List");
+						for (auto i = core::u32{}; i < inWaitList.size(); i++)
+						{
+							ImGui::PushID(std::format("queue{}", i).c_str());
+
+							ImGui::BeginGroup();
+							ImGui::Text(inWaitList[i].taskName.c_str());
+							ImGui::SameLine(ImGui::GetContentRegionAvail().x - iconWidth - style.FramePadding.x - style.WindowPadding.x);
+							ImGui::Button(ICON_FA_XMARK);
+							ImGui::EndGroup();
+							ImGui::PopID();
+							if (i < inWaitList.size() - 1)
+							{
+								ImGui::Separator();
+							}
+						}
+						ImGui::EndChild();
+
+						ImGui::PopStyleColor();
+						ImGui::PopStyleVar();
+
+						ImGui::Button("Cansel All Queued Tasks", ImVec2(-1, canselButtonHeight));
+
+
+					}
+					ImGui::End();
+				}
+				
 			}
 		};
+
+		//auto showAssetBrowser() -> void
+		//{
+		//	if (ImGui::IsMouseDown(ImGuiMouseButton_Right) && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
+		//	{
+		//		ImGui::SetDragDropPayload("FILES", nullptr, 0);
+		//		ImGui::BeginTooltip();
+		//		ImGui::Text(ICON_FA_FILE_IMAGE);
+		//		ImGui::EndTooltip();
+		//		ImGui::EndDragDropSource();
+		//	}
+
+
+		//	auto showAssetBrowser = true;
+
+		//	static auto contentZoom = 1.0f;
+
+		//	ImVec2 assetItemSize(40 * contentZoom, 40 * contentZoom);
+		//	if (ImGui::Begin("AssetBrowser", &showAssetBrowser))
+		//	{
+		//		ImGui::SliderFloat("##", &contentZoom, 1.0f, 5.0f, "%.1f");
+		//		auto& style = ImGui::GetStyle();
+
+		//		ImGui::ProgressBar(0.3);
+		//		const auto gridStartPosition = ImGui::GetCursorPos();
+		//		ImGui::Dummy(ImGui::GetContentRegionAvail());
+
+		//		if (ImGui::BeginDragDropTarget())
+		//		{
+		//			if (auto t = ImGui::AcceptDragDropPayload("FILES"))  // or: const ImGuiPayload* payload = ... if you sent a payload in the block above
+		//			{
+		//				std::cout << "new File" << std::endl;
+		//				// draggedFiles is my vector of strings, how you handle your payload is up to you
+
+		//			}
+
+		//			ImGui::EndDragDropTarget();
+		//		}
+		//		ImGui::SetCursorPos(gridStartPosition);
+
+		//		const auto contentWidth = ImGui::GetWindowPos().x
+		//			+ ImGui::GetWindowContentRegionMax().x;
+		//		ImGui::BeginGroup();
+		//		for (auto i = u32{}; i < assetTextures.size(); i++)
+		//		{
+		//			ImGui::PushID(i);
+		//			ImGui::ImageButton("b", (void*)assetTextures[i], assetItemSize);
+
+		//			const auto prevItemWidth = ImGui::GetItemRectMax().x;
+		//			const auto widthAfterItemPush = prevItemWidth + style.ItemSpacing.x + assetItemSize.x;
+		//			if (widthAfterItemPush < contentWidth)
+		//			{
+		//				ImGui::SameLine();
+		//			}
+		//			ImGui::PopID();
+		//		}
+		//		ImGui::EndGroup();
+
+
+		//	}
+		//	ImGui::End();
+		//}
 	};
 }
