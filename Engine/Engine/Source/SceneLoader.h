@@ -3,6 +3,7 @@
 #include <vector>
 #include <RenderInterface.h>
 #include <RenderInterfaceTypes.h>
+#include "Material.h"
 
 struct RuntimeMesh
 {
@@ -25,7 +26,7 @@ public:
 	[[nodiscard]] static Scene loadSceneFromFile(toy::graphics::rhi::RenderInterface& rhi, const std::string& path);
 
 	void buildAccelerationStructure();
-
+	Scene(){}
 private:
 	Scene(const std::vector<RuntimeMesh>& meshes,
 		const std::vector<DrawInstance>& drawInstances,
@@ -45,13 +46,16 @@ private:
 	}
 
 public:
-	std::vector<RuntimeMesh> meshes_;
-	std::vector<DrawInstance> drawInstances_;
+	std::vector<RuntimeMesh> meshes_{};
+	std::vector<DrawInstance> drawInstances_{};
+	std::vector<toy::SharedMaterial> sharedMaterial_{};
+	toy::graphics::rhi::Handle<toy::graphics::rhi::BindGroup> meshDataBindGroup_{};
 
-	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> positionStream_;
-	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> tangentFrameStream_;
-	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> uvStream_;
-	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> triangle_;
-	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> clusters_;
-	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> index_;
+
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> positionStream_{};
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> tangentFrameStream_{};
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> uvStream_{};
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> triangle_{};
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> clusters_{};
+	toy::graphics::rhi::Handle<toy::graphics::rhi::Buffer> index_{};
 };

@@ -50,6 +50,7 @@
 #include "TextureManager.h"
 
 #include "DDSLoader.h"
+#include "Material.h"
 
 
 using namespace toy::io::loaders::dds;
@@ -64,158 +65,6 @@ using namespace toy;
 
 namespace 
 {
-
-	/*struct Material
-	{
-	};*/
-
-	struct SharedMaterial
-	{
-		Handle<Pipeline> pipeline;
-	};
-
-	struct MaterialInstance
-	{
-		u32 sharedMaterialIndex;
-		u32 instanceDataIndex;
-	};
-
-	struct MaterialTemplate
-	{
-		std::string vertexShaderTemplate;
-		std::string fragmentShaderTemplate;
-	};
-
-	struct FrameContext
-	{
-		Handle<BindGroupLayout> texturesLayout;
-		Handle<BindGroupLayout> geometryLayout;
-		Handle<BindGroupLayout> perInstanceDataLayout;
-		Handle<BindGroupLayout> perFrameDataLayout;
-		Handle<BindGroupLayout> samplerLayout;
-	};
-
-	struct MaterialCompiolationDescriptor
-	{
-		const MaterialTemplate& materialTemplate;
-		const FrameContext& frameContext;
-		const MaterialAsset& asset;
-	};
-
-
-	struct MaterialGenerator
-	{
-		static auto compilePipeline(RenderInterface& renderer, const MaterialCompiolationDescriptor& descriptor) ->  SharedMaterial
-		{
-			const std::string generatedFragmentCode =
-				"vec3 evaluateMaterialLighting(Attributes attributes)"
-				"{"
-				"	vec3 diffuse = texture(sampler2D(textures2D[6], textureSampler), vec2(uv)).xyz;"
-				"   vec3 normalTS = texture(sampler2D(textures2D[7], textureSampler), vec2(uv)).xyz;"
-				"    vec3 normalWS = ntb * normalTS;"
-				"    vec3 lightDirection = normalize(vec3(1.0, 1.0, 1.0));"
-				"    float radiance = max(0, dot(lightDirection, normalize(normalWS)));"
-				"    vec3 shadowColor = vec3(130.0/255.0, 163.0/255.0, 255.0/255.0) * 0.15;"
-				"    vec3 diffuseColor = vec3(0.9, 0.4, 0.1);"
-				"    vec3 color = mix(shadowColor, diffuse, radiance);"
-				"    return color;"
-				"}";
-
-			const std::string evaluateMaterialFragment
-				= "evaluateMaterialLighting";
-
-			auto generatedVertexShaderGlslCode = descriptor.materialTemplate.vertexShaderTemplate;
-			auto generatedFragmentShaderGlslCode = descriptor.materialTemplate.fragmentShaderTemplate;
-
-			generatedFragmentShaderGlslCode = std::regex_replace(generatedFragmentShaderGlslCode, std::regex{ std::string{"<\\[generated_fragment_code\\]>"} }, generatedFragmentCode);
-			generatedFragmentShaderGlslCode = std::regex_replace(generatedFragmentShaderGlslCode, std::regex{ std::string{"<\\[evaluate_material_fragment\\]>"} }, evaluateMaterialFragment);
-			
-
-
-			const auto vertexShaderInfo =
-				GlslRuntimeCompiler::ShaderInfo
-			{
-				.entryPoint = "main",
-				.compilationDefines = {},
-				.shaderStage = compiler::ShaderStage::vertex,
-				.shaderCode = generatedVertexShaderGlslCode,
-				.enableDebugCompilation = true
-			};
-
-			const auto fragmentShaderInfo =
-				GlslRuntimeCompiler::ShaderInfo
-			{
-				.entryPoint = "main",
-				.compilationDefines = {},
-				.shaderStage = compiler::ShaderStage::fragment,
-				.shaderCode = generatedFragmentShaderGlslCode,
-				.enableDebugCompilation = true
-			};
-
-
-			auto vsSpirvCode = ShaderByteCode{};
-			auto fsSpirvCode = ShaderByteCode{};
-
-			auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, vsSpirvCode);
-			TOY_ASSERT(result == CompilationResult::success);
-
-			result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, fsSpirvCode);
-			TOY_ASSERT(result == CompilationResult::success);
-
-			const auto vertexShaderModule = renderer.createShaderModule(
-				toy::graphics::rhi::ShaderStage::vertex, 
-				{ 
-					ShaderLanguage::spirv1_6,
-					vsSpirvCode
-				}
-			);
-
-			const auto fragmentShaderModule = renderer.createShaderModule(
-				toy::graphics::rhi::ShaderStage::vertex,
-				{
-					ShaderLanguage::spirv1_6,
-					fsSpirvCode 
-				}
-			);
-
-			const auto pipeline = renderer.createPipeline(
-				GraphicsPipelineDescriptor
-				{
-					.vertexShader = vertexShaderModule,
-					.fragmentShader = fragmentShaderModule,
-					.renderTargetDescriptor = RenderTargetsDescriptor
-					{
-						.colorRenderTargets = std::vector
-						{
-							ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
-						},
-						.depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
-					},
-					.state = PipelineState
-					{
-						.depthTestEnabled = true,
-						.faceCulling = FaceCull::back
-					}
-				},
-				{
-					SetBindGroupMapping{0, descriptor.frameContext.geometryLayout},
-					SetBindGroupMapping{1, descriptor.frameContext.perFrameDataLayout},
-					SetBindGroupMapping{2, descriptor.frameContext.perInstanceDataLayout},
-					SetBindGroupMapping{3, descriptor.frameContext.texturesLayout},
-					SetBindGroupMapping{4, descriptor.frameContext.samplerLayout}
-				},
-				{
-					PushConstant({.size = sizeof(u32)})
-				}
-			);
-
-			SharedMaterial sharedMaterial;
-			sharedMaterial.pipeline = pipeline;
-			return sharedMaterial;
-		}
-	};
-
-
 	std::string loadShaderFile(const std::string& filePath)
 	{
 	   
@@ -233,39 +82,7 @@ namespace
 	}
 }
 
-namespace ImGui
-{
-	void ToggleButton(const char* label, bool* toggleValue, const ImVec2& size = ImVec2(0, 0))
-	{
-		const auto color1 = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
-		const auto color2 = ImGui::GetStyle().Colors[ImGuiCol_Button];
 
-		ImGui::PushID(1);
-		
-		if (*toggleValue)
-		{
-			ImGui::PushStyleColor(ImGuiCol_Button, color1);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive, color2);
-			if (ImGui::Button(label, size))
-			{
-				
-				*toggleValue = false;
-			}
-			ImGui::PopStyleColor(2);
-		}
-		else
-		{            
-			ImGui::PushStyleColor(ImGuiCol_Button, color2);
-			ImGui::PushStyleColor(ImGuiCol_ButtonActive, color1);
-			if (ImGui::Button(label, size))
-			{
-				*toggleValue = true;
-			}
-			ImGui::PopStyleColor(2);
-		}
-		ImGui::PopID();
-	}
-}
 
 
 struct TextureDataSource
@@ -285,6 +102,304 @@ struct TextureDescriptor
 //	template<toy::io::loaders::dds::TextureDataSourceDescriptor T>
 //	auto addTextureFromSource(const TextureDescriptor<T> descriptor);
 //};
+
+Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, TextureManager& textureManager, std::vector<UID>& assetTextures)
+{
+	using namespace std::string_literals;
+	const auto knightTextureSet = std::array
+	{
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_D.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_F.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_H.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\cloth_diffuse_D.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\cloth_normal_D.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\leather_diffuse_D.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\shield_final_diffuse_A.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\shield_final_normal_A.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\sword_diffuse_C.DDS"s,
+		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\sword_rough_D.DDS"s,
+	};
+
+	const auto editorTextureResources = std::array
+	{
+		"E:\\Develop\\ToyEngineContent\\generated_splash_screen.DDS"s,
+	};
+
+
+	const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
+	const auto p2 = "E:\\Develop\\ToyEngineContent\\crystal_palace.glb";
+	const auto bistroExterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj";
+	const auto bistroInterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\interior.obj";
+
+	const auto bistroInteriorData = "E:\\Develop\\ToyEngineContent\\interior.dat";
+	const auto bistroExteriorData = "E:\\Develop\\ToyEngineContent\\exterior.dat";
+	const auto knightData = "E:\\Develop\\ToyEngineContent\\knight.dat";
+	const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
+	const auto splashData = "E:\\Develop\\ToyEngineContent\\splash.dat";
+
+	const auto blaseRunnderCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
+
+	auto scene = Scene::loadSceneFromFile(renderer, knightData);
+
+
+	
+
+
+	for (const auto& textureFile : knightTextureSet)
+	{
+		auto dataSource = FilestreamTextureDataSourceDescriptor{ textureFile };
+
+		const auto& info = dataSource.getTextureInfo();
+		const auto& texture2dInfo = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
+		TOY_ASSERT(info.format == TextureFormat::bc7);
+
+		Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
+		accessUsage |= ImageAccessUsage::transferDst;
+
+		const auto imageDescriptor = ImageDescriptor
+		{
+			.format = Format::bc7,
+			.extent = Extent{ static_cast<u32>(texture2dInfo.width), static_cast<u32>(texture2dInfo.height)},
+			.mips = info.mipCount,
+			.layers = info.arrayCount,
+			.accessUsage = accessUsage
+		};
+
+		auto image = renderer.createImage(imageDescriptor);
+
+		const auto view = renderer.createImageView(ImageViewDescriptor
+			{
+				.image = image,
+				.format = Format::bc7,
+				.type = ImageViewType::_2D
+			});
+
+		const auto texture = toy::Texture2D
+		{
+			.width = (u32)texture2dInfo.width,
+			.height = (u32)texture2dInfo.height,
+			.image = image,
+			.view = view,
+			.hasMips = info.mipCount > 1,
+			.bytesPerTexel = bytesPerTexel(info.format)
+		};
+
+
+		auto totalSize = u32{};
+		for (auto i = u32{}; i < info.mipCount; i++)
+		{
+			totalSize += lodSizeInBytes(info, i);
+		}
+
+		auto data = std::vector<std::byte>{};
+		data.resize(totalSize);
+		auto dataSpan = std::span(data);
+		loadTexture2D(dataSource, (TextureData)dataSpan);
+
+
+		textureUploader.upload(data, texture);
+
+		const auto uid = textureManager.addTexture(texture);
+		assetTextures.push_back(uid);
+	}
+
+
+	const auto samplingGroupDescriptor = BindGroupDescriptor
+	{
+		.bindings =
+		{
+			{
+				.binding = 0,
+				.descriptor = BindingDescriptor{BindingType::Sampler}
+			}
+		},
+		.flags = BindGroupFlag::unboundLast
+	};
+	const auto samplingGroupLayout = renderer.createBindGroupLayout(samplingGroupDescriptor, DebugLabel{ .name = "textureSemplers" });
+	const auto samplingGroup = renderer.allocateBindGroup(samplingGroupLayout, UsageScope::async, DebugLabel{ "textureSemplers" });
+
+	//R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
+	const auto simpleTriangleGroup = BindGroupDescriptor
+	{
+		.bindings =
+		{
+			{
+				.binding = 0,
+				.descriptor = BindingDescriptor{BindingType::UniformBuffer}
+			}
+		}
+	};
+
+	const auto simpleTrianglePerInstanceGroup = BindGroupDescriptor
+	{
+		.bindings =
+		{
+			{
+				.binding = 0,
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			}
+		}
+	};
+
+	const auto simpleTriangleMeshDataGroup = BindGroupDescriptor
+	{
+		.bindings =
+		{
+			{
+				.binding = 0,
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			},
+			{
+				.binding = 1,
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			},
+			{
+				.binding = 2,
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			},
+			{
+				.binding = 3,
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			},
+			{
+				.binding = 4,
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
+			}
+		}
+	};
+
+
+	const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
+	const auto simpleTriangleMeshDataGroupLayout = renderer.createBindGroupLayout(simpleTriangleMeshDataGroup);
+	const auto simpleTrianglePerInstanceGroupLayout = renderer.createBindGroupLayout(simpleTrianglePerInstanceGroup);
+
+
+	const auto vertexShaderGlslTemplateCode = loadShaderFile("Resources/StaticClusteredGeometry.vert");
+	const auto fragmentShaderGlsTemplatelCode = loadShaderFile("Resources/StaticClusteredGeometry.frag");
+
+
+	
+
+	const auto materialTemplate = MaterialTemplate
+	{
+		.vertexShaderTemplate = vertexShaderGlslTemplateCode,
+		.fragmentShaderTemplate = fragmentShaderGlsTemplatelCode
+	};
+
+	const auto materialAsset = MaterialAsset{};
+
+	const auto frameContext = FrameContext
+	{
+		.texturesLayout = textureManager.getTextureBindGroupLayout(),
+		.geometryLayout = simpleTriangleMeshDataGroupLayout,
+		.perInstanceDataLayout = simpleTrianglePerInstanceGroupLayout,
+		.perFrameDataLayout = simpleTriangleGroupLayout,
+		.samplerLayout = samplingGroupLayout
+	};
+
+	const auto sharedMaterial = MaterialGenerator::compilePipeline(renderer,
+		MaterialCompiolationDescriptor
+		{
+			.materialTemplate = materialTemplate,
+			.frameContext = frameContext,
+			.asset = materialAsset
+		}
+	);
+
+	const auto vertexShaderGlslCode = loadShaderFile("Resources/Triangle.vert");
+	const auto fragmentShaderGlslCode = loadShaderFile("Resources/Triangle.frag");
+
+	const auto vertexShaderInfo =
+		GlslRuntimeCompiler::ShaderInfo
+	{
+		.entryPoint = "main",
+		.compilationDefines = {},
+		.shaderStage = compiler::ShaderStage::vertex,
+		.shaderCode = vertexShaderGlslCode,
+		.enableDebugCompilation = true
+	};
+
+	const auto fragmentShaderInfo =
+		GlslRuntimeCompiler::ShaderInfo
+	{
+		.entryPoint = "main",
+		.compilationDefines = {},
+		.shaderStage = compiler::ShaderStage::fragment,
+		.shaderCode = fragmentShaderGlslCode,
+		.enableDebugCompilation = true
+	};
+
+
+	auto simpleTriangleVsSpirvCode = ShaderByteCode{};
+	auto simpleTriangleFsSpirvCode = ShaderByteCode{};
+
+	auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, simpleTriangleVsSpirvCode);
+	TOY_ASSERT(result == CompilationResult::success);
+
+	result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, simpleTriangleFsSpirvCode);
+	TOY_ASSERT(result == CompilationResult::success);
+
+	const auto vertexShaderModule = renderer.createShaderModule(toy::graphics::rhi::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleVsSpirvCode });
+
+	const auto fragmentShaderModule = renderer.createShaderModule(toy::graphics::rhi::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleFsSpirvCode });
+
+	const auto simpleTrianglePipeline = renderer.createPipeline(
+		GraphicsPipelineDescriptor
+		{
+			.vertexShader = vertexShaderModule,
+			.fragmentShader = fragmentShaderModule,
+			.renderTargetDescriptor = RenderTargetsDescriptor
+			{
+				.colorRenderTargets = std::initializer_list
+				{
+					ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
+				},
+				.depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
+			},
+			.state = PipelineState
+			{
+				.depthTestEnabled = true,
+				.faceCulling = FaceCull::back
+			}
+		},
+		{
+			SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
+			SetBindGroupMapping{1, simpleTriangleGroupLayout},
+			SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout},
+			SetBindGroupMapping{3, textureManager.getTextureBindGroupLayout()},
+			SetBindGroupMapping{4, samplingGroupLayout }
+		},
+		{
+			PushConstant({.size = sizeof(u32)})
+		});
+
+
+	Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
+	renderer.updateBindGroup(meshDataBindGroup,
+		{
+				{
+					0, UAV{BufferView{ scene.positionStream_, 0, (~0ULL)}}
+				},
+				{
+					1, UAV{BufferView{ scene.uvStream_, 0, (~0ULL)}}
+				},
+				{
+					2, UAV{BufferView{ scene.tangentFrameStream_, 0, (~0ULL)}}
+				},
+				{
+					3, UAV{BufferView{ scene.triangle_, 0, (~0ULL)}}
+				},
+				{
+					4, UAV{BufferView{ scene.clusters_, 0, (~0ULL)}}
+				}
+		});
+
+	scene.sharedMaterial_.push_back(sharedMaterial);
+	scene.sharedMaterial_.push_back(SharedMaterial{ simpleTrianglePipeline });
+	scene.meshDataBindGroup_ = meshDataBindGroup;
+	return scene;
+}
+
 
 
 int Application::run()
@@ -448,7 +563,6 @@ int Application::run()
 	
 	
 
-	//R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
 	const auto simpleTriangleGroup = BindGroupDescriptor
 	{
 		.bindings =
@@ -459,6 +573,8 @@ int Application::run()
 			}
 		}
 	};
+	const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
+
 
 	const auto simpleTrianglePerInstanceGroup = BindGroupDescriptor
 	{
@@ -471,135 +587,7 @@ int Application::run()
 		}
 	};
 
-	const auto simpleTriangleMeshDataGroup = BindGroupDescriptor
-	{
-		.bindings =
-		{
-			{
-				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			},
-			{
-				.binding = 1,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			},
-			{
-				.binding = 2,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			},
-			{
-				.binding = 3,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			},
-			{
-				.binding = 4,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			}
-		}
-	};
-
-
-	const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
-	const auto simpleTriangleMeshDataGroupLayout = renderer.createBindGroupLayout(simpleTriangleMeshDataGroup);
 	const auto simpleTrianglePerInstanceGroupLayout = renderer.createBindGroupLayout(simpleTrianglePerInstanceGroup);
-
-
-	const auto vertexShaderGlslTemplateCode = loadShaderFile("Resources/StaticClusteredGeometry.vert");
-	const auto fragmentShaderGlsTemplatelCode = loadShaderFile("Resources/StaticClusteredGeometry.frag");
-
-	const auto materialTemplate = MaterialTemplate
-	{
-		.vertexShaderTemplate = vertexShaderGlslTemplateCode,
-		.fragmentShaderTemplate = fragmentShaderGlsTemplatelCode
-	};
-
-	const auto materialAsset = MaterialAsset{};
-
-	const auto frameContext = FrameContext
-	{
-		.texturesLayout = textureManager.getTextureBindGroupLayout(),
-		.geometryLayout = simpleTriangleMeshDataGroupLayout,
-		.perInstanceDataLayout = simpleTrianglePerInstanceGroupLayout,
-		.perFrameDataLayout = simpleTriangleGroupLayout,
-		.samplerLayout = samplingGroupLayout
-	};
-
-	const auto sharedMaterial = MaterialGenerator::compilePipeline(renderer,
-			MaterialCompiolationDescriptor
-			{
-				.materialTemplate = materialTemplate,
-				.frameContext = frameContext,
-				.asset = materialAsset
-			}
-		);
-
-	const auto vertexShaderGlslCode = loadShaderFile("Resources/Triangle.vert");
-	const auto fragmentShaderGlslCode = loadShaderFile("Resources/Triangle.frag");
-
-	const auto vertexShaderInfo =
-		GlslRuntimeCompiler::ShaderInfo
-		{
-			.entryPoint = "main",
-			.compilationDefines = {},
-			.shaderStage = compiler::ShaderStage::vertex,
-			.shaderCode = vertexShaderGlslCode,
-			.enableDebugCompilation = true
-		};
-
-	const auto fragmentShaderInfo =
-		GlslRuntimeCompiler::ShaderInfo
-		{
-			.entryPoint = "main",
-			.compilationDefines = {},
-			.shaderStage = compiler::ShaderStage::fragment,
-			.shaderCode = fragmentShaderGlslCode,
-			.enableDebugCompilation = true
-		};
-
-
-	auto simpleTriangleVsSpirvCode = ShaderByteCode{};
-	auto simpleTriangleFsSpirvCode = ShaderByteCode{};
-
-	auto result = GlslRuntimeCompiler::compileToSpirv(vertexShaderInfo, simpleTriangleVsSpirvCode);
-	TOY_ASSERT(result == CompilationResult::success);
-
-	result = GlslRuntimeCompiler::compileToSpirv(fragmentShaderInfo, simpleTriangleFsSpirvCode);
-	TOY_ASSERT(result == CompilationResult::success);
-
-	const auto vertexShaderModule = renderer.createShaderModule(toy::graphics::rhi::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleVsSpirvCode });
-
-	const auto fragmentShaderModule = renderer.createShaderModule(toy::graphics::rhi::ShaderStage::vertex, { ShaderLanguage::spirv1_6, simpleTriangleFsSpirvCode });
-
-	const auto simpleTrianglePipeline = renderer.createPipeline(
-		GraphicsPipelineDescriptor
-		{
-			.vertexShader = vertexShaderModule,
-			.fragmentShader = fragmentShaderModule,
-			.renderTargetDescriptor = RenderTargetsDescriptor
-			{
-				.colorRenderTargets = std::initializer_list
-				{
-					ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
-				},
-				.depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
-			},
-			.state = PipelineState
-			{
-				.depthTestEnabled = true,
-				.faceCulling = FaceCull::back
-			}
-		},
-		{
-			SetBindGroupMapping{0, simpleTriangleMeshDataGroupLayout},
-			SetBindGroupMapping{1, simpleTriangleGroupLayout},
-			SetBindGroupMapping{2, simpleTrianglePerInstanceGroupLayout},
-			SetBindGroupMapping{3, textureManager.getTextureBindGroupLayout()},
-			SetBindGroupMapping{4, samplingGroupLayout }
-		},
-		{
-			PushConstant({ .size = sizeof(u32)})
-		});
-
 #pragma endregion
 
 #pragma region gui pipeline
@@ -783,105 +771,9 @@ int Application::run()
 	auto onMousePressedScreenLocation = glm::vec2{ 0.0f,0.0f };
 	auto mouseButtonPressed = false;
 	//==============================
-
-	using namespace std::string_literals;
-	const auto knightTextureSet = std::array
-	{
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_D.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_F.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\brushed_metal_rough_H.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\cloth_diffuse_D.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\cloth_normal_D.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\leather_diffuse_D.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\shield_final_diffuse_A.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\shield_final_normal_A.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\sword_diffuse_C.DDS"s,
-		"E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Textures\\results\\sword_rough_D.DDS"s,
-	};
-
-	const auto editorTextureResources = std::array
-	{
-		"E:\\Develop\\ToyEngineContent\\generated_splash_screen.DDS"s,
-	};
-
-
-	const auto p1 = "E:\\Develop\\ToyEngineContent\\Pkg_E_Knight_anim\\Exports\\FBX\\Knight_USD_002.fbx";
-	const auto p2 = "E:\\Develop\\ToyEngineContent\\crystal_palace.glb";
-	const auto bistroExterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\exterior.obj";
-	const auto bistroInterior = "E:\\McGuireComputerGraphicsArchive\\Bistro\\interior.obj";
-
-	const auto bistroInteriorData = "E:\\Develop\\ToyEngineContent\\interior.dat";
-	const auto bistroExteriorData = "E:\\Develop\\ToyEngineContent\\exterior.dat";
-	const auto knightData = "E:\\Develop\\ToyEngineContent\\knight.dat";
-	const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
-	const auto splashData = "E:\\Develop\\ToyEngineContent\\splash.dat";
-
-	const auto blaseRunnderCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
-
-	const auto scene = Scene::loadSceneFromFile(renderer, knightData);
-
-
 	std::vector<UID> assetTextures;
-
-
-	for(const auto& textureFile : knightTextureSet)
-	{
-		auto dataSource = FilestreamTextureDataSourceDescriptor{ textureFile };
-
-		const auto& info = dataSource.getTextureInfo();
-		const auto& texture2dInfo = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
-		TOY_ASSERT(info.format == TextureFormat::bc7);
-
-		Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
-		accessUsage |= ImageAccessUsage::transferDst;
-
-		const auto imageDescriptor = ImageDescriptor
-		{
-			.format = Format::bc7,
-			.extent = Extent{ static_cast<u32>(texture2dInfo.width), static_cast<u32>(texture2dInfo.height)},
-			.mips = info.mipCount,
-			.layers = info.arrayCount,
-			.accessUsage = accessUsage
-		};
-
-		auto image = renderer.createImage(imageDescriptor);
-
-		const auto view = renderer.createImageView(ImageViewDescriptor
-		{
-			.image = image,
-			.format = Format::bc7,
-			.type = ImageViewType::_2D
-		});
-
-		const auto texture = toy::Texture2D
-		{
-			.width = (u32)texture2dInfo.width,
-			.height = (u32)texture2dInfo.height,
-			.image = image,
-			.view = view,
-			.hasMips = info.mipCount > 1,
-			.bytesPerTexel = bytesPerTexel(info.format)
-		};
-
-
-		auto totalSize = u32{};
-		for(auto i = u32{}; i < info.mipCount; i++)
-		{
-			totalSize += lodSizeInBytes(info, i);
-		}
-
-		auto data = std::vector<std::byte>{};
-		data.resize(totalSize);
-		auto dataSpan = std::span(data);
-		loadTexture2D(dataSource, (TextureData)dataSpan);
-
-
-		textureUploader.upload(data, texture);
-
-		const auto uid = textureManager.addTexture(texture);
-		assetTextures.push_back(uid);
-	}
-
+	//auto scene = loadScene(renderer, textureUploader, textureManager, assetTextures);
+	auto scene = Scene{};
 	//===========================BINDLESS================================
 
 	renderer.updateBindGroup(samplingGroup, { BindingDataMapping{0, SamplerSRV{fontSampler}, 0 } });
@@ -936,25 +828,7 @@ int Application::run()
 
 
 	
-	Handle<BindGroup> meshDataBindGroup = renderer.allocateBindGroup(simpleTriangleMeshDataGroupLayout, UsageScope::async);
-	renderer.updateBindGroup(meshDataBindGroup, 
-		{
-				{
-					0, UAV{BufferView{ scene.positionStream_, 0, (~0ULL)}}
-				},
-				{
-					1, UAV{BufferView{ scene.uvStream_, 0, (~0ULL)}}
-				},
-				{
-					2, UAV{BufferView{ scene.tangentFrameStream_, 0, (~0ULL)}}
-				},
-				{
-					3, UAV{BufferView{ scene.triangle_, 0, (~0ULL)}}
-				},
-				{
-					4, UAV{BufferView{ scene.clusters_, 0, (~0ULL)}}
-				}
-		});
+	
 
 	//TODO: [#3] command submit should work also without calling nextFrame in a frame async scenario
 	auto time = 0.0f;
@@ -1020,8 +894,21 @@ int Application::run()
 
 
 
+	//std::thread initialSceneLoading
 
+	std::atomic_flag isSceneReady;
+	auto newScene = Scene{};
 
+	std::jthread initialSceneLoading
+	{
+		[&]()
+		{
+			newScene = loadScene(renderer, textureUploader, textureManager, assetTextures);
+			isSceneReady.test_and_set();
+		}
+	};
+
+	initialSceneLoading.detach();
 
 
 	auto frameStartTime = std::chrono::high_resolution_clock::now();
@@ -1030,6 +917,12 @@ int Application::run()
 
 	while (stillRunning)
 	{
+		if (isSceneReady.test())
+		{
+			scene = newScene;
+		}
+
+
 		const auto cpuFrameTime = frameEndTime - frameStartTime;
 		frameStartTime = std::chrono::high_resolution_clock::now();
 		const auto hertz = cpuFrameTime.count() / 1000000000.0f;//ns -> s
@@ -1104,91 +997,95 @@ int Application::run()
 		
 		ImGui::End();
 
-		auto showInspector = true;
-		ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
-
-		if (ImGui::Begin("Inspector", &showInspector))
+		if (!editorScene.scene.empty())
 		{
-			auto& editorObject = editorScene.scene[selectedObject];
-		
-			ImGui::InputText("##", &editorObject.name, ImGuiInputTextFlags_CharsNoBlank);
+			auto showInspector = true;
+			ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
 
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
-			
-		  
-			ImGui::PushID(selectedObject);
-				
-			if (ImGui::TreeNodeEx("Object", ImGuiTreeNodeFlags_DefaultOpen, "%s Transform", ICON_FA_CUBE))
+			if (ImGui::Begin("Inspector", &showInspector))
 			{
-				ImGui::PushID(0);
-				ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[0], "%.2f", ImGuiInputTextFlags_None);
+				auto& editorObject = editorScene.scene[selectedObject];
+
+				ImGui::InputText("##", &editorObject.name, ImGuiInputTextFlags_CharsNoBlank);
+
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
+
+
+				ImGui::PushID(selectedObject);
+
+				if (ImGui::TreeNodeEx("Object", ImGuiTreeNodeFlags_DefaultOpen, "%s Transform", ICON_FA_CUBE))
+				{
+					ImGui::PushID(0);
+					ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[0], "%.2f", ImGuiInputTextFlags_None);
+					ImGui::PopID();
+					ImGui::PushID(1);
+					ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[1], "%.2f", ImGuiInputTextFlags_None);
+					ImGui::PopID();
+					ImGui::PushID(2);
+					ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[2], "%.2f", ImGuiInputTextFlags_None);
+					ImGui::PopID();
+					ImGui::PushID(3);
+					ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[3], "%.2f", ImGuiInputTextFlags_None);
+					ImGui::PopID();
+					ImGui::TreePop();
+				}
+
+
+
+
+				if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen, "%s Material", ICON_FA_CARROT))
+				{
+					ImGui::PushID(0);
+					static auto onCreateNewMaterial = false;
+					static auto hasMaterial = false;
+					static auto materialName = std::string{};
+					static auto materialUID = u32{};
+					if (!hasMaterial && !onCreateNewMaterial && ImGui::Button(ICON_FA_PLUS))
+					{
+						onCreateNewMaterial = true;
+
+					}
+
+					if (!hasMaterial && onCreateNewMaterial)
+					{
+						auto flags = ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue;
+						if (ImGui::InputTextWithHint("##", "Name", &materialName, flags))
+						{
+							hasMaterial = true;
+							onCreateNewMaterial = false;
+
+							auto& assetManager = AssetManager::get();
+							materialUID = assetManager.createNewMaterial(MaterialAssetDescriptor{ .name = materialName });
+
+						}
+					}
+
+					if (hasMaterial)
+					{
+						ImGui::Text(materialName.c_str());
+						ImGui::SameLine();
+						if (ImGui::Button(ICON_FA_TRASH_CAN))
+						{
+							hasMaterial = false;
+							auto& assetManager = AssetManager::get();
+							assetManager.deleteMaterial(materialUID);
+						}
+						ImGui::SameLine();
+						if (ImGui::Button(ICON_FA_PEN_TO_SQUARE))
+						{
+							editor.tabManager().openMaterialEditorTab(materialUID);
+						}
+					}
+
+					ImGui::PopID();
+					ImGui::TreePop();
+				}
 				ImGui::PopID();
-				ImGui::PushID(1);
-				ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[1], "%.2f", ImGuiInputTextFlags_None);
-				ImGui::PopID();
-				ImGui::PushID(2);
-				ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[2], "%.2f", ImGuiInputTextFlags_None);
-				ImGui::PopID();
-				ImGui::PushID(3);
-				ImGui::InputFloat4("##", (float*)&scene.drawInstances_[editorObject.mesh.meshIndex].model[3], "%.2f", ImGuiInputTextFlags_None);
-				ImGui::PopID();
-				ImGui::TreePop();
+				ImGui::PopStyleVar();
 			}
-
-
-			
-
-			if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen, "%s Material", ICON_FA_CARROT))
-			{
-				ImGui::PushID(0);
-				static auto onCreateNewMaterial = false;
-				static auto hasMaterial = false;
-				static auto materialName = std::string{};
-				static auto materialUID = u32{};
-				if(!hasMaterial && !onCreateNewMaterial && ImGui::Button(ICON_FA_PLUS))
-				{
-					onCreateNewMaterial = true;
-					
-				}
-
-				if(!hasMaterial && onCreateNewMaterial)
-				{
-					auto flags = ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue;
-					if(ImGui::InputTextWithHint("##", "Name", &materialName, flags))
-					{
-						hasMaterial = true;
-						onCreateNewMaterial = false;
-
-						auto& assetManager = AssetManager::get();
-						materialUID = assetManager.createNewMaterial(MaterialAssetDescriptor{.name = materialName });
-
-					}
-				}
-
-				if(hasMaterial)
-				{
-					ImGui::Text(materialName.c_str());
-					ImGui::SameLine();
-					if(ImGui::Button(ICON_FA_TRASH_CAN))
-					{
-						hasMaterial = false;
-						auto& assetManager = AssetManager::get();
-						assetManager.deleteMaterial(materialUID);
-					}
-					ImGui::SameLine();
-					if(ImGui::Button(ICON_FA_PEN_TO_SQUARE))
-					{
-						editor.tabManager().openMaterialEditorTab(materialUID);
-					}
-				}
-
-				ImGui::PopID();
-				ImGui::TreePop();
-			}
-			ImGui::PopID();
-			ImGui::PopStyleVar();
+			ImGui::End();
 		}
-		ImGui::End();
+		
 
 		
 		static bool drag = false;
@@ -1439,7 +1336,7 @@ int Application::run()
 			if (ImGui::Begin("Camera controls", &windowOpen, windowFlags))
 			{
 				ImGui::SeparatorText("Camera");
-				ImGui::SliderFloat("Speed", &camera.movementSpeedScale, 1.0f, 15.0f);
+				ImGui::SliderFloat("Speed", &camera.movementSpeedScale, 1.0f, 1500.0f);
 				nextWindowPos.y = (nextWindowPos.y + pad + ImGui::GetWindowHeight());
 			}
 			ImGui::End();
@@ -1583,7 +1480,7 @@ int Application::run()
 
 			{
 				const auto aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
-				const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 1000.0f, 0.001f);//inverse z trick
+				const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 100000.0f, 0.001f);//inverse z trick
 				const auto view = glm::lookAt(camera.position, camera.position + camera.forward, camera.up);
 
 				const auto viewData = View
@@ -1712,150 +1609,158 @@ int Application::run()
 			renderer.submitBatches(QueueType::graphics, { prepareBatch });
 
 
-			auto perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
-			const auto batchOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+			
 
-			const auto dataMemSize = sizeof(InstanceData);
-			renderer.updateBindGroup(perInstanceGroup,
-				{
-					BindingDataMapping
+			renderer.endDebugLabel(QueueType::graphics);
+
+			if (!scene.drawInstances_.empty())
+			{
+				auto perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
+				const auto batchOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+
+				const auto dataMemSize = sizeof(InstanceData);
+				renderer.updateBindGroup(perInstanceGroup,
 					{
-						.binding = 0,
-						.view = UAV
+						BindingDataMapping
 						{
-							.bufferView = BufferView
+							.binding = 0,
+							.view = UAV
 							{
-								.buffer = frameData,
-								.offset = batchOffset,
-								.size = (u64)(dataMemSize * scene.drawInstances_.size())
+								.bufferView = BufferView
+								{
+									.buffer = frameData,
+									.offset = batchOffset,
+									.size = (u64)(dataMemSize * scene.drawInstances_.size())
+								}
 							}
 						}
-					}
-				});
+					});
 
-			renderer.endDebugLabel(QueueType::graphics);
-			renderer.beginDebugLabel(QueueType::graphics, { "object rendering"});
-			std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
-			{
-				auto& drawStatistics = perRenderThreadDrawStatistics[index].statistics;
-				drawStatistics = SceneDrawStaticstics{};
-				auto& drawInstances = batches[index];
-				auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount)});
-				cmd.begin();
+				renderer.beginDebugLabel(QueueType::graphics, { "object rendering" });
+				std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
+					{
+						auto& drawStatistics = perRenderThreadDrawStatistics[index].statistics;
+						drawStatistics = SceneDrawStaticstics{};
+						auto& drawInstances = batches[index];
+						auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount) });
+						cmd.begin();
 
-				const auto renderingDescriptor = RenderingDescriptor
-				{
-					.colorRenderTargets = {
-						RenderTargetDescriptor
+						const auto renderingDescriptor = RenderingDescriptor
 						{
-							.imageView = swapchainImage.view,
-							.load = LoadOperation::load,
-							.store = StoreOperation::store,
-							.resolveMode = ResolveMode::none,
-							.clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
-						}
-					},
-					.depthRenderTarget = RenderTargetDescriptor
-					{
-						.imageView = depthFramebufferView,
-						.load = LoadOperation::load,
-						.store = StoreOperation::store,
-						.resolveMode = ResolveMode::none,
-						.clearValue = DepthClear{ 1.0f }
-					}
-				};
-
-				cmd.beginRendering(renderingDescriptor, area);
-
-				{
-					const auto scissor = Scissor{ 0,0,windowWidth, windowHeight };
-					const auto viewport = Viewport{ 0.0,0.0,(float)windowWidth, (float)windowHeight };
-
-					if (togglePipeline)
-					{
-						cmd.bindPipeline(sharedMaterial.pipeline);
-
-					}
-					else
-					{
-						cmd.bindPipeline(simpleTrianglePipeline);
-
-					}
-					cmd.setScissor(scissor);
-					cmd.setViewport(viewport);
-					cmd.bindGroup(0, meshDataBindGroup);
-					cmd.bindGroup(1, bindGroup);
-					cmd.bindGroup(2, perInstanceGroup);
-					cmd.bindGroup(3, textureManager.getTextureBindGroup());
-					cmd.bindGroup(4, samplingGroup);
-
-						
-					auto setOffset = batchOffsets[index] * dataMemSize;
-						
-					for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
-					{
-						const auto& drawInstance = drawInstances[j];
-
-
-						//scene.meshes_[drawInstance.meshIndex].lods[0].
-						const auto& mesh = scene.meshes_[drawInstance.meshIndex];
-
-						//this scope should be thread safe. More precisely, memory allocation should be thread safe. Appropriate strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
-
-						const auto instanceData = InstanceData
-						{
-							.model = glm::translate(drawInstance.model, glm::vec3(0.0f,0.0f,0.0f)),
-							.clusterOffset = mesh.clusterOffset,
-							.triangleOffset = mesh.triangleOffset,
-							.positionStreamOffset = mesh.positionStreamOffset
+							.colorRenderTargets = {
+								RenderTargetDescriptor
+								{
+									.imageView = swapchainImage.view,
+									.load = LoadOperation::load,
+									.store = StoreOperation::store,
+									.resolveMode = ResolveMode::none,
+									.clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
+								}
+							},
+							.depthRenderTarget = RenderTargetDescriptor
+							{
+								.imageView = depthFramebufferView,
+								.load = LoadOperation::load,
+								.store = StoreOperation::store,
+								.resolveMode = ResolveMode::none,
+								.clearValue = DepthClear{ 1.0f }
+							}
 						};
 
-						std::memcpy(frameDataBeginPtr + setOffset, &instanceData, dataMemSize);
-						setOffset += dataMemSize;
+						cmd.beginRendering(renderingDescriptor, area);
 
-					}
-						
-					for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
+						{
+							const auto scissor = Scissor{ 0,0,windowWidth, windowHeight };
+							const auto viewport = Viewport{ 0.0,0.0,(float)windowWidth, (float)windowHeight };
+
+							if (togglePipeline)
+							{
+								cmd.bindPipeline(scene.sharedMaterial_[1].pipeline);
+
+							}
+							else
+							{
+								cmd.bindPipeline(scene.sharedMaterial_[0].pipeline);
+
+							}
+							cmd.setScissor(scissor);
+							cmd.setViewport(viewport);
+							cmd.bindGroup(0, scene.meshDataBindGroup_);
+							cmd.bindGroup(1, bindGroup);
+							cmd.bindGroup(2, perInstanceGroup);
+							cmd.bindGroup(3, textureManager.getTextureBindGroup());
+							cmd.bindGroup(4, samplingGroup);
+
+
+							auto setOffset = batchOffsets[index] * dataMemSize;
+
+							for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
+							{
+								const auto& drawInstance = drawInstances[j];
+
+
+								//scene.meshes_[drawInstance.meshIndex].lods[0].
+								const auto& mesh = scene.meshes_[drawInstance.meshIndex];
+
+								//this scope should be thread safe. More precisely, memory allocation should be thread safe. Appropriate strategy is to allocate block of memory for each render thread up front. [see Miro board, multithreaded per frame dynamic allocator]
+
+								const auto instanceData = InstanceData
+								{
+									.model = glm::translate(drawInstance.model, glm::vec3(0.0f,0.0f,0.0f)),
+									.clusterOffset = mesh.clusterOffset,
+									.triangleOffset = mesh.triangleOffset,
+									.positionStreamOffset = mesh.positionStreamOffset
+								};
+
+								std::memcpy(frameDataBeginPtr + setOffset, &instanceData, dataMemSize);
+								setOffset += dataMemSize;
+
+							}
+
+							for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
+							{
+								const auto& drawInstance = drawInstances[j];
+								const auto& mesh = scene.meshes_[drawInstance.meshIndex];
+
+
+								const u32 value = j + static_cast<u32>(batchOffsets[index]);
+								cmd.pushConstant(value);
+								cmd.draw(mesh.vertexCount, 1, 0, 0);
+								drawStatistics.totalTrianglesCount += mesh.vertexCount / 3;
+								drawStatistics.drawCalls++;
+							}
+
+						}
+
+						cmd.endRendering();
+						cmd.end();
+
+						auto perThreadBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, { prepareBatch.barrier() });
+						perThreadSubmits[index] = perThreadBatch;
+
+					});
+
+				auto gatheredStatistics = std::vector<SceneDrawStaticstics>{};
+				gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
+
+				std::transform(perRenderThreadDrawStatistics.begin(), perRenderThreadDrawStatistics.end(), gatheredStatistics.begin(), [](auto& a) {return a.statistics; });
+
+				drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStaticstics{},
+					[](SceneDrawStaticstics a, SceneDrawStaticstics& b)
 					{
-						const auto& drawInstance = drawInstances[j];
-						const auto& mesh = scene.meshes_[drawInstance.meshIndex];
+						SceneDrawStaticstics c;
+						c.drawCalls = a.drawCalls + b.drawCalls;
+						c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
+						return c;
+					});
 
 
-						const u32 value = j + static_cast<u32>(batchOffsets[index]);
-						cmd.pushConstant(value);
-						cmd.draw(mesh.vertexCount, 1, 0, 0);
-						drawStatistics.totalTrianglesCount += mesh.vertexCount / 3;
-						drawStatistics.drawCalls++;
-					}
-						
-				}
+				renderer.submitBatches(QueueType::graphics, perThreadSubmits);
 
-				cmd.endRendering();
-				cmd.end();
+				renderer.endDebugLabel(QueueType::graphics);
+			}
 
-				auto perThreadBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, { prepareBatch.barrier() });
-				perThreadSubmits[index] = perThreadBatch;
-
-			});
-
-			auto gatheredStatistics = std::vector<SceneDrawStaticstics>{};
-			gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
-				
-			std::transform(perRenderThreadDrawStatistics.begin(), perRenderThreadDrawStatistics.end(), gatheredStatistics.begin(), [](auto& a) {return a.statistics; });
-
-			drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStaticstics{},
-				[](SceneDrawStaticstics a, SceneDrawStaticstics& b)
-				{
-					SceneDrawStaticstics c;
-					c.drawCalls= a.drawCalls + b.drawCalls;
-					c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
-					return c;
-				});
-
-
-			renderer.submitBatches(QueueType::graphics, perThreadSubmits);
-
-			renderer.endDebugLabel(QueueType::graphics);
+			
 
 			auto guiBatch = SubmitBatch{};
 			{

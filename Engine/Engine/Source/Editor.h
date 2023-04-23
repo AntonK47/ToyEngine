@@ -20,6 +20,40 @@
 
 namespace ed = ax::NodeEditor;
 
+namespace ImGui
+{
+	void ToggleButton(const char* label, bool* toggleValue, const ImVec2& size = ImVec2(0, 0))
+	{
+		const auto color1 = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
+		const auto color2 = ImGui::GetStyle().Colors[ImGuiCol_Button];
+
+		ImGui::PushID(1);
+
+		if (*toggleValue)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, color1);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, color2);
+			if (ImGui::Button(label, size))
+			{
+
+				*toggleValue = false;
+			}
+			ImGui::PopStyleColor(2);
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, color2);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, color1);
+			if (ImGui::Button(label, size))
+			{
+				*toggleValue = true;
+			}
+			ImGui::PopStyleColor(2);
+		}
+		ImGui::PopID();
+	}
+}
+
 
 auto mapWindowIoToImGuiIo(const toy::io::WindowIo& windowIo, ImGuiIO& io) -> void;
 
@@ -27,15 +61,7 @@ namespace toy::editor
 {
 	
 
-	struct MaterialAsset
-	{
-		std::string name;
-	};
-
-	struct MaterialAssetDescriptor
-	{
-		std::string name;
-	};
+	
 
 	struct AssetManager
 	{
@@ -304,6 +330,37 @@ namespace toy::editor
 
 	};
 
+	struct Asset
+	{
+		std::string relativePath;
+		std::string name;
+		UID uid;
+		std::string creationTime;
+	};
+
+	struct Texture2DAsset : public Asset
+	{
+		core::u32 width;
+		core::u32 height;
+		Format format;
+		core::u32 mips;
+		core::u32 previewMipBase;
+	};
+
+	/*class AssetManager
+	{
+
+
+	private:
+		std::vector<std::unique_ptr<Asset>> assets;
+	};
+
+	class AssetBrowser
+	{
+	private:
+		std::vector<UID> assetTextures;
+	};*/
+
 	class Editor
 	{
 
@@ -508,7 +565,7 @@ namespace toy::editor
 
 
 
-			
+
 			gatheredStatistics_.resize(perRenderThreadDrawStatistics_.size());
 
 			std::transform(perRenderThreadDrawStatistics_.begin(), perRenderThreadDrawStatistics_.end(), gatheredStatistics_.begin(), [](auto& a) {return a.statistics; });
@@ -523,7 +580,7 @@ namespace toy::editor
 				});
 
 
-			
+
 
 			auto guiBatch = SubmitBatch{};
 			{

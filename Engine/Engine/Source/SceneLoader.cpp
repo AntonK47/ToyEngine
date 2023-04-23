@@ -70,7 +70,8 @@ Scene Scene::loadSceneFromFile(RenderInterface& rhi,
             .size = positionStreamBufferSize,
             .accessUsage = usage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        }, { "PositionStreamBuffer" });
+        }, 
+        DebugLabel{ "PositionStreamBuffer" });
 
     const auto uvStreamBufferSize = static_cast<u32>(totalVertexCount * sizeof(scene::TextureCoordinate));
     const auto uvStreamBuffer = rhi.createBuffer(BufferDescriptor
@@ -78,7 +79,8 @@ Scene Scene::loadSceneFromFile(RenderInterface& rhi,
             .size = uvStreamBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        }, { "UvStreamBuffer" });
+        },
+        DebugLabel{ "UvStreamBuffer" });
 
     const auto tangentFrameStreamBufferSize = static_cast<u32>(totalVertexCount * sizeof(scene::TangentFrame));
     const auto tangentFrameStreamBuffer = rhi.createBuffer(BufferDescriptor
@@ -86,7 +88,8 @@ Scene Scene::loadSceneFromFile(RenderInterface& rhi,
             .size = tangentFrameStreamBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        }, { "TangentFrameStreamBuffer" });
+        }, 
+        DebugLabel{ "TangentFrameStreamBuffer" });
 
 
     const auto triangleBufferSize = static_cast<u32>(totalTriangleCount * sizeof(u8));
@@ -95,7 +98,8 @@ Scene Scene::loadSceneFromFile(RenderInterface& rhi,
             .size = triangleBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        }, { "TrianglesBuffer"});
+        }, 
+        DebugLabel{ "TrianglesBuffer"});
 
     const auto meshletBufferSize = static_cast<u32>(totalClusterCount * sizeof(scene::Meshlet));
     const auto meshletBuffer = rhi.createBuffer(BufferDescriptor
@@ -103,7 +107,8 @@ Scene Scene::loadSceneFromFile(RenderInterface& rhi,
             .size = meshletBufferSize,
             .accessUsage = BufferAccessUsage::storage,
             .memoryUsage = MemoryUsage::cpuOnly,
-        }, { "ClustersBuffer" });
+        }, 
+        DebugLabel{ "ClustersBuffer" });
 
     auto meshes = std::vector<RuntimeMesh>{};
     meshes.resize(scene.size());

@@ -6,7 +6,8 @@ set(MODULE_SOURCES
 	Source/SceneLoader.cpp
 	Source/DDSLoader.cpp
 	Source/MapIO.cpp
-	Source/TextureManager.cpp)
+	Source/TextureManager.cpp
+	Source/Material.cpp)
 set(MODULE_HEADERS 
 	Source/Application.h
 	Source/SceneLoader.h
@@ -20,7 +21,8 @@ set(MODULE_HEADERS
 	Source/Editor.h
 	Source/ImageDataUploader.h
 	Source/TextureManager.h
-	Source/Texture2D.h)
+	Source/Texture2D.h 
+	Source/Material.h)
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -46,6 +48,9 @@ target_link_libraries(${MODULE_NAME}
 		Freetype::Freetype
 		imgui::imgui
 		imgui-node-editor-static
+		#Compressator
+		#compressonator-static
+		#Win32Window
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
