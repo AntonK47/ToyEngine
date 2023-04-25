@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
+#include <Core.h>
+#include <RenderInterfaceTypes.h>
 
+using namespace toy::core;
 using namespace toy::graphics;
 using namespace toy::graphics::rhi;
 

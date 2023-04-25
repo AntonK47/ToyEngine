@@ -1098,20 +1098,24 @@ int Application::run()
 		{
 			drag = false;
 		}
+		if (io.dragDropState == io::DragDropEvent::dragLeave)
+		{
+			drag = false;
+		}
 
 		if (io.dragDropState == io::DragDropEvent::dragEnd)
 			LOG(INFO) << "END";
 		if(io.dragDropState == io::DragDropEvent::dragBegin)
 			LOG(INFO) << "BEGIN";
+		if (io.dragDropState == io::DragDropEvent::dragLeave)
+			LOG(INFO) << "LEAVE";
 	
-
-	
+		
 
 		if(drag)
 		{
 			//HACK
 			ImGui::GetIO().MouseDown[ImGuiMouseButton_Left] = true;
-
 			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
 			{
 				ImGui::SetDragDropPayload("FILES", nullptr, 0);
@@ -1136,9 +1140,9 @@ int Application::run()
 			const auto gridStartPosition = ImGui::GetCursorPos();
 			ImGui::Dummy(ImGui::GetContentRegionAvail());
 			
-			if (ImGui::BeginDragDropTarget())
+			if (ImGui::BeginDragDropTarget() )
 			{
-				if (auto t = ImGui::AcceptDragDropPayload("FILES"))  // or: const ImGuiPayload* payload = ... if you sent a payload in the block above
+				if (auto t = ImGui::AcceptDragDropPayload("FILES") && io.dragDropState == io::DragDropEvent::dragEnd)  // or: const ImGuiPayload* payload = ... if you sent a payload in the block above
 				{
 					const auto& paths = window.getDragedFilePaths();
 					for (const auto& path : paths)

@@ -135,7 +135,8 @@ namespace toy::io
     {
         none,
         dragBegin,
-        dragEnd
+        dragEnd,
+        dragLeave
     };
 
     struct WindowIo

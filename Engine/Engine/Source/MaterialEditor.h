@@ -206,12 +206,12 @@ namespace toy::editor::materials
 		static auto create() -> Node
 		{
 			auto surface = Pin{};
-			surface.id = ed::PinId{UIDGenerator::generate()};
+			surface.id = ed::PinId{ core::UIDGenerator::generate()};
 			surface.name = "Surface";
 			surface.accentColor = ImColor(0,150,0);
 			surface.valueType = PinType::vector4Type;
 
-			const auto nodeId = UIDGenerator::generate();
+			const auto nodeId = core::UIDGenerator::generate();
 
 			auto node = Node{};
 			node.id = ed::NodeId{nodeId};
@@ -245,12 +245,12 @@ namespace toy::editor::materials
 		static auto create() -> Node
 		{
 			auto color = Pin{};
-			color.id = ed::PinId{UIDGenerator::generate()};
+			color.id = ed::PinId{core::UIDGenerator::generate()};
 			color.name = "color";
 			color.accentColor = ImColor(0,150,0);//<< vec2 type color
 			color.valueType = PinType::vector4Type;
 			
-			const auto nodeId = UIDGenerator::generate();
+			const auto nodeId = core::UIDGenerator::generate();
 
 			auto node = Node{};
 			node.id = ed::NodeId{nodeId};
@@ -279,12 +279,12 @@ namespace toy::editor::materials
 	auto createMaterialOutputNode() -> Node
 	{
 		auto surface = Pin{};
-		surface.id = ed::PinId{UIDGenerator::generate()};
+		surface.id = ed::PinId{core::UIDGenerator::generate()};
 		surface.name = "Surface";
 		surface.accentColor = ImColor(0,150,0);
 		surface.valueType = PinType::vector4Type;
 
-		const auto nodeId = UIDGenerator::generate();
+		const auto nodeId = core::UIDGenerator::generate();
 
 		auto node = Node{};
 		node.id = ed::NodeId{nodeId};
@@ -538,13 +538,13 @@ namespace toy::editor::materials
 					if(node.type == NodeType::color)
 					{
 						const auto model = ColorNode::generateModel(node);
-						graphModel_.insert(std::make_pair(UIDGenerator::generate(), model));
+						graphModel_.insert(std::make_pair(core::UIDGenerator::generate(), model));
 					}
 
 					if(node.type == NodeType::materialOutput)
 					{
 						const auto model = MaterialOutputNode::generateModel(node);
-						graphModel_.insert(std::make_pair(UIDGenerator::generate(), model));
+						graphModel_.insert(std::make_pair(core::UIDGenerator::generate(), model));
 					}
 				}
 
@@ -604,7 +604,7 @@ namespace toy::editor::materials
 	                    // ed::AcceptNewItem() return true when user release mouse button.
 	                    if (ed::AcceptNewItem())
 	                    {
-							const auto linkId = UIDGenerator::generate();
+							const auto linkId = core::UIDGenerator::generate();
 							links_.push_back(Link{linkId, iPinId, oPinId });
 	                        // Draw new link.
 	                        ed::Link(linkId, iPinId, oPinId);

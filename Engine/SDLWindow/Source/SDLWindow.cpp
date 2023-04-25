@@ -130,7 +130,7 @@ class DropManager : public IDropTarget
 
     auto DragLeave(void) -> HRESULT override
     {
-        events.push_back(toy::io::DragDropEvent::dragEnd);
+        events.push_back(toy::io::DragDropEvent::dragLeave);
         return S_OK;
     }
 
@@ -143,6 +143,8 @@ class DropManager : public IDropTarget
         
         events.push_back(toy::io::DragDropEvent::dragEnd);
         *pdwEffect &= DROPEFFECT_COPY;
+        
+        //TODO: window shoudl become active
         return S_OK;
     }
 
