@@ -16,6 +16,11 @@
 #include <imgui_node_editor.h>
 #include <Core.h>
 #include <ValidationCommon.h>
+#include <Window.h>
+#include <Material.h>
+
+#include "BackgroundTasksSystem.h"
+using namespace toy::core;
 
 
 namespace ed = ax::NodeEditor;
@@ -71,7 +76,7 @@ namespace toy::editor
 			return manager;
 		}
 
-		auto createNewMaterial(MaterialAssetDescriptor descriptor) -> UID
+		auto createNewMaterial(MaterialAssetDescriptor descriptor) -> toy::core::UID
 		{
 			auto name = descriptor.name;
 			auto nameCounter = 0;
@@ -138,6 +143,12 @@ namespace toy::editor
 	using TabUID = UID;
 	using MaterialUID = UID;
 	using AssetUID = UID;
+
+	namespace
+	{
+		BackgroundTasksSystem backgroundTasksSystem{ 3 };
+	}
+
 
 	class Tab
 	{
@@ -222,12 +233,69 @@ namespace toy::editor
 
 			if (ImGui::Begin("Example: Fullscreen window", &op, flags))
 			{
-				for (const auto& file : fileList_)
+				if (ImGui::Button("Process All"))
 				{
-					ImGui::Text("%s", file.filename().generic_string().c_str());
+					for (auto i = u32{}; i < fileList_.size(); i++)
+					{
+						const auto& file = fileList_[i];
+						if (!backgroundTasksSystem.hasTask(i))
+						{
+							backgroundTasksSystem.createTask(i, [](TaskControl& control)
+								{
+									using namespace std::chrono_literals;
+
+									for (auto j = u32{}; j < 100; j++)
+									{
+										std::this_thread::sleep_for(50ms);
+										control.report(j * 0.01f);
+										if (control.stopRequested())
+											return;
+									}
+								});
+
+						}
+					}
 				}
 
-				if (&op && ImGui::Button("Close this window"))
+				for (auto i = u32{}; i < fileList_.size(); i++)
+				{
+					const auto& file = fileList_[i];
+					ImGui::PushID(i);
+					ImGui::Text("%s", file.filename().generic_string().c_str()); 
+					ImGui::SameLine();
+					if (ImGui::Button(std::format("process##{}", i).c_str()))
+					{
+						if (!backgroundTasksSystem.hasTask(i))
+						{
+							backgroundTasksSystem.createTask(i, [](TaskControl& control)
+								{
+									using namespace std::chrono_literals;
+
+									for (auto j = u32{}; j < 100; j++)
+									{
+										std::this_thread::sleep_for(50ms);
+										control.report(j * 0.01f);
+										if (control.stopRequested())
+											return;
+									}
+
+								});
+						}
+					}
+					if (backgroundTasksSystem.hasTask(i))
+					{
+						ImGui::ProgressBar(backgroundTasksSystem.requestProgress(i));
+
+						if (backgroundTasksSystem.status(i) == TaskStatus::done)
+						{
+							backgroundTasksSystem.freeTask(i);
+						}
+					}
+					ImGui::PopID();
+				}
+				
+
+				if (&op && ImGui::Button("Close"))
 					op = false;
 			}
 			ImGui::End();
@@ -367,6 +435,7 @@ namespace toy::editor
 	public:
 		auto initialize(RenderInterface& rhi, ImageDataUploader& imageDataUploader) -> void
 		{
+			backgroundTasksSystem_ = std::make_unique<BackgroundTasksSystem>();
 			//rhi_ = &rhi;
 			//uploader_ = &imageDataUploader;
 
@@ -731,7 +800,7 @@ namespace toy::editor
 			return tabManager_;
 		}
 	private:
-
+		std::unique_ptr<BackgroundTasksSystem> backgroundTasksSystem_;
 		RenderInterface* rhi_;
 		ImageDataUploader* uploader_;
 		TabManager tabManager_;
@@ -913,7 +982,7 @@ namespace toy::editor
 					const auto& style = ImGui::GetStyle();
 
 					ImGui::SetNextWindowPos(progressQueuePos + ImVec2(0, menuHeight), ImGuiCond_Always);
-					ImGui::SetNextWindowSizeConstraints(ImVec2(progressQueueWidgetWidth_, 40), ImVec2(progressQueueWidgetWidth_, 100));
+					ImGui::SetNextWindowSizeConstraints(ImVec2(progressQueueWidgetWidth_, 40), ImVec2(progressQueueWidgetWidth_, 400));
 
 					ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar |
 						ImGuiWindowFlags_NoResize |

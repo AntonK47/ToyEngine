@@ -22,7 +22,8 @@ set(MODULE_HEADERS
 	Source/ImageDataUploader.h
 	Source/TextureManager.h
 	Source/Texture2D.h 
-	Source/Material.h)
+	Source/Material.h 
+	Source/BackgroundTasksSystem.h)
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -49,7 +50,7 @@ target_link_libraries(${MODULE_NAME}
 		imgui::imgui
 		imgui-node-editor-static
 		#Compressator
-		#compressonator-static
+		compressonator-static
 		#Win32Window
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
