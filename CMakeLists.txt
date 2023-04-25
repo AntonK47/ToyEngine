@@ -13,6 +13,9 @@ set(CMAKE_CXX_STANDARD 23)
 #set(CMAKE_BUILD_TYPE Release) #Debug, Release, RelWithDebInfo and MinSizeRel
 #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 #set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+set(VCPKG_TARGET_TRIPLET x64-windows-static)
 
 option(BUILD_TOY_ENGINE_MODULE_TESTS "Build module tests." on)
 option(TOY_ENGINE_ENABLE_VULKAN_VALIDATION "Enable Vulkan validation layer." on)
@@ -21,6 +24,11 @@ option(TOY_ENGINE_VULKAN_BACKEND "Enable Vulkan backend." on)
 option(TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION "Enable renderer abstraction interface validation" on)
 option(TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING "Enable RenderDoc captureing" on)
 option(TOY_ENGINE_ENABLE_RAY_TRACING "Enable Hardware Ray Tracing support" on)
+
+#if(MSVC)
+#  set(CMAKE_EXE_LINKER_FLAGS
+#      "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:LIBCMTD")
+#endif()
 
 set(TOY_ADDITIONAL_DEFINES
     TOY_ENGINE_ENABLE_GPU_PROFILING
@@ -43,6 +51,11 @@ foreach(TOY_DEFINE_ENTRY ${TOY_ADDITIONAL_DEFINES})
     endif()
 endforeach()
 
+
+#list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/External/Compressator/cmake/)
+#message(${CMAKE_MODULE_PATH})
+
+#find_package(Compressator REQUIRED PATHS ${CMAKE_CURRENT_SOURCE_DIR}/External/Compressator/cmake/)
 find_package(Vulkan REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 find_package(cityhash CONFIG REQUIRED)
@@ -61,6 +74,7 @@ FetchContent_Declare(imgui-node-editor
     GIT_REPOSITORY https://github.com/ocornut/imgui_node_editor.git
     GIT_TAG origin/fix-for-v189.4 #fix-for-v189.4
 )
+
 FetchContent_MakeAvailable(imgui-node-editor)
 
 add_library(
@@ -84,10 +98,61 @@ STATIC
     imgui-node-editor-static
 PRIVATE
     imgui::imgui)
+
+set_property(TARGET imgui-node-editor-static PROPERTY
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 install(TARGETS imgui-node-editor-static LIBRARY DESTINATION lib)
 
 
 set_target_properties(imgui-node-editor-static PROPERTIES FOLDER Misc)
+
+
+
+#FetchContent_Declare(compressonator
+#    OPTION_BUILD_BROTLIG OFF
+#    GIT_REPOSITORY https://github.com/GPUOpen-Tools/compressonator.git
+#    SOURCE_SUBDIR cmp_framework
+#)
+#
+#set(OPTION_ENABLE_ALL_APPS OFF)
+#set(OPTION_BUILD_APPS_CMP_VISION ON)
+#set(OPTION_BUILD_BROTLIG OFF)
+#FetchContent_MakeAvailable(compressonator)
+#message(STATUS "................ ${compressonator_SOURCE_DIR}")
+
+#execute_process(COMMAND python ${compressonator_SOURCE_DIR}/scripts/fetch_dependencies.py
+#    ${compressonator_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
+#
+##
+
+
+
+
+
+
+add_library(compressonator-static STATIC IMPORTED)
+set_target_properties(compressonator-static PROPERTIES#  IMPORTED_LOCATION "E:/Develop/compressonator/lib/Debug/CMP_Framework.lib"
+  IMPORTED_LOCATION_DEBUG "C:/Compressonator_4.3.206//lib/VS2019/x64/CMP_Framework_MTd.lib"
+  IMPORTED_CONFIGURATIONS "RELEASE;DEBUG"
+)
+set_target_properties(compressonator-static PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "C:/Compressonator_4.3.206/include"
+)
+
+
+
+#add_library(compressonator SHARED IMPORTED)
+#set_target_properties(compressonator PROPERTIES
+#  IMPORTED_LOCATION "c:/Compressonator_4.3.206/lib/VS2019/x64/Compressonator_MD_DLL.dll"
+#  IMPORTED_IMPLIB "c:/Compressonator_4.3.206/lib/VS2019/x64/Compressonator_MD_DLL.lib"
+#)
+#set_target_properties(compressonator PROPERTIES
+#  INTERFACE_INCLUDE_DIRECTORIES "c:/Compressonator_4.3.206/include"
+#)
+
+
+
 
 
 
@@ -97,3 +162,4 @@ message(STATUS "imgui node editor: " ${imgui-node-editor_SOURCE_DIR})
 add_subdirectory(Engine)
 add_subdirectory(Application)
 add_subdirectory(Tools)
+#add_subdirectory(External)
