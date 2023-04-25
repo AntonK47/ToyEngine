@@ -24,6 +24,7 @@
 #include "ValidationCommon.h"
 #include "SubmitDependency.h"
 
+
 namespace toy::graphics::rhi
 {
 	class CommandList;
@@ -128,7 +129,7 @@ namespace toy::graphics::rhi::vulkan
 
 		PerThreadCommandPoolData initializePerRenderThreadData();
 
-		auto getMemoryRequirenments() -> void;
+		auto getMemoryRequirements() -> void;
 		auto allocatePageMemoryInternal() -> void;
 
 	private:
@@ -245,11 +246,11 @@ namespace toy::graphics::rhi::vulkan
 		friend ResourceManager;
 		friend VulkanCommandList;
 
-		//ResourceManager resouceManager_;
+		//ResourceManager resourceManager_;
 
-		/*[[nodiscard]]ResourceManager& resouceManager()
+		/*[[nodiscard]]ResourceManager& resourceManager()
 		{
-			return resouceManager_;
+			return resourceManager_;
 		}*/
 		/*
 		 *

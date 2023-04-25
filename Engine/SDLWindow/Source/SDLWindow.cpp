@@ -49,16 +49,16 @@ class DropManager : public IDropTarget
         POINTL pt,
         DWORD* pdwEffect) -> HRESULT override
     {
-        FORMATETC fmte = { CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
-        STGMEDIUM stgm;
+        FORMATETC format = { CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
+        STGMEDIUM medium;
 
-        dragedFiles.clear();
+        draggedFiles.clear();
         isDragAccepted = true;
 
-        if (SUCCEEDED(pDataObj->GetData(&fmte, &stgm)))
+        if (SUCCEEDED(pDataObj->GetData(&format, &medium)))
         {
-            HDROP hdrop = (HDROP)stgm.hGlobal; // or reinterpret_cast<HDROP> if preferred
-            UINT file_count = DragQueryFile(hdrop, 0xFFFFFFFF, NULL, 0);
+            HDROP drop = (HDROP)medium.hGlobal; // or reinterpret_cast<HDROP> if preferred
+            UINT file_count = DragQueryFile(drop, 0xFFFFFFFF, NULL, 0);
 
             auto paths = std::vector<std::string>{};
 
@@ -66,27 +66,27 @@ class DropManager : public IDropTarget
             for (UINT i = 0; i < file_count; i++)
             {
                 TCHAR szFile[MAX_PATH];
-                UINT cch = DragQueryFile(hdrop, i, szFile, MAX_PATH);
+                UINT cch = DragQueryFile(drop, i, szFile, MAX_PATH);
                 if (cch > 0 && cch < MAX_PATH)
                 {
                     const auto path = std::filesystem::path{ std::format("{}", szFile) };
                     const auto extension = path.extension().generic_string();
                     
-                    if (!registredExtensions.contains(extension))
+                    if (!registeredExtensions.contains(extension))
                     {
                         LOG(INFO) << std::format("File extention is not supported by application: {}", path.generic_string());
                         isDragAccepted = false;
                     }
                     else
                     {
-                        dragedFiles.push_back(path);
+                        draggedFiles.push_back(path);
                     }
                 }
 
 
             }
 
-            ReleaseStgMedium(&stgm);
+            ReleaseStgMedium(&medium);
 
         }
 
@@ -109,7 +109,7 @@ class DropManager : public IDropTarget
         DWORD* pdwEffect) -> HRESULT override
     {
 
-        POINT p;
+        POINT p{};
         p.x = pt.x;
         p.y = pt.y;
         ScreenToClient(windowOwner, &p);
@@ -144,7 +144,7 @@ class DropManager : public IDropTarget
         events.push_back(toy::io::DragDropEvent::dragEnd);
         *pdwEffect &= DROPEFFECT_COPY;
         
-        //TODO: window shoudl become active
+        //TODO: window should become active
         return S_OK;
     }
 
@@ -152,12 +152,12 @@ class DropManager : public IDropTarget
 
 
     bool isDragAccepted{ false };
-    bool isDraging{ false };
+    bool isDragging{ false };
     friend class SDLWindow;
 
     std::vector<toy::io::DragDropEvent> events;
-    std::set<std::string> registredExtensions;
-    std::vector<std::filesystem::path> dragedFiles;
+    std::set<std::string> registeredExtensions;
+    std::vector<std::filesystem::path> draggedFiles;
     
     u32 mouseX;
     u32 mouseY;
@@ -187,15 +187,15 @@ toy::io::DragDropEvent SDLWindow::pollDragDropEvent()
 
     if (lastEvent == toy::io::DragDropEvent::dragBegin)
     {
-        dropManager.isDraging = true;
+        dropManager.isDragging = true;
     }
 
     if (lastEvent == toy::io::DragDropEvent::dragEnd)
     {
-        dropManager.isDraging = false;
+        dropManager.isDragging = false;
     }
 
-    if (dropManager.isDraging)
+    if (dropManager.isDragging)
     {
         windowIo_.mouseState.position.x = dropManager.mouseX;
         windowIo_.mouseState.position.y = dropManager.mouseY;
@@ -204,16 +204,16 @@ toy::io::DragDropEvent SDLWindow::pollDragDropEvent()
     return lastEvent;
 }
 
-std::vector<std::filesystem::path> SDLWindow::getDragedFilePathsInternal()
+std::vector<std::filesystem::path> SDLWindow::getDraggedFilePathsInternal()
 {
-    return dropManager.dragedFiles;
+    return dropManager.draggedFiles;
 }
 
 void SDLWindow::registerExternalDragExtensionInternal(const std::string& extension)
 {
-    if (!dropManager.registredExtensions.contains(extension))
+    if (!dropManager.registeredExtensions.contains(extension))
     {
-        dropManager.registredExtensions.insert(extension);
+        dropManager.registeredExtensions.insert(extension);
     }
 }
 
@@ -254,7 +254,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 #endif
 
 #ifdef WIN32
-        SDL_SysWMinfo info;
+        SDL_SysWMinfo info{};
         SDL_VERSION(&info.version);
         SDL_GetWindowWMInfo(window_, &info);
 

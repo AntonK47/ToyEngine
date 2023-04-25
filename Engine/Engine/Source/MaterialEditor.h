@@ -268,7 +268,7 @@ namespace toy::editor::materials
 			auto model = model::Node{};
 
 			TOY_ASSERT(std::holds_alternative<ColorSelectionNode>(node.extension));
-			auto colorExtension = std::get<ColorSelectionNode>(node.extension);
+			auto& colorExtension = std::get<ColorSelectionNode>(node.extension);
 			model.content.push_back(colorExtension.color);
 			model.output.push_back(model::OutputPin{});
 			return model;

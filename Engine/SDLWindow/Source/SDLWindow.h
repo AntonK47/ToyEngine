@@ -16,7 +16,7 @@ namespace toy::window
     private:
         [[nodiscard]] io::WindowIo getIoInternal() override;
         [[nodiscard]] std::vector<Event> getEventsInternal() override;//TODO: smallvector
-        [[nodiscard]] std::vector<std::filesystem::path> getDragedFilePathsInternal() override;
+        [[nodiscard]] std::vector<std::filesystem::path> getDraggedFilePathsInternal() override;
         void registerExternalDragExtensionInternal(const std::string& extension) override;
         void pollEventsInternal() override;
         void initializeInternal(const WindowDescriptor& descriptor) override;

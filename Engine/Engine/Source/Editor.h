@@ -78,7 +78,7 @@ namespace toy::editor
 
 		auto createNewMaterial(MaterialAssetDescriptor descriptor) -> toy::core::UID
 		{
-			auto name = descriptor.name;
+			auto& name = descriptor.name;
 			auto nameCounter = 0;
 			while(materialNameToUIDMap.contains(name))
 			{
@@ -114,7 +114,7 @@ namespace toy::editor
 			TOY_ASSERT(!materialNameToUIDMap.contains(newName)); //TODO: return error code on this case
 			TOY_ASSERT(materials.contains(uid));
 			auto& material = materials.at(uid);
-			const auto oldName = material.name;
+			const auto& oldName = material.name;
 			material.name = newName;
 
 			TOY_ASSERT(materialNameToUIDMap.contains(oldName));
@@ -932,8 +932,8 @@ namespace toy::editor
 					if (ImGui::BeginChild("##processQueue", ImVec2(progressQueueWidgetWidth_, 20), true, windowFlags))
 					{
 						auto availableSize = ImGui::GetContentRegionAvail();
-						const auto arrowWitdh = ImGui::CalcTextSize(ICON_FA_ANGLE_LEFT);
-						const auto iconWitdh = ImGui::CalcTextSize(ICON_FA_BARS_PROGRESS);
+						const auto arrowWidth = ImGui::CalcTextSize(ICON_FA_ANGLE_LEFT);
+						const auto iconWidth = ImGui::CalcTextSize(ICON_FA_BARS_PROGRESS);
 
 						pos = ImGui::GetCursorPos() + style.FramePadding;
 						ImGui::SetCursorPos(ImVec2(pos.x, pos.y));
@@ -950,12 +950,12 @@ namespace toy::editor
 						pos = ImGui::GetCursorPos();
 						ImGui::SetCursorPos(ImVec2(pos.x, pos.y - 2));
 						ImGui::Text("processing..");
-						const auto barWidth = windowWidth - progressQueuePos.x - style.FramePadding.x * 2 - style.ItemInnerSpacing.x - style.WindowPadding.x * 2 - menuPadding.x - iconWitdh.x;
+						const auto barWidth = windowWidth - progressQueuePos.x - style.FramePadding.x * 2 - style.ItemInnerSpacing.x - style.WindowPadding.x * 2 - menuPadding.x - iconWidth.x;
 						ImGui::ProgressBar(progressValue_, ImVec2(barWidth, 4), "");
 						ImGui::EndGroup();
 						ImGui::SameLine();
 						pos = ImGui::GetCursorPos();
-						ImGui::SetCursorPos(ImVec2(pos.x - arrowWitdh.x, pos.y - 4));
+						ImGui::SetCursorPos(ImVec2(pos.x - arrowWidth.x, pos.y - 4));
 						if (progressQueueListOpened_)
 						{
 							ImGui::Text(ICON_FA_ANGLE_DOWN);
@@ -996,14 +996,14 @@ namespace toy::editor
 
 					if (ImGui::Begin("progressQueueList", &progressQueueListOpened_, windowFlags | ImGuiWindowFlags_NoScrollbar))
 					{
-						const auto canselButtonHeight = 20;
+						const auto cancelButtonHeight = 20;
 						const auto& style = ImGui::GetStyle();
 						const auto iconWidth = ImGui::CalcTextSize(ICON_FA_XMARK).x;
 
 						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 						ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
 
-						ImGui::BeginChild("##list", ImGui::GetContentRegionAvail() - ImVec2(0, canselButtonHeight), false, windowFlags | ImGuiWindowFlags_NoBackground);
+						ImGui::BeginChild("##list", ImGui::GetContentRegionAvail() - ImVec2(0, cancelButtonHeight), false, windowFlags | ImGuiWindowFlags_NoBackground);
 						for (auto i = core::u32{}; i < inProcessingList.size(); i++)
 						{
 							ImGui::PushID(std::format("queue{}", i).c_str());
@@ -1043,7 +1043,7 @@ namespace toy::editor
 						ImGui::PopStyleColor();
 						ImGui::PopStyleVar();
 
-						ImGui::Button("Cansel All Queued Tasks", ImVec2(-1, canselButtonHeight));
+						ImGui::Button("Cancel All Queued Tasks", ImVec2(-1, cancelButtonHeight));
 
 
 					}

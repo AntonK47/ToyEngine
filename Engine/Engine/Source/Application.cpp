@@ -137,7 +137,7 @@ Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, T
 	const auto anatomyData = "E:\\Develop\\ToyEngineContent\\Z-Anatomy.dat";
 	const auto splashData = "E:\\Develop\\ToyEngineContent\\splash.dat";
 
-	const auto blaseRunnderCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
+	const auto bladeRunnerCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
 
 	auto scene = Scene::loadSceneFromFile(renderer, knightData);
 
@@ -215,8 +215,8 @@ Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, T
 		},
 		.flags = BindGroupFlag::unboundLast
 	};
-	const auto samplingGroupLayout = renderer.createBindGroupLayout(samplingGroupDescriptor, DebugLabel{ .name = "textureSemplers" });
-	const auto samplingGroup = renderer.allocateBindGroup(samplingGroupLayout, UsageScope::async, DebugLabel{ "textureSemplers" });
+	const auto samplingGroupLayout = renderer.createBindGroupLayout(samplingGroupDescriptor, DebugLabel{ .name = "textureSamplers" });
+	const auto samplingGroup = renderer.allocateBindGroup(samplingGroupLayout, UsageScope::async, DebugLabel{ "textureSamplers" });
 
 	//R&D: Research about material system, (have in mind it should be compatible to a shader graph created materials.REFACTOR: extrude all material dependent stuff out of this function.
 	const auto simpleTriangleGroup = BindGroupDescriptor
@@ -275,7 +275,7 @@ Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, T
 
 
 	const auto vertexShaderGlslTemplateCode = loadShaderFile("Resources/StaticClusteredGeometry.vert");
-	const auto fragmentShaderGlsTemplatelCode = loadShaderFile("Resources/StaticClusteredGeometry.frag");
+	const auto fragmentShaderGlsTemplateCode = loadShaderFile("Resources/StaticClusteredGeometry.frag");
 
 
 	
@@ -283,7 +283,7 @@ Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, T
 	const auto materialTemplate = MaterialTemplate
 	{
 		.vertexShaderTemplate = vertexShaderGlslTemplateCode,
-		.fragmentShaderTemplate = fragmentShaderGlsTemplatelCode
+		.fragmentShaderTemplate = fragmentShaderGlsTemplateCode
 	};
 
 	const auto materialAsset = MaterialAsset{};
@@ -558,8 +558,8 @@ int Application::run()
 		},
 		.flags = BindGroupFlag::unboundLast
 	};
-	const auto samplingGroupLayout = renderer.createBindGroupLayout(samplingGroupDescriptor, DebugLabel{ .name = "textureSemplers" });
-	const auto samplingGroup = renderer.allocateBindGroup(samplingGroupLayout, UsageScope::async, DebugLabel{ "textureSemplers" });
+	const auto samplingGroupLayout = renderer.createBindGroupLayout(samplingGroupDescriptor, DebugLabel{ .name = "textureSamplers" });
+	const auto samplingGroup = renderer.allocateBindGroup(samplingGroupLayout, UsageScope::async, DebugLabel{ "textureSamplers" });
 	
 	
 
@@ -787,7 +787,7 @@ int Application::run()
 
 	struct TransformComponent
 	{
-		glm::mat4 tranform;
+		glm::mat4 transform;
 	};
 
 	struct MeshComponent
@@ -815,7 +815,7 @@ int Application::run()
 		const auto editorObject = EditorSceneObject
 		{
 			.name = std::format("object_{}", object.meshIndex),
-			.transform = TransformComponent{ .tranform = object.model },
+			.transform = TransformComponent{ .transform = object.model },
 			.mesh = MeshComponent{ .meshIndex = object.meshIndex }
 		};
 
@@ -839,13 +839,13 @@ int Application::run()
 	
 
 	SubmitBatch prepareBatch;
-	auto prepareBatchValide = false;
+	auto prepareBatchValid = false;
 	auto perThreadSubmits = std::vector<SubmitBatch>{};
 	perThreadSubmits.resize(10);
 	SubmitBatch postRenderingBatch;
 
 
-	struct SceneDrawStaticstics
+	struct SceneDrawStatistics
 	{
 		u32 drawCalls{};
 		u32 totalTrianglesCount{};
@@ -860,13 +860,13 @@ int Application::run()
 
 	struct DrawStatistics
 	{
-		SceneDrawStaticstics scene{};
+		SceneDrawStatistics scene{};
 		GuiDrawStatistics gui{};
 	};
 
 	struct PerThreadDrawStatistics
 	{
-		alignas(std::hardware_destructive_interference_size) SceneDrawStaticstics statistics {};
+		alignas(std::hardware_destructive_interference_size) SceneDrawStatistics statistics{};
 	};
 
 	auto perRenderThreadDrawStatistics = std::vector<PerThreadDrawStatistics>{};
@@ -1144,7 +1144,7 @@ int Application::run()
 			{
 				if (auto t = ImGui::AcceptDragDropPayload("FILES") && io.dragDropState == io::DragDropEvent::dragEnd)  // or: const ImGuiPayload* payload = ... if you sent a payload in the block above
 				{
-					const auto& paths = window.getDragedFilePaths();
+					const auto& paths = window.getDraggedFilePaths();
 					for (const auto& path : paths)
 					{
 						std::cout << path.generic_string() << std::endl;
@@ -1268,9 +1268,9 @@ int Application::run()
 
 				for(auto i = u32{}; i < budget.heapCount; i++)
 				{
-					const auto total = budget.budget[i].totalMemory/(1024*1024);
-					const auto available = budget.budget[i].availableMemory/(1024*1024);
-					const auto budgetValue = budget.budget[i].budgetMemory/(1024*1024);
+					const auto total = budget.budget[i].totalMemory / (static_cast<unsigned long long>(1024) * 1024);
+					const auto available = budget.budget[i].availableMemory / (static_cast<unsigned long long>(1024) * 1024);
+					const auto budgetValue = budget.budget[i].budgetMemory / (static_cast<unsigned long long>(1024) * 1024);
 
 					auto type = std::string{};
 					switch(budget.budget[i].type)
@@ -1316,11 +1316,11 @@ int Application::run()
 						allocations.push(b);
 					}
 
-					if(ImGui::Button("dealocate memory"))
+					if(ImGui::Button("deallocate memory"))
 					{
 						if(!allocations.empty())
 						{
-							const auto b = allocations.top();
+							const auto& b = allocations.top();
 							renderer.destroyBuffer(b);
 							allocations.pop();
 						}
@@ -1366,7 +1366,7 @@ int Application::run()
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 0.4)));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 0.8)));
 		ImGui::PushStyleColor(ImGuiCol_Text, glm::packUnorm4x8(glm::vec4(0.9, 0.1, 0.1, 1.0)));
-		if (ImGui::Begin("WindowControBar", &windowControlBar, windowFlags))
+		if (ImGui::Begin("WindowControlBar", &windowControlBar, windowFlags))
 		{
 			if (ImGui::Button(ICON_FA_CIRCLE_XMARK))
 			{
@@ -1599,7 +1599,7 @@ int Application::run()
 				cmd.endRendering();
 				cmd.end();
 
-				if(prepareBatchValide)
+				if(prepareBatchValid)
 				{
 					auto dependency = postRenderingBatch.barrier();
 					prepareBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, {dependency});
@@ -1607,7 +1607,7 @@ int Application::run()
 				else
 				{
 					prepareBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, {});
-					prepareBatchValide = true;
+					prepareBatchValid = true;
 				}
 			}
 			renderer.submitBatches(QueueType::graphics, { prepareBatch });
@@ -1644,7 +1644,7 @@ int Application::run()
 				std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
 					{
 						auto& drawStatistics = perRenderThreadDrawStatistics[index].statistics;
-						drawStatistics = SceneDrawStaticstics{};
+						drawStatistics = SceneDrawStatistics{};
 						auto& drawInstances = batches[index];
 						auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount) });
 						cmd.begin();
@@ -1744,15 +1744,15 @@ int Application::run()
 
 					});
 
-				auto gatheredStatistics = std::vector<SceneDrawStaticstics>{};
+				auto gatheredStatistics = std::vector<SceneDrawStatistics>{};
 				gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
 
 				std::transform(perRenderThreadDrawStatistics.begin(), perRenderThreadDrawStatistics.end(), gatheredStatistics.begin(), [](auto& a) {return a.statistics; });
 
-				drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStaticstics{},
-					[](SceneDrawStaticstics a, SceneDrawStaticstics& b)
+				drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStatistics{},
+					[](SceneDrawStatistics a, SceneDrawStatistics& b)
 					{
-						SceneDrawStaticstics c;
+						SceneDrawStatistics c;
 						c.drawCalls = a.drawCalls + b.drawCalls;
 						c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
 						return c;

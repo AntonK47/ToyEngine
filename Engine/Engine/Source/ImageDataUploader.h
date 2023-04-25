@@ -2,6 +2,7 @@
 #include <RenderInterface.h>
 #include <RenderInterfaceTypes.h>
 #include "Texture2D.h"
+using namespace toy::graphics::rhi;
 
 namespace toy
 {

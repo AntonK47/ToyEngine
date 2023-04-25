@@ -2,6 +2,7 @@
 #include <string>
 #include <Core.h>
 #include <RenderInterfaceTypes.h>
+#include <RenderInterface.h>
 
 using namespace toy::core;
 using namespace toy::graphics;

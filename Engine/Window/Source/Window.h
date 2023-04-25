@@ -52,9 +52,9 @@ namespace toy::window
         void initialize(const WindowDescriptor& descriptor);
         void deinitialize();
 
-        std::vector<std::filesystem::path> getDragedFilePaths()
+        std::vector<std::filesystem::path> getDraggedFilePaths()
         {
-            return getDragedFilePathsInternal();
+            return getDraggedFilePathsInternal();
         }
 
         void registerExternalDragExtension(const std::string& extension)
@@ -72,7 +72,7 @@ namespace toy::window
         virtual [[nodiscard]] io::WindowIo getIoInternal() = 0;
         virtual void resizeInternal(core::u32 width, core::u32 height) = 0;
         virtual void setWindowTitleInternal(const std::string& title) = 0;
-        virtual [[nodiscard]] std::vector<std::filesystem::path> getDragedFilePathsInternal() = 0;
+        virtual [[nodiscard]] std::vector<std::filesystem::path> getDraggedFilePathsInternal() = 0;
         virtual void registerExternalDragExtensionInternal(const std::string& extension) = 0;
         WindowHandler handler_{};
         BackendRendererMeta meta_{};

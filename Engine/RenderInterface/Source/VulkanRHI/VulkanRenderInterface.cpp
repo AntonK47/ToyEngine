@@ -1417,7 +1417,7 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
     allocationInfos.resize(pageCount);
 
 
-    getMemoryRequirenments();
+    getMemoryRequirements();
     const  auto allocationResult = vmaAllocateMemoryPages(allocator_, (VkMemoryRequirements*) & pageMemoryRequirements, &allocationCreateInfo, pageCount, allocations.data(), allocationInfos.data());
 
     return Handle<VirtualTexture>();
@@ -1463,7 +1463,7 @@ auto VulkanRenderInterface::createSamplerInternal(const SamplerDescriptor& descr
     return handle;
 }
 
-auto VulkanRenderInterface::getMemoryRequirenments() -> void
+auto VulkanRenderInterface::getMemoryRequirements() -> void
 {
     auto pageSizeX = u32{ 128 };
     auto pageSizeY = u32{ 128 };

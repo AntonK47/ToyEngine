@@ -24,7 +24,7 @@ Even though it is far from being finished, I have some renderings to share:
 
 |![TLAS](Docs/Tlas.png)|
 |:-|
-|*Here I played a little bit with an acceleration structure building for a Raytraycing. This screenshot is taken from the NSight graphics debugging tool.*|
+|*Here I played a little bit with an acceleration structure building for a Raytracing. This screenshot is taken from the NSight graphics debugging tool.*|
 
 
 |![New Sponza](Docs/NewSponza.png)|

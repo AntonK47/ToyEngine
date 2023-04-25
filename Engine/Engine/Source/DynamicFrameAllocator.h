@@ -9,13 +9,13 @@ namespace toy::graphics
 		auto suballocate();
 	};
 
-	struct AllcatorDescriptor
+	struct AllocatorDescriptor
 	{
 		toy::graphics::rhi::Buffer buffer;
 	};
 
 
-	class DynamicFrameAllcoator final
+	class DynamicFrameAllocator final
 	{
 		auto initialize(const AllocatorDescriptor& descriptor);
 
