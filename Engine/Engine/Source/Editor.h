@@ -11,6 +11,7 @@
 #define IMGUI_USER_CONFIG "toyimconfig.h"
 #include <imgui.h>
 #include "IconsFontAwesome6.h"
+#include "IconsFontAwesome6Brands.h"
 #include "ImageDataUploader.h"
 
 #include <imgui_node_editor.h>
@@ -19,6 +20,7 @@
 #include <Window.h>
 #include <Material.h>
 
+#include "TextureManager.h"
 #include "BackgroundTasksSystem.h"
 using namespace toy::core;
 
@@ -65,7 +67,7 @@ auto mapWindowIoToImGuiIo(const toy::io::WindowIo& windowIo, ImGuiIO& io) -> voi
 namespace toy::editor
 {
 	
-
+	
 	
 
 	struct AssetManager
@@ -240,15 +242,15 @@ namespace toy::editor
 						const auto& file = fileList_[i];
 						if (!backgroundTasksSystem.hasTask(i))
 						{
-							backgroundTasksSystem.createTask(i, [](TaskControl& control)
+							backgroundTasksSystem.createTask(i, [](TaskFeedback& feedback)
 								{
 									using namespace std::chrono_literals;
 
 									for (auto j = u32{}; j < 100; j++)
 									{
 										std::this_thread::sleep_for(50ms);
-										control.report(j * 0.01f);
-										if (control.stopRequested())
+										feedback.report(j * 0.01f);
+										if (feedback.stopRequested())
 											return;
 									}
 								});
@@ -267,7 +269,7 @@ namespace toy::editor
 					{
 						if (!backgroundTasksSystem.hasTask(i))
 						{
-							backgroundTasksSystem.createTask(i, [](TaskControl& control)
+							backgroundTasksSystem.createTask(i, [](TaskFeedback& control)
 								{
 									using namespace std::chrono_literals;
 
@@ -431,360 +433,129 @@ namespace toy::editor
 
 	class Editor
 	{
+		enum class ViewState
+		{
+			splash,
+			sceneView
+		};
+
+		ViewState viewState_;
+		
+
+		core::UID splashScreenImage_;
+		const float splashScreenAnimationDuration_ = 0.8f;
+		const float splashScreenIdleDuration_ = 2.0f;
+		bool isAnimationPlaying_ = false;
+		float time_ = 0.0f;
+		float animationOffsetBase_ = 0.0f;
+		const core::u32 splashScreenSize_ = 400;
 
 	public:
-		auto initialize(RenderInterface& rhi, ImageDataUploader& imageDataUploader) -> void
+		auto initialize(RenderInterface& rhi, window::Window& windowInterface, ImageDataUploader& imageDataUploader, TextureManager& textureManager) -> void
 		{
-			backgroundTasksSystem_ = std::make_unique<BackgroundTasksSystem>();
-			//rhi_ = &rhi;
-			//uploader_ = &imageDataUploader;
+			//backgroundTasksSystem_ = std::make_unique<BackgroundTasksSystem>();
+			window_ = &windowInterface;
+			viewState_ = ViewState::splash;
+			window_->resize(splashScreenSize_, splashScreenSize_);
 
-			//ImGui::CreateContext();
+			
+			splashScreenImage_ = toy::helper::loadTexture("Resources/generated_splash_screen.DDS", rhi, imageDataUploader, textureManager);
+		}
 
-			//float baseFontSize = 16.0f;
-			//float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
-
-			//ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", baseFontSize);
-
-			//static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
-			//ImFontConfig config;
-			//config.MergeMode = true;
-			//config.PixelSnapH = true;
-			//config.GlyphMinAdvanceX = iconFontSize;
-
-			//ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", baseFontSize, &config, icons_ranges);
-
-			//int width, height;
-			//unsigned char* pixels = NULL;
-			//ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
-			//const auto texelSize = 1;
-			//const auto fontImageSize = width * height * texelSize;
-
-			//Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
-			//accessUsage |= ImageAccessUsage::transferDst;
-
-
-			//const auto fontDescriptor = ImageDescriptor
-			//{
-			//	.format = Format::r8,
-			//	.extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
-			//	.mips = 1,
-			//	.layers = 1,
-			//	.accessUsage = accessUsage
-			//};
-
-			//auto fontImage = rhi_->createImage(fontDescriptor);
-			//ImGui::GetIO().Fonts->SetTexID((void*)&fontImage);
-
-			//const auto fontView = rhi_->createImageView(ImageViewDescriptor
-			//	{
-			//		.image = fontImage,
-			//		.format = Format::r8,
-			//		.type = ImageViewType::_2D
-			//	});
-
-			//const auto fontSampler = rhi_->createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
-
-
-			//const auto fontTexture = Texture2D
-			//{
-			//	.width = (u32)width,
-			//	.height = (u32)height,
-			//	.image = fontImage,
-			//	.view = fontView,
-			//	.hasMips = false,
-			//	.bytesPerTexel = texelSize
-			//};
-
-			//uploader_->upload(std::vector<std::byte>((std::byte*)pixels, (std::byte*)pixels + fontImageSize), fontTexture);
-
-
-
-			//const auto guiVertexShaderGlslCode = loadShaderFile("Resources/gui.vert");
-			//const auto guiFragmentShaderGlslCode = loadShaderFile("Resources/gui.frag");
-
-			//const auto guiVertexShaderInfo =
-			//	GlslRuntimeCompiler::ShaderInfo
-			//{
-			//	.entryPoint = "main",
-			//	.compilationDefines = {},
-			//	.shaderStage = compiler::ShaderStage::vertex,
-			//	.shaderCode = guiVertexShaderGlslCode,
-			//	.enableDebugCompilation = true
-			//};
-
-			//const auto guiFragmentShaderInfo =
-			//	GlslRuntimeCompiler::ShaderInfo
-			//{
-			//	.entryPoint = "main",
-			//	.compilationDefines = {},
-			//	.shaderStage = compiler::ShaderStage::fragment,
-			//	.shaderCode = guiFragmentShaderGlslCode,
-			//	.enableDebugCompilation = true
-			//};
-
-
-			//auto guiVsSpirvCode = ShaderByteCode{};
-			//auto guiFsSpirvCode = ShaderByteCode{};
-
-			//{
-			//	const auto result = GlslRuntimeCompiler::compileToSpirv(guiVertexShaderInfo, guiVsSpirvCode);
-			//	TOY_ASSERT(result == CompilationResult::success);
-			//}
-			//{
-			//	const auto result = GlslRuntimeCompiler::compileToSpirv(guiFragmentShaderInfo, guiFsSpirvCode);
-			//	TOY_ASSERT(result == CompilationResult::success);
-			//}
-
-
-
-
-			//const auto guiVertexShaderModule = rhi_->createShaderModule(toy::graphics::rhi::ShaderStage::vertex, { ShaderLanguage::spirv1_6, guiVsSpirvCode });
-			//const auto guiFragmentShaderModule = rhi_->createShaderModule(toy::graphics::rhi::ShaderStage::fragment, { ShaderLanguage::spirv1_6, guiFsSpirvCode });
-
-
-			//const auto guiVertexDataGroup = BindGroupDescriptor
-			//{
-			//	.bindings =
-			//	{
-			//		{
-			//			.binding = 0,
-			//			.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			//		}
-			//	}
-			//};
-
-			//const auto guiFontGroup = BindGroupDescriptor
-			//{
-			//	.bindings =
-			//	{
-			//		{
-			//			.binding = 0,
-			//			.descriptor = BindingDescriptor{BindingType::Texture2D}
-			//		},
-			//		{
-			//			.binding = 1,
-			//			.descriptor = BindingDescriptor{BindingType::Sampler}
-			//		}
-			//	}
-			//};
-
-
-			//const auto guiVertexDataGroupLayout = rhi_->createBindGroupLayout(guiVertexDataGroup);
-			//const auto guiFontGroupLayout = rhi_->createBindGroupLayout(guiFontGroup);
-
-
-
-
-
-
-			//Handle<BindGroup> guiFontBindGroup = rhi_->allocateBindGroup(guiFontGroupLayout, UsageScope::async);
-			//rhi_->updateBindGroup(guiFontBindGroup,
-			//	{
-			//			{
-			//				0, Texture2DSRV{fontView}
-			//			},
-			//			{
-			//				1, SamplerSRV{fontSampler}
-			//			},
-			//	});
-
-			//struct ScaleTranslate {
-			//	glm::vec2 scale;
-			//	glm::vec2 translate;
-			//};
-
-			//const auto guiPipeline = rhi_->createPipeline(
-			//	GraphicsPipelineDescriptor
-			//	{
-			//		.vertexShader = guiVertexShaderModule,
-			//		.fragmentShader = guiFragmentShaderModule,
-			//		.renderTargetDescriptor = RenderTargetsDescriptor
-			//		{
-			//			.colorRenderTargets = std::initializer_list
-			//			{
-			//				ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
-			//			},
-			//	//.depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
-			//	},
-			//	.state = PipelineState
-			//	{
-			//		.depthTestEnabled = false,
-			//		.faceCulling = FaceCull::none,
-			//		.blending = Blending::alphaBlend
-			//	}
-			//		},
-			//	{
-			//		SetBindGroupMapping{0, guiVertexDataGroupLayout},
-			//		SetBindGroupMapping{1, guiFontGroupLayout}
-			//	},
-			//	{
-			//		PushConstant({.size = sizeof(ScaleTranslate) })
-			//	});
-
+		auto navigateToSceneView()
+		{
+			viewState_ = ViewState::sceneView;
+			window_->resize(1920, 1080);
+			window_->enableBorder();
 
 		}
 
-		/*auto renderGui() -> void
+		auto easeInOutQuart(const float x) -> float
 		{
-			ImGui::Render();
-			const auto drawData = ImGui::GetDrawData();
+			return x < 0.5f ? 8.0f * x * x * x * x : 1.0f - std::powf(-2.0f * x + 2.0f, 4.0f) / 2.0f;
+		}
 
 
+		auto showSplashScreen()
+		{
+			ImGuiWindowFlags windowFlags =
+				ImGuiWindowFlags_NoDecoration |
+				//ImGuiWindowFlags_AlwaysAutoResize |
+				ImGuiWindowFlags_NoSavedSettings |
+				ImGuiWindowFlags_NoFocusOnAppearing |
+				ImGuiWindowFlags_NoNav |
+				ImGuiWindowFlags_NoBackground |
+				ImGuiWindowFlags_NoMove;
 
-
-
-
-			gatheredStatistics_.resize(perRenderThreadDrawStatistics_.size());
-
-			std::transform(perRenderThreadDrawStatistics_.begin(), perRenderThreadDrawStatistics_.end(), gatheredStatistics_.begin(), [](auto& a) {return a.statistics; });
-
-			drawStatistics_.scene = std::accumulate(gatheredStatistics_.begin(), gatheredStatistics_.end(), SceneDrawStaticstics{},
-				[](SceneDrawStaticstics a, SceneDrawStaticstics& b)
-				{
-					SceneDrawStaticstics c;
-					c.drawCalls = a.drawCalls + b.drawCalls;
-					c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
-					return c;
-				});
-
-
-
-
-			auto guiBatch = SubmitBatch{};
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+			ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_FirstUseEver);
+			ImGui::SetNextWindowSize(ImVec2(splashScreenSize_, splashScreenSize_), ImGuiCond_Always);
+			static auto vis = true;
+			if (ImGui::Begin("SplashScreen", &vis, windowFlags))
 			{
-				drawStatistics_.gui = GuiDrawStatistics{};
-				rhi_->beginDebugLabel(QueueType::graphics, DebugLabel{ "GUI" });
-				auto cmd = rhi_->acquireCommandList(toy::graphics::rhi::QueueType::graphics);
-				cmd.begin();
-				const auto renderingDescriptor = RenderingDescriptor
+				time_ += ImGui::GetIO().DeltaTime;
+				auto animationTime = 0.0f;
+				if (time_ > splashScreenIdleDuration_)
 				{
-					.colorRenderTargets = {
-						RenderTargetDescriptor
-						{
-							.imageView = swapchainImage.view,
-							.load = LoadOperation::load,
-							.store = StoreOperation::store,
-							.resolveMode = ResolveMode::none,
-							.clearValue = ColorClear{ 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f }
-						}
-					}
-				};
+					time_ -= splashScreenIdleDuration_;
+					isAnimationPlaying_ = true;
 
-				cmd.beginRendering(renderingDescriptor, area);
-
-				const auto viewport = Viewport{ 0.0, (float)windowHeight,(float)windowWidth, -(float)windowHeight };
-
-				cmd.bindPipeline(guiPipeline);
-				cmd.setViewport(viewport);
-				cmd.bindGroup(1, guiFontBindGroup);
-
-				const auto dataMemSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-				const auto clipOff = drawData->DisplayPos;
-
-				for (auto i = u32{}; i < drawData->CmdListsCount; i++)
-				{
-					auto guiVertexDataGroup = renderer.allocateBindGroup(guiVertexDataGroupLayout);
-					const auto cmdList = drawData->CmdLists[i];
-
-					const auto& indexRawData = cmdList->IdxBuffer;
-					const auto& vertexRawData = cmdList->VtxBuffer;
-
-					drawStatistics.gui.totalIndicesCount += indexRawData.Size;
-					drawStatistics.gui.totalVerticesCount += vertexRawData.Size;
-
-					const auto indexRawDataSize = indexRawData.Size * sizeof(ImDrawIdx);
-
-
-					auto size = std::size_t{ frameDataSize };
-					auto p = (void*)frameDataBeginPtr;
-					frameDataBeginPtr = (u8*)std::align(16, indexRawDataSize, p, size);
-
-					if (frameDataBeginPtr + indexRawDataSize > frameDataBeginPtr + frameDataSize)
-					{
-						frameDataBeginPtr = (u8*)frameDataPtr;
-					}
-					auto indexBufferOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-					std::memcpy(frameDataBeginPtr, indexRawData.Data, indexRawDataSize);
-					frameDataBeginPtr += indexRawDataSize;
-
-					const auto vertexRawDataSize = vertexRawData.Size * sizeof(ImDrawVert);
-
-					size = std::size_t{ frameDataSize };
-					p = (void*)frameDataBeginPtr;
-					frameDataBeginPtr = (u8*)std::align(16, vertexRawDataSize, p, size);
-					if (frameDataBeginPtr + indexRawDataSize > frameDataBeginPtr + frameDataSize)
-					{
-						frameDataBeginPtr = (u8*)frameDataPtr;
-					}
-
-					auto vertexBufferOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-					std::memcpy(frameDataBeginPtr, vertexRawData.Data, vertexRawDataSize);
-					frameDataBeginPtr += vertexRawDataSize;
-
-					renderer.updateBindGroup(guiVertexDataGroup,
-						{
-							BindingDataMapping
-							{
-								.binding = 0,
-								.view = UAV
-								{
-									.bufferView = BufferView
-									{
-										.buffer = frameData,
-										.offset = vertexBufferOffset,
-										.size = (u64)(vertexRawDataSize)
-									}
-								}
-							}
-						});
-
-					const auto scale = std::array<float, 2>{2.0f / drawData->DisplaySize.x, 2.0f / drawData->DisplaySize.y};
-					const auto scaleTranslate = ScaleTranslate
-					{
-						.scale = glm::vec2(scale[0], scale[1]),
-						.translate = glm::vec2(-1.0f - drawData->DisplayPos.x * scale[0], -1.0f - drawData->DisplayPos.y * scale[1])
-					};
-					cmd.bindGroup(0, guiVertexDataGroup);
-					cmd.pushConstant(scaleTranslate);
-
-					for (auto j = u32{}; j < cmdList->CmdBuffer.Size; j++)
-					{
-						const auto& drawCommand = cmdList->CmdBuffer[j];
-
-						const auto clipMin = ImVec2(drawCommand.ClipRect.x - clipOff.x, drawCommand.ClipRect.y - clipOff.y);
-						const auto clipMax = ImVec2(drawCommand.ClipRect.z - clipOff.x, drawCommand.ClipRect.w - clipOff.y);
-						if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
-							continue;
-
-						const auto scissor = Scissor{ static_cast<i32>(clipMin.x), static_cast<i32>(clipMin.y), static_cast<u32>(clipMax.x - clipMin.x), static_cast<u32>(clipMax.y - clipMin.y) };
-						cmd.setScissor(scissor);
-						cmd.bindIndexBuffer(frameData, indexBufferOffset, sizeof(ImDrawIdx) == 2 ? IndexType::index16 : IndexType::index32);
-						cmd.drawIndexed(drawCommand.ElemCount, 1, drawCommand.IdxOffset, drawCommand.VtxOffset, 0);
-						drawStatistics.gui.drawCalls++;
-					}
 				}
-				cmd.endRendering();
-				cmd.end();
+				if (isAnimationPlaying_)
+				{
+					animationTime = time_;
+				}
+				
+				auto offset = easeInOutQuart(animationTime / splashScreenAnimationDuration_) * 1.0f / 3.0f;
 
-				auto submits = std::vector<SubmitDependency>{};
-				submits.resize(10);
-				std::transform(perThreadSubmits.begin(), perThreadSubmits.end(), submits.begin(), [](auto& a) { return a.barrier(); });
-				guiBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, submits);
+				if (time_ > splashScreenAnimationDuration_ && isAnimationPlaying_)
+				{
+					time_ -= splashScreenAnimationDuration_;
+					isAnimationPlaying_ = false;
+					animationTime = 0.0f;
+					animationOffsetBase_ += offset;
+				}
 
-				renderer.submitBatches(QueueType::graphics, { guiBatch });
-				renderer.endDebugLabel(QueueType::graphics);
+				if (ImGui::ImageButton("next", (void*)splashScreenImage_, ImVec2(splashScreenSize_, splashScreenSize_), ImVec2(0 + animationOffsetBase_ + offset, 0), ImVec2(1.0f / 3 + animationOffsetBase_ + offset, 1.0f)))
+				{
+					navigateToSceneView();
+				}
+
+				ImGui::SetCursorPos(ImVec2(10, 10));
+				ImGui::Text("TOY ENGINE");
+				ImGui::Text("");ImGui::SameLine(10);
+				ImGui::Text(std::format("{} {}", ICON_FA_SQUARE_TWITTER, "@AntonKi8").c_str());
+				auto textSize = ImGui::CalcTextSize("images by ABC");
+				ImGui::SetCursorPos(ImVec2(splashScreenSize_ - textSize.x - 10, splashScreenSize_ - textSize.y - 10));
+				ImGui::Text("images by ABC");
+				ImGui::SetCursorPos(ImVec2(0, splashScreenSize_ - 10));
+				ImGui::ProgressBar(0.6, ImVec2(splashScreenSize_, 10), "");
+
+				
 			}
-		}*/
-
-
-		auto showSplashScreen();
+			ImGui::End();
+			ImGui::PopStyleVar(3);
+		}
 
 		auto showEditorGui() -> void
 		{
-			showMenuBar();
+			switch (viewState_)
+			{
+			case toy::editor::Editor::ViewState::splash:
+				showSplashScreen();
+				break;
+			case toy::editor::Editor::ViewState::sceneView:
+				showMenuBar();
+				tabManager_.showTabContent();
+				break;
+			default:
+				break;
+			}
 
-			tabManager_.showTabContent();
+
+			
 			//showAssetBrowser();
 		}
 
@@ -802,10 +573,11 @@ namespace toy::editor
 	private:
 		std::unique_ptr<BackgroundTasksSystem> backgroundTasksSystem_;
 		RenderInterface* rhi_;
+		window::Window* window_;
 		ImageDataUploader* uploader_;
 		TabManager tabManager_;
 
-		struct SceneDrawStaticstics
+		struct SceneDrawStatistics
 		{
 			u32 drawCalls{};
 			u32 totalTrianglesCount{};
@@ -820,18 +592,18 @@ namespace toy::editor
 
 		struct DrawStatistics
 		{
-			SceneDrawStaticstics scene{};
+			SceneDrawStatistics scene{};
 			GuiDrawStatistics gui{};
 		};
 
 		struct PerThreadDrawStatistics
 		{
-			alignas(std::hardware_destructive_interference_size) SceneDrawStaticstics statistics {};
+			alignas(std::hardware_destructive_interference_size) SceneDrawStatistics statistics {};
 		};
 
 		std::vector<PerThreadDrawStatistics> perRenderThreadDrawStatistics_{};
 		DrawStatistics drawStatistics_{};
-		std::vector<SceneDrawStaticstics> gatheredStatistics_{};
+		std::vector<SceneDrawStatistics> gatheredStatistics_{};
 
 
 		bool progressQueueEnabled_{ true };
@@ -869,22 +641,6 @@ namespace toy::editor
 				ImGui::Separator();
 				tabManager_.showTabBar(200);
 
-				
-
-				/*ImGui::Button("toggle");
-				ImGui::ProgressBar(0.32);*/
-
-				
-				
-				/*auto pos = ImGui::GetCursorPos();
-				
-
-				const ImGuiViewport* viewport = ImGui::GetMainViewport();
-
-				auto windowSize = viewport->WorkSize;
-
-				ImGui::SetNextWindowPos(pos + ImGui::)
-				*/
 
 				struct TaskStatus
 				{
@@ -900,7 +656,6 @@ namespace toy::editor
 				
 				inWaitList.push_back({ "testTexture3 MipMap generation", 0.0f });
 				inWaitList.push_back({ "testTexture4 MipMap generation", 0.0f });
-				//const auto& style = ImGui::GetStyle();
 
 				progressValue_ += ImGui::GetIO().DeltaTime / 4.0;
 				progressValue_ = std::fmodf(progressValue_, 1.0f);
@@ -1044,75 +799,11 @@ namespace toy::editor
 						ImGui::PopStyleVar();
 
 						ImGui::Button("Cancel All Queued Tasks", ImVec2(-1, cancelButtonHeight));
-
-
 					}
 					ImGui::End();
 				}
 				
 			}
 		};
-
-		//auto showAssetBrowser() -> void
-		//{
-		//	if (ImGui::IsMouseDown(ImGuiMouseButton_Right) && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
-		//	{
-		//		ImGui::SetDragDropPayload("FILES", nullptr, 0);
-		//		ImGui::BeginTooltip();
-		//		ImGui::Text(ICON_FA_FILE_IMAGE);
-		//		ImGui::EndTooltip();
-		//		ImGui::EndDragDropSource();
-		//	}
-
-
-		//	auto showAssetBrowser = true;
-
-		//	static auto contentZoom = 1.0f;
-
-		//	ImVec2 assetItemSize(40 * contentZoom, 40 * contentZoom);
-		//	if (ImGui::Begin("AssetBrowser", &showAssetBrowser))
-		//	{
-		//		ImGui::SliderFloat("##", &contentZoom, 1.0f, 5.0f, "%.1f");
-		//		auto& style = ImGui::GetStyle();
-
-		//		ImGui::ProgressBar(0.3);
-		//		const auto gridStartPosition = ImGui::GetCursorPos();
-		//		ImGui::Dummy(ImGui::GetContentRegionAvail());
-
-		//		if (ImGui::BeginDragDropTarget())
-		//		{
-		//			if (auto t = ImGui::AcceptDragDropPayload("FILES"))  // or: const ImGuiPayload* payload = ... if you sent a payload in the block above
-		//			{
-		//				std::cout << "new File" << std::endl;
-		//				// draggedFiles is my vector of strings, how you handle your payload is up to you
-
-		//			}
-
-		//			ImGui::EndDragDropTarget();
-		//		}
-		//		ImGui::SetCursorPos(gridStartPosition);
-
-		//		const auto contentWidth = ImGui::GetWindowPos().x
-		//			+ ImGui::GetWindowContentRegionMax().x;
-		//		ImGui::BeginGroup();
-		//		for (auto i = u32{}; i < assetTextures.size(); i++)
-		//		{
-		//			ImGui::PushID(i);
-		//			ImGui::ImageButton("b", (void*)assetTextures[i], assetItemSize);
-
-		//			const auto prevItemWidth = ImGui::GetItemRectMax().x;
-		//			const auto widthAfterItemPush = prevItemWidth + style.ItemSpacing.x + assetItemSize.x;
-		//			if (widthAfterItemPush < contentWidth)
-		//			{
-		//				ImGui::SameLine();
-		//			}
-		//			ImGui::PopID();
-		//		}
-		//		ImGui::EndGroup();
-
-
-		//	}
-		//	ImGui::End();
-		//}
 	};
 }
