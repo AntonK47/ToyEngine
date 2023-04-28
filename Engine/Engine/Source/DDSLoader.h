@@ -181,8 +181,8 @@ namespace toy::io::loaders::dds
 
 		const auto& dimension = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
 
-		TOY_ASSERT(dimension.width == dimension.height);
-		TOY_ASSERT(std::has_single_bit(dimension.width));
+		//TOY_ASSERT(dimension.width == dimension.height);
+		//TOY_ASSERT(std::has_single_bit(dimension.width));
 
 
 		if (std::holds_alternative<core::u8>(first))

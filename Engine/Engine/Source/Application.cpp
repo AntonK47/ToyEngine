@@ -414,8 +414,8 @@ int Application::run()
 	auto textureManager = TextureManager{};
 
 
-	const auto windowWidth = u32{1920};//u32{2560};
-	const auto windowHeight = u32{1080};//u32{1440};
+	auto windowWidth = u32{1920};//u32{2560};
+	auto windowHeight = u32{1080};//u32{1440};
 
 	window.initialize(WindowDescriptor{ windowWidth, windowHeight });
 	window.setWindowTitle("Toy Engine"); // <- this course memory allocation
@@ -451,7 +451,7 @@ int Application::run()
 
 	textureManager.initialize(textureManagerDescriptor);
 
-	//editor.initialize(renderer, textureUploader);
+	editor.initialize(renderer, window, textureUploader, textureManager);
 
 
 	ImGui::CreateContext();
@@ -763,10 +763,10 @@ int Application::run()
 	//==============================
 	auto camera = Camera
 	{
-		.position = glm::vec3{0.0f,0.0f,-1.0f},
+		.position = glm::vec3{0.0f,120.0f,-200.0f},
 		.forward = glm::vec3{0.0f,0.0f,1.0f},
 		.up = glm::vec3{0.0f,1.0f,0.0f},
-		.movementSpeed = 0.001f,
+		.movementSpeed = 0.01f,
 		.sensitivity = 0.2f
 	};
 	auto moveCameraFaster = false;
@@ -966,7 +966,7 @@ int Application::run()
 		static auto selectedObject = u32{0};
 
 		auto showSceneHierarchy = true;
-
+		/*
 		if (ImGui::Begin("Scene Hierarchy", &showSceneHierarchy))
 		{
 			//TODO: remove table
@@ -1189,14 +1189,13 @@ int Application::run()
 		}
 		ImGui::End();
 
-		editor.showEditorGui();
-
-
+		
+		
 #pragma endregion
 
 		materialEditor.drawMaterialEditor();
-		
-
+		*/
+		/*
 		ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 		
 		const float pad = 10.0f;
@@ -1388,10 +1387,38 @@ int Application::run()
 		ImGui::PopID();
 
 		ImGui::EndFrame();
-
+		*/
+		editor.showEditorGui();
 #pragma region Camera Control
+		if (io.keyboardState.three == toy::io::ButtonState::pressed)
+		{
+			if (captureTool.isRenderDocInjected())
+			{
+				captureTool.captureNextMarkedScope();
+				LOG(INFO) << "capturing frame " << frameNumber << "...";
+			}
+		}
 		if (!imGuiIo.WantCaptureKeyboard)
 		{
+			if (io.keyboardState.two == toy::io::ButtonState::pressed)
+			{
+				window.resize(300, 500);
+				
+				windowHeight = window.height();
+				windowWidth = window.width();
+				renderer.resizeBackbuffer(windowWidth, windowHeight);
+				
+			}
+			
+			if (io.keyboardState.three == toy::io::ButtonState::pressed)
+			{
+				if (captureTool.isRenderDocInjected())
+				{
+					captureTool.captureNextMarkedScope();
+					LOG(INFO) << "capturing frame " << frameNumber << "...";
+				}
+			}
+
 			if (io.keyboardState.shiftLeft == toy::io::ButtonState::pressed)
 			{
 				moveCameraFaster = true;
@@ -1492,7 +1519,7 @@ int Application::run()
 			auto frameDataBeginPtr = static_cast<u8*>(frameDataPtr);
 
 			{
-				const auto aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
+				const auto aspectRatio = static_cast<float>(window.width()/*/2*/) / static_cast<float>(window.height());
 				const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 100000.0f, 0.001f);//inverse z trick
 				const auto view = glm::lookAt(camera.position, camera.position + camera.forward, camera.up);
 
@@ -1565,7 +1592,7 @@ int Application::run()
 				}
 			};
 
-			constexpr auto area = RenderArea{ 0,0,windowWidth,windowHeight };
+			const auto area = RenderArea{ 0,0,windowWidth,windowHeight };
 
 			{
 				renderer.beginDebugLabel(QueueType::graphics, {"prepare render target"});
@@ -1683,6 +1710,9 @@ int Application::run()
 						cmd.beginRendering(renderingDescriptor, area);
 
 						{
+							//const auto scissor = Scissor{ (i32)(windowWidth/2),0,windowWidth/2, windowHeight };
+							//const auto viewport = Viewport{ (float)windowWidth*0.5f,0.0,(float)windowWidth*0.5f, (float)windowHeight };
+
 							const auto scissor = Scissor{ 0,0,windowWidth, windowHeight };
 							const auto viewport = Viewport{ 0.0,0.0,(float)windowWidth, (float)windowHeight };
 

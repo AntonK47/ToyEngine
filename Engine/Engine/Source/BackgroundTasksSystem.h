@@ -18,7 +18,7 @@ namespace toy::editor
 		done
 	};
 	
-	struct TaskControl
+	struct TaskFeedback
 	{
 		auto report(const float progress)
 		{
@@ -37,7 +37,7 @@ namespace toy::editor
 	class BackgroundTasksSystem final
 	{
 	private:
-		using OnCompute = std::function<void(TaskControl&)>;
+		using OnCompute = std::function<void(TaskFeedback&)>;
 		struct Task
 		{
 			core::UID uid;
@@ -54,10 +54,9 @@ namespace toy::editor
 					Task task;
 					while (!stopSource.get_token().stop_requested())
 					{
+						semaphore_.acquire();
 						while (queue_.try_pop(task) && !stopSource.get_token().stop_requested())
 						{
-							semaphore_.acquire();
-
 							get(task.uid)->status.exchange((core::u32)TaskStatus::onProcessing);
 
 							std::stop_callback callback(stopSource.get_token(),
@@ -82,14 +81,13 @@ namespace toy::editor
 					}
 				}, stopSource);
 			}
-			
 		}
 
 		auto createTask(toy::core::UID uid, OnCompute onCompute)
 		{
 			TOY_ASSERT(!progressMap_.contains(uid));
-
-			emplace(std::move(std::make_pair(uid, std::make_unique<TaskControl>())));
+			//TODO assert queue overflow
+			emplace(std::move(std::make_pair(uid, std::make_unique<TaskFeedback>())));
 			get(uid)->status.store((core::u32)TaskStatus::queued);
 			queue_.push(Task{ uid, onCompute });
 			semaphore_.release();
@@ -128,11 +126,17 @@ namespace toy::editor
 		~BackgroundTasksSystem()
 		{
 			stopSource.request_stop();
+
+			for (auto i = core::u32{}; i < workers_.size(); i++)
+			{
+				semaphore_.release();
+			}
+
 			workers_.clear();
 		}
 
 	private:
-		auto get(const core::UID uid) -> TaskControl* 
+		auto get(const core::UID uid) -> TaskFeedback* 
 		{
 			return std::as_const(progressMap_).at(uid).get();
 		}
@@ -148,7 +152,7 @@ namespace toy::editor
 			return progressMap_.erase(uid);
 		}
 
-		auto emplace(std::pair<core::UID, std::unique_ptr<TaskControl>>&& value) -> void
+		auto emplace(std::pair<core::UID, std::unique_ptr<TaskFeedback>>&& value) -> void
 		{
 			progressMap_.emplace(std::move(value));
 		}
@@ -156,7 +160,7 @@ namespace toy::editor
 		std::vector<std::unique_ptr<std::jthread>> workers_;
 
 		//Reference: https://stackoverflow.com/questions/9685486/unordered-map-thread-safety
-		std::unordered_map<core::UID, std::unique_ptr<TaskControl>> progressMap_;
+		std::unordered_map<core::UID, std::unique_ptr<TaskFeedback>> progressMap_;
 		rigtorp::MPMCQueue<Task> queue_;
 		std::counting_semaphore<std::numeric_limits<core::u32>::max()> semaphore_{0};
 		std::stop_source stopSource;
