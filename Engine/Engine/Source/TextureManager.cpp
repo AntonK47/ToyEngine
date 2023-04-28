@@ -1,7 +1,67 @@
 #include "TextureManager.h"
+#include <DDSLoader.h>
+#include <ImageDataUploader.h>
+using namespace toy::io::loaders::dds;
 
 using namespace toy::graphics::rhi;
 using namespace toy::core;
+
+UID toy::helper::loadTexture(const std::string path, RenderInterface& rhi, ImageDataUploader& textureUploader, TextureManager& textureManager)
+{
+	auto dataSource = FilestreamTextureDataSourceDescriptor{ path };
+
+	const auto& info = dataSource.getTextureInfo();
+	const auto& texture2dInfo = std::get<Texture2DDimensionInfo>(info.dimensionInfo);
+	TOY_ASSERT(info.format == TextureFormat::bc7);
+
+	Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
+	accessUsage |= ImageAccessUsage::transferDst;
+
+	const auto imageDescriptor = ImageDescriptor
+	{
+		.format = Format::bc7,
+		.extent = Extent{ static_cast<u32>(texture2dInfo.width), static_cast<u32>(texture2dInfo.height)},
+		.mips = info.mipCount,
+		.layers = info.arrayCount,
+		.accessUsage = accessUsage
+	};
+
+	auto image = rhi.createImage(imageDescriptor);
+
+	const auto view = rhi.createImageView(ImageViewDescriptor
+		{
+			.image = image,
+			.format = Format::bc7,
+			.type = ImageViewType::_2D
+		});
+
+	const auto texture = toy::Texture2D
+	{
+		.width = (u32)texture2dInfo.width,
+		.height = (u32)texture2dInfo.height,
+		.image = image,
+		.view = view,
+		.hasMips = info.mipCount > 1,
+		.bytesPerTexel = bytesPerTexel(info.format)
+	};
+
+
+	auto totalSize = u32{};
+	for (auto i = u32{}; i < info.mipCount; i++)
+	{
+		totalSize += lodSizeInBytes(info, i);
+	}
+
+	auto data = std::vector<std::byte>{};
+	data.resize(totalSize);
+	auto dataSpan = std::span(data);
+	loadTexture2D(dataSource, (TextureData)dataSpan);
+
+	textureUploader.upload(data, texture);
+
+	const auto uid = textureManager.addTexture(texture);
+	return uid;
+}
 
 namespace toy
 {

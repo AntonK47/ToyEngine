@@ -9,9 +9,17 @@
 
 namespace toy
 {
+	class TextureManager;
+	class ImageDataUploader;
+	namespace helper
+	{
+		core::UID loadTexture(const std::string path, toy::graphics::rhi::RenderInterface& rhi, ImageDataUploader& textureUploader, TextureManager& manager);
+	}
+
+
 	struct TextureManagerDescriptor
 	{
-		RenderInterface& rhi;
+		toy::graphics::rhi::RenderInterface& rhi;
 		core::u32 frameInFlights;
 	};
 
