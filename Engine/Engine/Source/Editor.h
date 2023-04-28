@@ -447,6 +447,7 @@ namespace toy::editor
 		const float splashScreenIdleDuration_ = 2.0f;
 		bool isAnimationPlaying_ = false;
 		float time_ = 0.0f;
+		float totalTime_ = 0.0f;
 		float animationOffsetBase_ = 0.0f;
 		const core::u32 splashScreenSize_ = 400;
 
@@ -460,6 +461,7 @@ namespace toy::editor
 
 			
 			splashScreenImage_ = toy::helper::loadTexture("Resources/generated_splash_screen.DDS", rhi, imageDataUploader, textureManager);
+			window_->setWindowDraggingRegion(core::Rectangle{0, 0, splashScreenSize_, splashScreenSize_});
 		}
 
 		auto navigateToSceneView()
@@ -467,7 +469,9 @@ namespace toy::editor
 			viewState_ = ViewState::sceneView;
 			window_->resize(1920, 1080);
 			window_->enableBorder();
-
+			ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
+			ImGui::GetIO().MouseDrawCursor = true;
+			window_->setWindowDraggingRegion();
 		}
 
 		auto easeInOutQuart(const float x) -> float
@@ -496,10 +500,11 @@ namespace toy::editor
 			if (ImGui::Begin("SplashScreen", &vis, windowFlags))
 			{
 				time_ += ImGui::GetIO().DeltaTime;
+				totalTime_+= ImGui::GetIO().DeltaTime;
 				auto animationTime = 0.0f;
 				if (time_ > splashScreenIdleDuration_)
 				{
-					time_ -= splashScreenIdleDuration_;
+					time_ = 0.0f;
 					isAnimationPlaying_ = true;
 
 				}
@@ -512,31 +517,37 @@ namespace toy::editor
 
 				if (time_ > splashScreenAnimationDuration_ && isAnimationPlaying_)
 				{
-					time_ -= splashScreenAnimationDuration_;
+					time_ = 0.0f;
 					isAnimationPlaying_ = false;
 					animationTime = 0.0f;
-					animationOffsetBase_ += offset;
+					animationOffsetBase_ += 1.0f / 3.0f;
 				}
 
-				if (ImGui::ImageButton("next", (void*)splashScreenImage_, ImVec2(splashScreenSize_, splashScreenSize_), ImVec2(0 + animationOffsetBase_ + offset, 0), ImVec2(1.0f / 3 + animationOffsetBase_ + offset, 1.0f)))
-				{
-					navigateToSceneView();
-				}
+				ImGui::Image((void*)splashScreenImage_, 
+					ImVec2(splashScreenSize_, splashScreenSize_), 
+					ImVec2(0 + animationOffsetBase_ + offset, 0), 
+					ImVec2(1.0f / 3 + animationOffsetBase_ + offset, 1.0f));
+				
 
 				ImGui::SetCursorPos(ImVec2(10, 10));
 				ImGui::Text("TOY ENGINE");
 				ImGui::Text("");ImGui::SameLine(10);
 				ImGui::Text(std::format("{} {}", ICON_FA_SQUARE_TWITTER, "@AntonKi8").c_str());
-				auto textSize = ImGui::CalcTextSize("images by ABC");
+				auto textSize = ImGui::CalcTextSize("images by Kandinsky 2.1");
 				ImGui::SetCursorPos(ImVec2(splashScreenSize_ - textSize.x - 10, splashScreenSize_ - textSize.y - 10));
-				ImGui::Text("images by ABC");
+				ImGui::Text("images by Kandinsky 2.1");
 				ImGui::SetCursorPos(ImVec2(0, splashScreenSize_ - 10));
-				ImGui::ProgressBar(0.6, ImVec2(splashScreenSize_, 10), "");
+				ImGui::ProgressBar(totalTime_ /15.0f, ImVec2(splashScreenSize_, 10), "");
 
 				
 			}
 			ImGui::End();
 			ImGui::PopStyleVar(3);
+
+			if (totalTime_ >= 15.0f)
+			{
+				navigateToSceneView();
+			}
 		}
 
 		auto showEditorGui() -> void

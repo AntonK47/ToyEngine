@@ -457,7 +457,7 @@ int Application::run()
 	ImGui::CreateContext();
 
 	ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
-	ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
+	//ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
 
 	const auto dpiScale = std::floorf(window.getDiagonalDpiScale())/96;
 	float baseFontSize = 16.0f;
@@ -940,7 +940,7 @@ int Application::run()
 		imGuiIo.DisplaySize.y = window.height();
 		imGuiIo.DeltaTime = hertz;
 		mapWindowIoToImGuiIo(io, imGuiIo);
-		imGuiIo.MouseDrawCursor = true;
+		//imGuiIo.MouseDrawCursor = true;
 
 		for (const auto& event : events)
 		{

@@ -168,6 +168,18 @@ class DropManager : public IDropTarget
 namespace
 {
     DropManager dropManager;
+
+    SDL_HitTestResult dragAreaTest(SDL_Window* win, const SDL_Point* area, void* data)
+    {
+        auto region = (toy::core::Rectangle*)data;
+
+        if (area->x > region->offset.x && area->x < (region->offset.x + region->size.width) &&
+            area->y > region->offset.y && area->y < (region->offset.y + region->size.height))
+        {
+            return SDL_HITTEST_DRAGGABLE;
+        }
+        return SDL_HITTEST_NORMAL;
+    }
 }
 #endif
 
@@ -288,6 +300,9 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
         windowIo_.keyboardState.reset();
 		windowIo_.mouseState.reset();
         windowIo_.textState.reset();
+
+        result = SDL_SetWindowHitTest(window_, dragAreaTest, &this->draggableRegion_);
+        TOY_ASSERT(result == S_OK);
     }
 }
 
@@ -364,4 +379,13 @@ void SDLWindow::enableBorderInternal()
 void SDLWindow::disableBorderInternal()
 {
     SDL_SetWindowBordered(window_, SDL_FALSE);
+}
+
+void SDLWindow::setWindowDraggingRegionInternal(const core::Rectangle& region)
+{
+    TOY_ASSERT(region.offset.x >= 0);
+    TOY_ASSERT(region.offset.x >= 0);
+    TOY_ASSERT(region.size.width >= 0);
+    TOY_ASSERT(region.size.height >= 0);
+    draggableRegion_ = region;
 }

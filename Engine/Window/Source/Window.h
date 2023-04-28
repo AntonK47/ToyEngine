@@ -84,6 +84,11 @@ namespace toy::window
             disableBorderInternal();
         }
 
+        void setWindowDraggingRegion(const core::Rectangle& region = core::Rectangle{0,0,0,0})
+        {
+            setWindowDraggingRegionInternal(region);
+        }
+
         [[nodiscard]] float getDiagonalDpiScale()
         {
             return getDiagonalDpiScaleInternal();
@@ -98,6 +103,8 @@ namespace toy::window
 
         virtual void enableBorderInternal() = 0;
         virtual void disableBorderInternal() = 0;
+
+        virtual void setWindowDraggingRegionInternal(const core::Rectangle& region) = 0;
 
         virtual float getDiagonalDpiScaleInternal() = 0;
 

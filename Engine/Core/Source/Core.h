@@ -58,6 +58,24 @@ namespace toy::core
 	using f64 = double;
 	using f32 = float;
 
+	struct Point
+	{
+		core::u32 x;
+		core::u32 y;
+	};
+
+	struct Extent2D
+	{
+		core::u32 width;
+		core::u32 height;
+	};
+
+	struct Rectangle
+	{
+		Point offset;
+		Extent2D size;
+	};
+
 	using FlagBits = u32;
 
 	template<typename FlagBits>

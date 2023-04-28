@@ -23,6 +23,8 @@ namespace toy::window
         void deinitializeInternal() override;
         void resizeInternal(core::u32 width, core::u32 height) override;
 
+        void setWindowDraggingRegionInternal(const core::Rectangle& region) override;
+
         void hideInternal() override;
         void showInternal() override;
 
@@ -42,5 +44,6 @@ namespace toy::window
         bool shouldApplyNewSizeOnNextFrame_{ false };
         core::u32 newWidth_;
         core::u32 newHeight_;
+        core::Rectangle draggableRegion_ = core::Rectangle{ 0,0,0,0 };
     };
 }
