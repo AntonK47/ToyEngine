@@ -217,6 +217,14 @@ void SDLWindow::registerExternalDragExtensionInternal(const std::string& extensi
     }
 }
 
+float SDLWindow::getDiagonalDpiScaleInternal()
+{
+    float ddpi;
+    const auto result = SDL_GetDisplayDPI(0, &ddpi, nullptr, nullptr);
+    TOY_ASSERT(result == 0);
+    return ddpi;
+}
+
 void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 {
 #ifdef WIN32
@@ -234,7 +242,13 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
             SDL_WINDOWPOS_CENTERED,
             static_cast<int>(width_),
             static_cast<int>(height_),
-            SDL_WINDOW_VULKAN);// | SDL_WINDOW_BORDERLESS);
+            SDL_WINDOW_VULKAN |
+            SDL_WINDOW_RESIZABLE |
+            SDL_WINDOW_BORDERLESS |
+            SDL_WINDOW_HIDDEN |
+            SDL_WINDOW_ALLOW_HIGHDPI);
+
+        
 
         auto extensionsCount = u32{};
         result = SDL_Vulkan_GetInstanceExtensions(window_, &extensionsCount, nullptr);
@@ -327,4 +341,27 @@ void SDLWindow::deinitializeInternal()
 
 void SDLWindow::resizeInternal(core::u32 width, core::u32 height)
 {
+    newWidth_ = width;
+    newHeight_ = height;
+    shouldApplyNewSizeOnNextFrame_ = true;
+}
+
+void SDLWindow::hideInternal()
+{
+    SDL_HideWindow(window_);
+}
+
+void SDLWindow::showInternal()
+{
+    SDL_ShowWindow(window_);
+}
+
+void SDLWindow::enableBorderInternal()
+{
+    SDL_SetWindowBordered(window_, SDL_TRUE);
+}
+
+void SDLWindow::disableBorderInternal()
+{
+    SDL_SetWindowBordered(window_, SDL_FALSE);
 }

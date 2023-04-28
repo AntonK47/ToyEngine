@@ -133,4 +133,5 @@ void Win32Window::deinitializeInternal()
 
 void Win32Window::resizeInternal(core::u32 width, core::u32 height)
 {
+    
 }

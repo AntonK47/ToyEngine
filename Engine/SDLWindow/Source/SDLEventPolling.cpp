@@ -19,6 +19,14 @@ void SDLWindow::pollEventsInternal()
 {
     resetPolledEventsAndIo();
 
+    if (shouldApplyNewSizeOnNextFrame_)
+    {
+        height_ = newHeight_;
+        width_ = newWidth_;
+        shouldApplyNewSizeOnNextFrame_ = false;
+        SDL_SetWindowSize(window_, newWidth_, newHeight_);
+        currentPolledEvents_.push_back(Event::resize);
+    }
 
     windowIo_.dragDropState = pollDragDropEvent();
 
@@ -31,6 +39,39 @@ void SDLWindow::pollEventsInternal()
     {
         switch (event.type)
         {
+        case SDL_WINDOWEVENT:
+        {
+            switch (event.window.event)
+            {
+                case SDL_WINDOWEVENT_RESIZED:
+                {
+                    const auto newWidth = event.window.data1;
+                    const auto newHeight = event.window.data2;
+
+                    width_ = newWidth;
+                    height_ = newHeight;
+                    currentPolledEvents_.push_back(Event::resize);
+                }
+                break;
+                case SDL_WINDOWEVENT_MAXIMIZED:
+                case SDL_WINDOWEVENT_RESTORED:
+                
+                {
+                    auto newWidth = core::i32{};
+                    auto newHeight = core::i32{};
+                    SDL_GetWindowSize(window_, &newWidth, &newHeight);
+                    
+
+                    width_ = static_cast<core::u32>(newWidth);
+                    height_ = static_cast<core::u32>(newHeight);
+                    currentPolledEvents_.push_back(Event::resize);
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        break;
         case SDL_QUIT:
             currentPolledEvents_.push_back(Event::quit);
             break;

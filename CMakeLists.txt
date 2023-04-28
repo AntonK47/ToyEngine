@@ -66,7 +66,7 @@ find_package(MPMCQueue CONFIG REQUIRED)
 find_package(glslang CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
-find_package(Freetype REQUIRED)
+find_package(freetype REQUIRED)
 
 include(FetchContent)
 #imgui-node-editor  
@@ -135,6 +135,7 @@ add_library(compressonator-static STATIC IMPORTED)
 set_target_properties(compressonator-static PROPERTIES#  IMPORTED_LOCATION "E:/Develop/compressonator/lib/Debug/CMP_Framework.lib"
   IMPORTED_LOCATION_DEBUG "C:/Compressonator_4.3.206//lib/VS2019/x64/CMP_Framework_MTd.lib"
   IMPORTED_CONFIGURATIONS "RELEASE;DEBUG"
+  IMPORTED_LOCATION "C:/Compressonator_4.3.206//lib/VS2019/x64/CMP_Framework_MT.lib"
 )
 set_target_properties(compressonator-static PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES "C:/Compressonator_4.3.206/include"

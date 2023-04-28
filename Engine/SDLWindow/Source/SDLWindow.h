@@ -23,6 +23,14 @@ namespace toy::window
         void deinitializeInternal() override;
         void resizeInternal(core::u32 width, core::u32 height) override;
 
+        void hideInternal() override;
+        void showInternal() override;
+
+        void enableBorderInternal() override;
+        void disableBorderInternal() override;
+
+        float getDiagonalDpiScaleInternal() override;
+
         void resetPolledEventsAndIo();
         io::DragDropEvent pollDragDropEvent();
     protected:
@@ -31,5 +39,8 @@ namespace toy::window
         SDL_Window* window_ = nullptr;
         std::vector<Event> currentPolledEvents_{};//TODO: smallvector
         io::WindowIo windowIo_{};
+        bool shouldApplyNewSizeOnNextFrame_{ false };
+        core::u32 newWidth_;
+        core::u32 newHeight_;
     };
 }

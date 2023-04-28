@@ -459,10 +459,11 @@ int Application::run()
 	ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
 	ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
 
+	const auto dpiScale = std::floorf(window.getDiagonalDpiScale())/96;
 	float baseFontSize = 16.0f;
-	float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
+	float iconFontSize = dpiScale * baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
 
-	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", baseFontSize);
+	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", dpiScale*baseFontSize);
 
 	static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
 	ImFontConfig config;
@@ -470,7 +471,8 @@ int Application::run()
 	config.PixelSnapH = true;
 	config.GlyphMinAdvanceX = iconFontSize;
 	
-	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", baseFontSize, &config, icons_ranges);
+	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", dpiScale*baseFontSize, &config, icons_ranges);
+	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-brands-400.ttf", dpiScale*baseFontSize, &config, icons_ranges);
 
 	int width, height;
 	unsigned char* pixels = NULL;
@@ -478,7 +480,7 @@ int Application::run()
 	const auto texelSize = 1;
 	const auto fontImageSize = width * height * texelSize;
 
-
+	ImGui::GetStyle().ScaleAllSizes(dpiScale);
 
 	Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
 	accessUsage |= ImageAccessUsage::transferDst;
@@ -914,6 +916,7 @@ int Application::run()
 	auto frameStartTime = std::chrono::high_resolution_clock::now();
 	auto frameEndTime = std::chrono::high_resolution_clock::now();
 
+	window.show();
 
 	while (stillRunning)
 	{
@@ -944,6 +947,12 @@ int Application::run()
 			if (event == Event::quit)
 			{
 				stillRunning = false;
+			}
+			if (event == Event::resize)
+			{
+				windowHeight = window.height();
+				windowWidth = window.width();
+				renderer.resizeBackbuffer(windowWidth, windowHeight);
 			}
 		}
 

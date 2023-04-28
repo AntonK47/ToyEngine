@@ -11,7 +11,8 @@ namespace toy::window
 {
     enum class Event
     {
-        quit
+        quit,
+        resize
     };
 
     struct WindowDescriptor
@@ -28,7 +29,10 @@ namespace toy::window
         void pollEvents();
         [[nodiscard]] std::vector<Event> getEvents(); //TODO: smallvector
         [[nodiscard]] io::WindowIo getIo();
-        void resize(core::u32 width, core::u32 height);
+        void resize(core::u32 width, core::u32 height)
+        {
+            resizeInternal(width, height);
+        }
 
         void setWindowTitle(const std::string& title)
         {
@@ -62,10 +66,40 @@ namespace toy::window
             registerExternalDragExtensionInternal(extension);
         }
 
+        void hide()
+        {
+            hideInternal();
+        }
+        void show()
+        {
+            showInternal();
+        }
+
+        void enableBorder()
+        {
+            enableBorderInternal();
+        }
+        void disableBorder()
+        {
+            disableBorderInternal();
+        }
+
+        [[nodiscard]] float getDiagonalDpiScale()
+        {
+            return getDiagonalDpiScaleInternal();
+        }
 
     protected:
         virtual void initializeInternal(const WindowDescriptor& descriptor) = 0;
         virtual void deinitializeInternal() = 0;
+        
+        virtual void hideInternal() = 0;
+        virtual void showInternal() = 0;
+
+        virtual void enableBorderInternal() = 0;
+        virtual void disableBorderInternal() = 0;
+
+        virtual float getDiagonalDpiScaleInternal() = 0;
 
         virtual void pollEventsInternal() = 0;
         virtual [[nodiscard]] std::vector<Event> getEventsInternal() = 0;//TODO: smallvector
