@@ -35,6 +35,11 @@ namespace toy::graphics::rhi
 		RenderInterface() {}
 		~RenderInterface() = default;
 
+		auto resizeBackbuffer(const u32 width, const u32 height) -> void
+		{
+			resizeBackbufferInternal(width, height);
+		}
+
 		[[nodiscard]] auto getNativeBackend() -> NativeBackend
 		{
 			return getNativeBackendInternal();

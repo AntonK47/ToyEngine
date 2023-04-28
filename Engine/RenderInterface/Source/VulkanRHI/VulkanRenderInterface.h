@@ -37,6 +37,8 @@ namespace toy::graphics::rhi::vulkan
 	protected:
 		auto initializeInternal(const RendererDescriptor& descriptor) -> void;
 		auto deinitializeInternal() -> void;
+		
+		auto resizeBackbufferInternal(const u32 width, const u32 height) -> void;
 
 		[[nodiscard]] auto acquireCommandListInternal(
 			QueueType queueType,

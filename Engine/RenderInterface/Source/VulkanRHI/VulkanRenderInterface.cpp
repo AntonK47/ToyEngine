@@ -767,6 +767,99 @@ void VulkanRenderInterface::deinitializeInternal()
     device_.destroy();
 }
 
+auto toy::graphics::rhi::vulkan::VulkanRenderInterface::resizeBackbufferInternal(const u32 width, const u32 height) -> void
+{
+    TOY_ASSERT(width > 0 && height > 0);
+    {
+        const auto resut = device_.waitIdle();
+        TOY_ASSERT(resut == vk::Result::eSuccess);
+    }
+    
+
+    const auto& formats = adapter_.getSurfaceFormatsKHR(surface_).value;
+    const auto& supportedFormat = formats.front();
+
+
+    const auto& surfaceCapabilities = adapter_.getSurfaceCapabilitiesKHR(surface_).value;
+
+    const auto supportedCompositeAlpha = getSupportedCompositeAlphaFlag(surfaceCapabilities.supportedCompositeAlpha);
+
+    const auto oldSwapchain = swapchain_;
+
+    const auto swapchainCreateInfo = vk::SwapchainCreateInfoKHR
+    {
+        .surface = surface_,
+        .minImageCount = swapchainImagesCount_,
+        .imageFormat = supportedFormat.format,
+        .imageColorSpace = supportedFormat.colorSpace,
+        .imageExtent = vk::Extent2D{ width, height },
+        .imageArrayLayers = 1,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageSharingMode = vk::SharingMode::eExclusive,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices = &queues_[QueueType::graphics].familyIndex,
+        .preTransform = surfaceCapabilities.currentTransform,
+        .compositeAlpha = supportedCompositeAlpha,
+        .presentMode = vk::PresentModeKHR::eMailbox,//vk::PresentModeKHR::eFifo,//TODO: this limits to 60fps
+        .clipped = vk::Bool32{true},
+        .oldSwapchain = oldSwapchain
+    };
+
+    {
+        const auto result = device_.createSwapchainKHR(swapchainCreateInfo);
+        TOY_ASSERT(result.result == vk::Result::eSuccess);
+
+        swapchain_ = result.value;
+
+        device_.destroySwapchainKHR(oldSwapchain);
+    }
+
+    for (const auto& view : swapchainImageViews_)
+    {
+        device_.destroyImageView(imageViewStorage_.get(view).imageView);
+        imageViewStorage_.remove(view);
+    }
+    swapchainImageViews_.clear();
+    
+    for (const auto& image : swapchainImages_)
+    {
+        //device_.destroyImage(imageStorage_.get(image).image);
+        imageStorage_.remove(image);
+    }
+    swapchainImages_.clear();
+    
+    //TODO: it restest to a unsingnaled state, so it cause troubles on acquiring next image.
+    //device_.resetFences(swapchainImageAfterPresentFences_);
+
+    auto swapchainImageViews = std::vector<vk::ImageView>{};
+    swapchainImageViews.resize(swapchainImagesCount_);
+
+    const auto& swapchainImages = device_.getSwapchainImagesKHR(swapchain_).value;
+    for (u32 i{}; i < swapchainImagesCount_; i++)
+    {
+        const auto imageViewCreateInfo = vk::ImageViewCreateInfo
+        {
+            .image = swapchainImages[i],
+            .viewType = vk::ImageViewType::e2D,
+            .format = supportedFormat.format,
+            .subresourceRange = vk::ImageSubresourceRange
+            {
+                vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+            }
+        };
+        swapchainImageViews[i] = device_.createImageView(imageViewCreateInfo).value;
+    }
+
+    for (auto i = u32{}; i < swapchainImages.size(); i++)
+    {
+        swapchainImages_.push_back(imageStorage_.add(VulkanImage{ swapchainImages[i], {},false, true }));
+        swapchainImageViews_.push_back(imageViewStorage_.add(VulkanImageView{ swapchainImageViews[i] }));
+    }
+    TOY_ASSERT(swapchainImages_.size() == swapchainImagesCount_);
+    TOY_ASSERT(swapchainImageViews_.size() == swapchainImagesCount_);
+
+}
+
 void VulkanRenderInterface::nextFrameInternal()
 {
     bindGroupCache_.nextFrame();
