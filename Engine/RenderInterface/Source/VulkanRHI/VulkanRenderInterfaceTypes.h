@@ -157,6 +157,7 @@ namespace toy::graphics::rhi::vulkan
 	{
 		vk::CommandPool commandPool;
 		std::vector<vk::CommandBuffer> commandBuffers;
+		toy::core::u32 currentlyAcquired{};
 	};
 
 	struct PerThreadCommandPoolData

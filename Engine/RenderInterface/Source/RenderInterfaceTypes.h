@@ -7,6 +7,7 @@
 #include <variant>
 #include <array>
 #include <glm/glm.hpp>
+#include <thread>
 
 #include "Handle.h"
 
@@ -129,7 +130,7 @@ namespace toy::graphics::rhi
 		window::WindowHandler handler;
 		window::BackendRendererMeta meta;
 		std::function<WindowExtent()> windowExtentGetter;
-		core::u32 threadWorkersCount{ 1 };
+		std::vector<std::thread::id> workers{};
 	}; 
 	
 	struct WorkerThreadId

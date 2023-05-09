@@ -4,6 +4,7 @@
 #include <Logger.h>
 
 #include "VulkanRHI/VulkanMappings.h"
+#include "CommandList.h"
 
 using namespace toy::graphics::rhi;
 using namespace vulkan;
@@ -346,23 +347,24 @@ namespace
     }
 }
 
-//TODO: make it better
-inline static int aa = 0;
-std::mutex m;
-vk::CommandBuffer VulkanRenderInterface::getCommandBufferFromThread(const WorkerThreadId& workerId, QueueType queueType)
-{
-    //TOY_ASSERT(std::this_thread::get_id() == renderThreadId_);
 
-            //TODO: create proper structure to hold per thread data
-    std::lock_guard lock(m);
-    const auto& commandBuffer = perThreadData_[workerId.index].perQueueType[queueType][currentFrame_ % maxDeferredFrames_].commandBuffers[aa];
-    aa++;
+vk::CommandBuffer VulkanRenderInterface::getCommandBufferFromThread(QueueType queueType)
+{
+    TOY_ASSERT(workerIndexMap_.contains(std::this_thread::get_id()));
+
+    //TODO: create proper structure to hold per thread data
+
+    auto& threadData = perThreadData_[workerIndexMap_.at(std::this_thread::get_id())].perQueueType[queueType][currentFrame_ % maxDeferredFrames_];
+    TOY_ASSERT(threadData.currentlyAcquired <= threadData.commandBuffers.size());
+
+    const auto& commandBuffer = threadData.commandBuffers[threadData.currentlyAcquired];
+    threadData.currentlyAcquired++;
     return commandBuffer;
 }
 
-auto VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const WorkerThreadId& workerId, const UsageScope& usageScope) -> CommandList
+auto VulkanRenderInterface::acquireCommandListInternal(QueueType queueType, const UsageScope& usageScope) -> CommandList
 {
-	const auto commandBuffer = getCommandBufferFromThread(workerId, queueType);
+	const auto commandBuffer = getCommandBufferFromThread(queueType);
 
 	auto commandList = CommandList(queueType, *(RenderInterface*)this); //TODO:: make safe cast
 	commandList.commandBuffer_ = commandBuffer;
@@ -577,11 +579,14 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
 
     renderThreadId_ = std::this_thread::get_id();
 
-    perThreadData_.resize(descriptor.threadWorkersCount);
-    for (auto i = u32{}; i < descriptor.threadWorkersCount; i++)
+    perThreadData_.resize(descriptor.workers.size());
+    for (auto i = u32{}; i < descriptor.workers.size(); i++)
     {
         perThreadData_[i] = initializePerRenderThreadData();
+        workerIndexMap_.insert(std::make_pair(descriptor.workers[i], i));
     }
+
+    
 
 	/*renderThreadCommandPoolData_ = createPerThreadCommandPoolData(device_, maxDeferredFrames_,
         queues_[QueueType::graphics].familyIndex, queues_[QueueType::asyncCompute].familyIndex, queues_[QueueType::transfer].familyIndex, 1, 1, 1);*/
@@ -828,7 +833,7 @@ auto toy::graphics::rhi::vulkan::VulkanRenderInterface::resizeBackbufferInternal
     }
     swapchainImages_.clear();
     
-    //TODO: it restest to a unsingnaled state, so it cause troubles on acquiring next image.
+    //TODO: it resets to a unsingnaled state, so it cause troubles on acquiring next image.
     //device_.resetFences(swapchainImageAfterPresentFences_);
 
     auto swapchainImageViews = std::vector<vk::ImageView>{};
@@ -865,8 +870,6 @@ void VulkanRenderInterface::nextFrameInternal()
     bindGroupCache_.nextFrame();
     bindGroupStorage_.reset();
     currentFrame_++;
-    //TODO: hack
-    aa = 0;
     const auto& nextFramesFence = swapchainImageAfterPresentFences_[(currentFrame_) % maxDeferredFrames_];
     auto result = device_.waitForFences(1, &nextFramesFence, vk::Bool32{ true }, ~0ull);
     TOY_ASSERT(result == vk::Result::eSuccess);
@@ -876,6 +879,7 @@ void VulkanRenderInterface::nextFrameInternal()
     {
         const auto pool = threadData.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].commandPool;
         result = device_.resetCommandPool(pool);
+        threadData.perQueueType[QueueType::graphics][currentFrame_ % maxDeferredFrames_].currentlyAcquired = 0;
         TOY_ASSERT(result == vk::Result::eSuccess);
     }
     vmaSetCurrentFrameIndex(allocator_, 0 );
@@ -1438,13 +1442,13 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
     const auto imageType = vk::ImageType::e2D;
     const auto format = vk::Format::eB8G8R8A8Unorm;
     const auto extent = vk::Extent3D{ 8192, 8192, 1 };
-    const auto mipLeveles = 13;
+    const auto mipLevels = 13;
     const auto arrayLayers = 1;
     const auto usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
     const auto tiling = vk::ImageTiling::eOptimal;
     const auto samples = vk::SampleCountFlagBits::e1;
 
-    const auto queueFamalies = std::array{ VK_QUEUE_FAMILY_IGNORED };
+    const auto queueFamilies = std::array{ VK_QUEUE_FAMILY_IGNORED };
 
     const auto createInfo = vk::ImageCreateInfo
     {
@@ -1452,14 +1456,14 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
         .imageType = imageType,
         .format = format,
         .extent = extent,
-        .mipLevels = mipLeveles,
+        .mipLevels = mipLevels,
         .arrayLayers = arrayLayers,
         .samples = samples,
         .tiling = tiling,
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive, //TODO: it could be wrong
-        /*.queueFamilyIndexCount = static_cast<u32>(queueFamalies.size()),
-        .pQueueFamilyIndices = queueFamalies.data(),*/
+        /*.queueFamilyIndexCount = static_cast<u32>(queueFamilies.size()),
+        .pQueueFamilyIndices = queueFamilies.data(),*/
         .initialLayout = vk::ImageLayout::eUndefined
     };
     const auto result = device_.createImage(createInfo);

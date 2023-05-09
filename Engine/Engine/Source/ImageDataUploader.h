@@ -58,7 +58,7 @@ namespace toy
 			std::memcpy(stagingBufferDataPtr, srcData.data(), totalImageSize);
 
 
-			auto uploadCommandList = rhi_->acquireCommandList(QueueType::transfer, WorkerThreadId{ 0 }, UsageScope::async);
+			auto uploadCommandList = rhi_->acquireCommandList(QueueType::transfer, UsageScope::async);
 
 			uploadCommandList.begin();
 			uploadCommandList.barrier({ ImageBarrierDescriptor

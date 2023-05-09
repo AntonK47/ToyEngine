@@ -7,7 +7,9 @@ set(MODULE_SOURCES
 	Source/DDSLoader.cpp
 	Source/MapIO.cpp
 	Source/TextureManager.cpp
-	Source/Material.cpp)
+	Source/Material.cpp
+	Source/TaskSystem.cpp)
+
 set(MODULE_HEADERS 
 	Source/Application.h
 	Source/SceneLoader.h
@@ -24,7 +26,8 @@ set(MODULE_HEADERS
 	Source/TextureManager.h
 	Source/Texture2D.h 
 	Source/Material.h 
-	Source/BackgroundTasksSystem.h)
+	Source/BackgroundTasksSystem.h 
+	Source/TaskSystem.h)
 
 add_library(${MODULE_NAME}
 	STATIC

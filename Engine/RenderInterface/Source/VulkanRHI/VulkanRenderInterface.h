@@ -3,7 +3,6 @@
 
 
 #include <map>
-#include <mutex>
 #include <unordered_map>
 #include <rigtorp/MPMCQueue.h>
 #include <initializer_list>
@@ -14,6 +13,7 @@
 #include <Hash.h>
 
 #include "VulkanRHI/VulkanRenderInterfaceTypes.h"
+#include "VulkanCommandList.h"
 #include "VulkanRHI/Vulkan.h"
 #include "Handle.h"
 
@@ -23,6 +23,7 @@
 #include "QueueType.h"
 #include "ValidationCommon.h"
 #include "SubmitDependency.h"
+#include "SubmitBatch.h"
 
 
 namespace toy::graphics::rhi
@@ -42,7 +43,6 @@ namespace toy::graphics::rhi::vulkan
 
 		[[nodiscard]] auto acquireCommandListInternal(
 			QueueType queueType,
-			const WorkerThreadId& workerId,
 			const UsageScope& usageScope) -> CommandList;
 
 		[[nodiscard]] auto submitCommandListInternal(
@@ -136,7 +136,7 @@ namespace toy::graphics::rhi::vulkan
 
 	private:
 
-		vk::CommandBuffer getCommandBufferFromThread(const WorkerThreadId& workerId, QueueType queueType);
+		vk::CommandBuffer getCommandBufferFromThread(QueueType queueType);
 
 
 		std::unordered_map<QueueType, DeviceQueue> queues_;
@@ -165,6 +165,8 @@ namespace toy::graphics::rhi::vulkan
 		std::thread::id renderThreadId_;
 
 		std::vector<PerThreadCommandPoolData> perThreadData_{};
+
+		std::unordered_map<std::thread::id, u32> workerIndexMap_{};
 
 
 		std::vector<vk::Semaphore> timelineSemaphorePerFrame_{};
@@ -209,8 +211,6 @@ namespace toy::graphics::rhi::vulkan
 
 		Pool<BindGroup, VulkanBindGroup> bindGroupStorage_{};
 		Pool<BindGroup, VulkanBindGroup> persistentBindGroupStorage_{};//TODO:: bind groups should be removed manual
-
-
 
 		struct VulkanTexture
 		{
@@ -421,9 +421,12 @@ namespace toy::graphics::rhi::vulkan
 		auto result = device_.resetFences(1, &fence);*/
 		//TOY_ASSERT(result == vk::Result::eSuccess);
 		const auto queue = queues_[queueType].queue;
-		auto result = queue.submit2(1, &submitInfo, nullptr);
-		TOY_ASSERT(result == vk::Result::eSuccess);
-		result = device_.waitIdle();
+		{
+			auto result = queue.submit2(1, &submitInfo, nullptr);
+			TOY_ASSERT(result == vk::Result::eSuccess);
+		}
+		
+		auto result = device_.waitIdle();
 		TOY_ASSERT(result == vk::Result::eSuccess);
 	}
 

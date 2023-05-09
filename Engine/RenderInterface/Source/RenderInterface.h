@@ -63,10 +63,9 @@ namespace toy::graphics::rhi
 
 		[[nodiscard]] auto acquireCommandList(
 			QueueType queueType,
-			const WorkerThreadId workerId = WorkerThreadId{ 0 },
 			const UsageScope & usageScope = UsageScope::inFrame) -> CommandList
 		{
-			return acquireCommandListInternal(queueType, workerId, usageScope);
+			return acquireCommandListInternal(queueType, usageScope);
 		}
 		
 		[[nodiscard]] auto submitCommandList(

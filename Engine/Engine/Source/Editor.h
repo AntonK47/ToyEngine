@@ -22,6 +22,7 @@
 
 #include "TextureManager.h"
 #include "BackgroundTasksSystem.h"
+#include <TaskSystem.h>
 using namespace toy::core;
 
 
@@ -452,7 +453,7 @@ namespace toy::editor
 		const core::u32 splashScreenSize_ = 400;
 
 	public:
-		auto initialize(RenderInterface& rhi, window::Window& windowInterface, ImageDataUploader& imageDataUploader, TextureManager& textureManager) -> void
+		auto initialize(TaskSystem& taskSystem, RenderInterface& rhi, window::Window& windowInterface, ImageDataUploader& imageDataUploader, TextureManager& textureManager) -> void
 		{
 			//backgroundTasksSystem_ = std::make_unique<BackgroundTasksSystem>();
 			window_ = &windowInterface;
@@ -460,7 +461,17 @@ namespace toy::editor
 			window_->resize(splashScreenSize_, splashScreenSize_);
 
 			
-			splashScreenImage_ = toy::helper::loadTexture("Resources/generated_splash_screen.DDS", rhi, imageDataUploader, textureManager);
+
+			auto t1 = Task{};
+			t1.taskFunction = [&]()
+			{
+				splashScreenImage_ = toy::helper::loadTexture("Resources/generated_splash_screen.DDS", rhi, imageDataUploader, textureManager);
+			};
+
+			auto barrier = taskSystem.run({ &t1 });
+			barrier.wait();
+			
+			
 			window_->setWindowDraggingRegion(core::Rectangle{0, 0, splashScreenSize_, splashScreenSize_});
 		}
 
@@ -482,6 +493,9 @@ namespace toy::editor
 
 		auto showSplashScreen()
 		{
+			//TODO
+			navigateToSceneView();
+
 			ImGuiWindowFlags windowFlags =
 				ImGuiWindowFlags_NoDecoration |
 				//ImGuiWindowFlags_AlwaysAutoResize |
@@ -537,14 +551,12 @@ namespace toy::editor
 				ImGui::SetCursorPos(ImVec2(splashScreenSize_ - textSize.x - 10, splashScreenSize_ - textSize.y - 10));
 				ImGui::Text("images by Kandinsky 2.1");
 				ImGui::SetCursorPos(ImVec2(0, splashScreenSize_ - 10));
-				ImGui::ProgressBar(totalTime_ /15.0f, ImVec2(splashScreenSize_, 10), "");
-
-				
+				ImGui::ProgressBar(totalTime_ /5.0f, ImVec2(splashScreenSize_, 10), "");
 			}
 			ImGui::End();
 			ImGui::PopStyleVar(3);
 
-			if (totalTime_ >= 15.0f)
+			if (totalTime_ >= 5.0f)
 			{
 				navigateToSceneView();
 			}

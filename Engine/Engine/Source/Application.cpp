@@ -52,6 +52,7 @@
 #include "DDSLoader.h"
 #include "Material.h"
 
+#include "TaskSystem.h"
 
 using namespace toy::io::loaders::dds;
 
@@ -103,7 +104,7 @@ struct TextureDescriptor
 //	auto addTextureFromSource(const TextureDescriptor<T> descriptor);
 //};
 
-Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, TextureManager& textureManager, std::vector<UID>& assetTextures)
+Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUploader& textureUploader, TextureManager& textureManager, std::vector<UID>& assetTextures)
 {
 	using namespace std::string_literals;
 	const auto knightTextureSet = std::array
@@ -197,7 +198,11 @@ Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, T
 		loadTexture2D(dataSource, (TextureData)dataSpan);
 
 
-		textureUploader.upload(data, texture);
+		auto uploadTask = toy::core::Task{};
+		uploadTask.taskFunction = [&]() {
+			textureUploader.upload(data, texture);
+		};
+		taskSystem.run({ &uploadTask }, WorkerTag::rhi).wait();
 
 		const auto uid = textureManager.addTexture(texture);
 		assetTextures.push_back(uid);
@@ -404,6 +409,7 @@ Scene loadScene(RenderInterface& renderer, ImageDataUploader& textureUploader, T
 
 int Application::run()
 {
+#pragma region startup
 	logger::initialize();
 	auto window = SDLWindow{};
 	auto renderer = RenderInterface{};
@@ -412,7 +418,11 @@ int Application::run()
 	auto editor = Editor{};
 	auto textureUploader = ImageDataUploader{};
 	auto textureManager = TextureManager{};
+	auto taskSystem = TaskSystem{};
 
+	taskSystem.initialize(TaskSystemDescriptor{});
+	auto ids = taskSystem.renderWorkers();
+	ids.push_back(std::this_thread::get_id());
 
 	auto windowWidth = u32{1920};//u32{2560};
 	auto windowHeight = u32{1080};//u32{1440};
@@ -425,9 +435,6 @@ int Application::run()
 
 	materialEditor.initialize();
 
-
-	const auto workerCount = 10;
-
 	const auto rendererDescriptor = toy::graphics::rhi::RendererDescriptor
 	{
 		.version = 1,
@@ -438,7 +445,7 @@ int Application::run()
 		{
 			return WindowExtent{ window.width(), window.height()};
 		},
-		.threadWorkersCount = workerCount
+		.workers = ids
 	};
 	renderer.initialize(rendererDescriptor);
 	textureUploader.initialize(renderer, 100 * 1024 * 1024);
@@ -451,7 +458,7 @@ int Application::run()
 
 	textureManager.initialize(textureManagerDescriptor);
 
-	editor.initialize(renderer, window, textureUploader, textureManager);
+	editor.initialize(taskSystem, renderer, window, textureUploader, textureManager);
 
 
 	ImGui::CreateContext();
@@ -525,6 +532,7 @@ int Application::run()
 	};
 	graphicsDebugger.initialize(renderDocDescriptor);
 	
+#pragma endregion
 #pragma region FrameRingLinearAllocator
 	//FEATURE: This should moved into a Frame Linear Allocator
 	//================================================================================
@@ -545,7 +553,7 @@ int Application::run()
 	renderer.map(frameData, &frameDataPtr);
 	//=================================================================================
 #pragma endregion
-#pragma region Pipeline creation 
+#pragma region scene pipeline 
 
 	
 	
@@ -569,11 +577,13 @@ int Application::run()
 	{
 		.bindings =
 		{
+			Binding
 			{
 				.binding = 0,
 				.descriptor = BindingDescriptor{BindingType::UniformBuffer}
 			}
-		}
+		},
+		.flags = BindGroupFlag::none
 	};
 	const auto simpleTriangleGroupLayout = renderer.createBindGroupLayout(simpleTriangleGroup);
 
@@ -591,7 +601,6 @@ int Application::run()
 
 	const auto simpleTrianglePerInstanceGroupLayout = renderer.createBindGroupLayout(simpleTrianglePerInstanceGroup);
 #pragma endregion
-
 #pragma region gui pipeline
 
 
@@ -713,7 +722,7 @@ int Application::run()
 			PushConstant({ .size = sizeof(ScaleTranslate) })
 		});
 #pragma endregion
-
+#pragma region preparation
 	const auto imageDescriptor = ImageDescriptor
 	{
 		.format = Format::d32,
@@ -782,9 +791,6 @@ int Application::run()
 	
 
 	//===========================EDITOR==================================
-
-
-
 
 
 	struct TransformComponent
@@ -872,20 +878,9 @@ int Application::run()
 	};
 
 	auto perRenderThreadDrawStatistics = std::vector<PerThreadDrawStatistics>{};
-	perRenderThreadDrawStatistics.resize(workerCount);
+	perRenderThreadDrawStatistics.resize(ids.size()+1);
 
 	auto drawStatistics = DrawStatistics{};
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -893,31 +888,24 @@ int Application::run()
 
 	ImGui::GetIO().Fonts->SetTexID(ImTextureID{ (void*)fontUid });
 
-
-
-
-	//std::thread initialSceneLoading
-
 	std::atomic_flag isSceneReady;
 	auto newScene = Scene{};
 
-	std::jthread initialSceneLoading
+	auto sceneLoadTask = Task{};
+	sceneLoadTask.taskFunction = [&]()
 	{
-		[&]()
-		{
-			newScene = loadScene(renderer, textureUploader, textureManager, assetTextures);
-			isSceneReady.test_and_set();
-		}
+		newScene = loadScene(taskSystem, renderer, textureUploader, textureManager, assetTextures);
+		isSceneReady.test_and_set();
 	};
 
-	initialSceneLoading.detach();
+	taskSystem.run({ &sceneLoadTask }, WorkerTag::background);
 
-
+	
 	auto frameStartTime = std::chrono::high_resolution_clock::now();
 	auto frameEndTime = std::chrono::high_resolution_clock::now();
-
 	window.show();
-
+#pragma endregion
+#pragma region gameloop
 	while (stillRunning)
 	{
 		if (isSceneReady.test())
@@ -959,9 +947,6 @@ int Application::run()
 		ImGui::NewFrame();
 		ImGui::ShowDemoWindow();
 
-#pragma region scene editor
-
-		
 		
 		static auto selectedObject = u32{0};
 
@@ -1096,7 +1081,7 @@ int Application::run()
 		}
 		
 
-		
+		*/
 		static bool drag = false;
 
 		if (io.dragDropState == io::DragDropEvent::dragBegin)
@@ -1158,8 +1143,6 @@ int Application::run()
 					{
 						std::cout << path.generic_string() << std::endl;
 					}
-					
-					// draggedFiles is my vector of strings, how you handle your payload is up to you
 					editor.openTextureImport(paths);
 				}
 
@@ -1184,18 +1167,12 @@ int Application::run()
 				ImGui::PopID();
 			}
 			ImGui::EndGroup();
-			
-				
 		}
 		ImGui::End();
-
-		
-		
-#pragma endregion
-
+		/*
 		materialEditor.drawMaterialEditor();
 		*/
-		/*
+		
 		ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 		
 		const float pad = 10.0f;
@@ -1355,7 +1332,7 @@ int Application::run()
 		}
 
 
-
+		/*
 
 		viewport = ImGui::GetMainViewport();
 		ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
@@ -1389,7 +1366,7 @@ int Application::run()
 		ImGui::EndFrame();
 		*/
 		editor.showEditorGui();
-#pragma region Camera Control
+
 		if (io.keyboardState.three == toy::io::ButtonState::pressed)
 		{
 			if (captureTool.isRenderDocInjected())
@@ -1500,7 +1477,7 @@ int Application::run()
 
 			onMousePressedScreenLocation = mouseScreenLocation;
 		}
-#pragma endregion
+
 
 		frameNumber++;
 		{
@@ -1595,7 +1572,18 @@ int Application::run()
 			const auto area = RenderArea{ 0,0,windowWidth,windowHeight };
 
 			{
-				renderer.beginDebugLabel(QueueType::graphics, {"prepare render target"});
+
+
+				{
+					auto submitTask = toy::core::Task{};
+					submitTask.taskFunction = [&]() {
+						renderer.beginDebugLabel(QueueType::graphics, { "prepare render target" });
+
+					};
+					taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
+
+				}
+				
 				auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
 				cmd.begin();
 				//TODO: this should performed on initial resource creation
@@ -1646,12 +1634,14 @@ int Application::run()
 					prepareBatchValid = true;
 				}
 			}
-			renderer.submitBatches(QueueType::graphics, { prepareBatch });
 
+			auto submitTask = toy::core::Task{};
+			submitTask.taskFunction = [&]() {
+				renderer.submitBatches(QueueType::graphics, { prepareBatch });
+				renderer.endDebugLabel(QueueType::graphics);
+			};
+			taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
 
-			
-
-			renderer.endDebugLabel(QueueType::graphics);
 
 			if (!scene.drawInstances_.empty())
 			{
@@ -1676,13 +1666,29 @@ int Application::run()
 						}
 					});
 
-				renderer.beginDebugLabel(QueueType::graphics, { "object rendering" });
-				std::for_each(std::execution::par, std::begin(setIndicies), std::end(setIndicies), [&](auto& index)
+				{
+					auto submitTask = toy::core::Task{};
+					submitTask.taskFunction = [&]() {
+						renderer.beginDebugLabel(QueueType::graphics, { "object rendering" });
+
+					};
+					taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
+
+				}
+				
+
+				auto renderTasks = std::array<Task, 100>{};
+				//renderTasks.resize(setIndicies.size());
+				for (auto i = u32{}; i < setIndicies.size(); i++)
+				{
+					auto index = setIndicies[i];
+					
+					renderTasks[i].taskFunction = [&, index]()
 					{
 						auto& drawStatistics = perRenderThreadDrawStatistics[index].statistics;
 						drawStatistics = SceneDrawStatistics{};
 						auto& drawInstances = batches[index];
-						auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics, WorkerThreadId{ .index = static_cast<u32>(index % workerCount) });
+						auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
 						cmd.begin();
 
 						const auto renderingDescriptor = RenderingDescriptor
@@ -1781,34 +1787,34 @@ int Application::run()
 						auto perThreadBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, { prepareBatch.barrier() });
 						perThreadSubmits[index] = perThreadBatch;
 
-					});
-
-				auto gatheredStatistics = std::vector<SceneDrawStatistics>{};
-				gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
-
-				std::transform(perRenderThreadDrawStatistics.begin(), perRenderThreadDrawStatistics.end(), gatheredStatistics.begin(), [](auto& a) {return a.statistics; });
-
-				drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStatistics{},
-					[](SceneDrawStatistics a, SceneDrawStatistics& b)
-					{
-						SceneDrawStatistics c;
-						c.drawCalls = a.drawCalls + b.drawCalls;
-						c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
-						return c;
-					});
-
-
-				renderer.submitBatches(QueueType::graphics, perThreadSubmits);
-
-				renderer.endDebugLabel(QueueType::graphics);
+					};
+				}
+				taskSystem.run(std::span(renderTasks.begin(), setIndicies.size())).wait();
+				
+				auto submitTask = toy::core::Task{};
+				submitTask.taskFunction = [&]() 
+				{
+					renderer.submitBatches(QueueType::graphics, perThreadSubmits);
+					renderer.endDebugLabel(QueueType::graphics);
+					
+				};
+				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
 			}
 
 			
 
 			auto guiBatch = SubmitBatch{};
 			{
+				{
+					auto submitTask = toy::core::Task{};
+					submitTask.taskFunction = [&]() {
+						renderer.beginDebugLabel(QueueType::graphics, DebugLabel{ "GUI" });
+
+					};
+					taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
+
+				}
 				drawStatistics.gui = GuiDrawStatistics{};
-				renderer.beginDebugLabel(QueueType::graphics, DebugLabel{ "GUI" });
 				auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
 				cmd.begin();
 				const auto renderingDescriptor = RenderingDescriptor
@@ -1929,12 +1935,19 @@ int Application::run()
 				std::transform(perThreadSubmits.begin(), perThreadSubmits.end(), submits.begin(), [](auto& a){ return a.barrier();} );
 				guiBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, submits);
 
-				renderer.submitBatches(QueueType::graphics, { guiBatch });
-				renderer.endDebugLabel(QueueType::graphics);
+				auto submitTask = toy::core::Task{};
+				submitTask.taskFunction = [&]() {
+					renderer.submitBatches(QueueType::graphics, { guiBatch }); 
+					renderer.endDebugLabel(QueueType::graphics);
+					renderer.beginDebugLabel(QueueType::graphics, { "prepare present" });
+
+
+				};
+				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
+				
 			}
 			
 			{
-				renderer.beginDebugLabel(QueueType::graphics, {"prepare present"});
 				auto cmd = renderer.acquireCommandList(QueueType::graphics);
 				cmd.begin();
 				cmd.barrier({
@@ -1950,23 +1963,35 @@ int Application::run()
 				postRenderingBatch = renderer.submitCommandList(QueueType::graphics, { cmd }, {guiBatch.barrier() });
 			}
 
-			renderer.submitBatches(QueueType::graphics, { postRenderingBatch} );
-
-			renderer.present(postRenderingBatch.barrier());
+			{
+				auto submitTask = toy::core::Task{};
+				submitTask.taskFunction = [&]()
+				{
+					renderer.submitBatches(QueueType::graphics, { postRenderingBatch });
+					renderer.present(postRenderingBatch.barrier());
+					renderer.endDebugLabel(QueueType::graphics);
+				};
+				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
+			}
+			
+			
 
 			time += 0.01f;
 			captureTool.stopAndOpenCapture();
 		}
 		frameEndTime = std::chrono::high_resolution_clock::now();
 	}
+#pragma endregion
+#pragma region shotdown
 
 	ImGui::DestroyContext();
-
+	taskSystem.deinitialize();
 	textureUploader.deinitialize();
 	graphicsDebugger.deinitialize();
 	renderer.deinitialize();
 	window.deinitialize();
 	logger::deinitialize();
 
+#pragma endregion
 	return EXIT_SUCCESS;
 }
