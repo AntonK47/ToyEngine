@@ -878,7 +878,7 @@ int Application::run()
 	};
 
 	auto perRenderThreadDrawStatistics = std::vector<PerThreadDrawStatistics>{};
-	perRenderThreadDrawStatistics.resize(ids.size()+1);
+	perRenderThreadDrawStatistics.resize(ids.size());
 
 	auto drawStatistics = DrawStatistics{};
 
@@ -1523,7 +1523,7 @@ int Application::run()
 			const auto& swapchainImage = renderer.acquireNextSwapchainImage();
 
 			const auto instances = std::span{ scene.drawInstances_ };
-			const auto batchSize = 10;
+			const auto batchSize = ids.size();
 			const auto itemsPerBatch = scene.drawInstances_.size() / batchSize;
 			auto batchSpanOffset = std::size_t{ 0 };
 
@@ -1791,6 +1791,21 @@ int Application::run()
 				}
 				taskSystem.run(std::span(renderTasks.begin(), setIndicies.size())).wait();
 				
+				auto gatheredStatistics = std::vector<SceneDrawStatistics>{};
+				gatheredStatistics.resize(perRenderThreadDrawStatistics.size());
+
+				std::transform(perRenderThreadDrawStatistics.begin(), perRenderThreadDrawStatistics.end(), gatheredStatistics.begin(), [](auto& a) {return a.statistics; });
+
+				drawStatistics.scene = std::accumulate(gatheredStatistics.begin(), gatheredStatistics.end(), SceneDrawStatistics{},
+					[](SceneDrawStatistics a, SceneDrawStatistics& b)
+					{
+						SceneDrawStatistics c;
+						c.drawCalls = a.drawCalls + b.drawCalls;
+						c.totalTrianglesCount = a.totalTrianglesCount + b.totalTrianglesCount;
+						return c;
+					});
+
+
 				auto submitTask = toy::core::Task{};
 				submitTask.taskFunction = [&]() 
 				{

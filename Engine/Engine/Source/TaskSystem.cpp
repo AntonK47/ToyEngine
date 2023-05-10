@@ -102,7 +102,7 @@ namespace toy::core
 {
 	void TaskSystem::initialize(const TaskSystemDescriptor& descriptor)
 	{
-		const auto workerCount = std::thread::hardware_concurrency();
+		const auto workerCount = std::thread::hardware_concurrency()-1;
 
 		auto tags = std::array { WorkerTag::background, WorkerTag::io, WorkerTag::rhi };
 		//assign worker tags
@@ -127,19 +127,27 @@ namespace toy::core
 
 		workers_.reserve(workerCount);
 
+
+#ifdef WIN32
+		{
+			const auto result = SetThreadDescription(GetCurrentThread(), L"Worker 0 [Main]");
+			TOY_ASSERT(SUCCEEDED(result));
+		}
+#endif
+
 		for (auto i = core::u32{}; i < workerCount; i++)
 		{
 			const auto tag = perWorkerTags[i];
 			workers_.emplace_back(WorkerThread{ .thread = std::jthread{ [tag]() { tagFlag = tag; workerProcedure(); }} });
 #ifdef WIN32
 			{
-				const auto result = SetThreadDescription(workers_.back().thread.native_handle(), std::format(L"Worker {}", i).c_str());
+				const auto result = SetThreadDescription(workers_.back().thread.native_handle(), std::format(L"Worker {}", i + 1).c_str());
 				TOY_ASSERT(SUCCEEDED(result));
 			}
 			{
 				
-				const auto result = SetThreadAffinityMask(workers_.back().thread.native_handle(), 1 << i);
-				TOY_ASSERT(result != 0);
+				//const auto result = SetThreadAffinityMask(workers_.back().thread.native_handle(), 1 << i);
+				//TOY_ASSERT(result != 0);
 			}
 #endif
 		}
@@ -181,7 +189,7 @@ namespace toy::core
 
 			if (!tagsString.empty())
 			{
-				const auto result = SetThreadDescription(workers_[i].thread.native_handle(), std::format(L"Worker {} [{}]", i, tagsString).c_str());
+				const auto result = SetThreadDescription(workers_[i].thread.native_handle(), std::format(L"Worker {} [{}]", i + 1, tagsString).c_str());
 				TOY_ASSERT(SUCCEEDED(result));
 			}
 		}
@@ -355,7 +363,7 @@ namespace toy::core
 
 				//INFO: underwork, worker is starving 
 				using namespace std::chrono_literals;
-				std::this_thread::sleep_for(10ns);
+				//std::this_thread::sleep_for(1ns);
 			}
 			
 		}
