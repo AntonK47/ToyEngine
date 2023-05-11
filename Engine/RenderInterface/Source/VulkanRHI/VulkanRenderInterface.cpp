@@ -1285,8 +1285,7 @@ Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
     const auto pipelineLayoutResult = device_.createPipelineLayout(layoutCreateInfo);
     TOY_ASSERT(pipelineLayoutResult.result == vk::Result::eSuccess);
 
-    const auto pipelinesInfo =
-        vk::StructureChain
+    const auto pipelinesInfo = vk::StructureChain
     {
         vk::GraphicsPipelineCreateInfo
         {
@@ -1522,23 +1521,6 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
 
 auto VulkanRenderInterface::createSamplerInternal(const SamplerDescriptor& descriptor, [[maybe_unused]] const DebugLabel label) -> Handle<Sampler>
 {
-  /*  VkSamplerCreateFlags    flags;
-    VkFilter                magFilter;
-    VkFilter                minFilter;
-    VkSamplerMipmapMode     mipmapMode;
-    VkSamplerAddressMode    addressModeU;
-    VkSamplerAddressMode    addressModeV;
-    VkSamplerAddressMode    addressModeW;
-    float                   mipLodBias;
-    VkBool32                anisotropyEnable;
-    float                   maxAnisotropy;
-    VkBool32                compareEnable;
-    VkCompareOp             compareOp;
-    float                   minLod;
-    float                   maxLod;
-    VkBorderColor           borderColor;
-    VkBool32                unnormalizedCoordinates;*/
-
     const auto samplerCreateInfo = vk::SamplerCreateInfo
     {
         .magFilter = mapFilter(descriptor.magFilter),

@@ -64,7 +64,7 @@ struct View
     mat4 viewProjection;
 };
 
-layout(set = 1, binding = 0) uniform perFrame
+layout(set = 1, binding = 0) buffer perFrame
 {
     View view;
 };

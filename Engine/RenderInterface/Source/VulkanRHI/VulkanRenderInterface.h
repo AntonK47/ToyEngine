@@ -425,9 +425,9 @@ namespace toy::graphics::rhi::vulkan
 			auto result = queue.submit2(1, &submitInfo, nullptr);
 			TOY_ASSERT(result == vk::Result::eSuccess);
 		}
-		
+		/*
 		auto result = device_.waitIdle();
-		TOY_ASSERT(result == vk::Result::eSuccess);
+		TOY_ASSERT(result == vk::Result::eSuccess);*/
 	}
 
 	auto VulkanRenderInterface::updateBindGroupInternal(

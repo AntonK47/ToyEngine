@@ -6,7 +6,7 @@
 int main()
 {
     
-    const auto result =  Application::run();
+    const auto result = Application::run();
     //_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
     //_CrtMemDumpAllObjectsSince(NULL);
 

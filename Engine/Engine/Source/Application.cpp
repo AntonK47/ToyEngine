@@ -52,6 +52,7 @@
 #include "DDSLoader.h"
 #include "Material.h"
 
+#include "DynamicFrameAllocator.h"
 #include "TaskSystem.h"
 
 using namespace toy::io::loaders::dds;
@@ -84,8 +85,6 @@ namespace
 }
 
 
-
-
 struct TextureDataSource
 {
 	std::string path;
@@ -96,13 +95,6 @@ struct TextureDescriptor
 {
 	 T source;
 };
-
-
-//struct TextureManager
-//{
-//	template<toy::io::loaders::dds::TextureDataSourceDescriptor T>
-//	auto addTextureFromSource(const TextureDescriptor<T> descriptor);
-//};
 
 Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUploader& textureUploader, TextureManager& textureManager, std::vector<UID>& assetTextures)
 {
@@ -141,9 +133,6 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 	const auto bladeRunnerCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
 
 	auto scene = Scene::loadSceneFromFile(renderer, knightData);
-
-
-	
 
 
 	for (const auto& textureFile : knightTextureSet)
@@ -230,7 +219,7 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 		{
 			{
 				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::UniformBuffer}
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer} //TODO: should be uniform
 			}
 		}
 	};
@@ -281,9 +270,6 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 
 	const auto vertexShaderGlslTemplateCode = loadShaderFile("Resources/StaticClusteredGeometry.vert");
 	const auto fragmentShaderGlsTemplateCode = loadShaderFile("Resources/StaticClusteredGeometry.frag");
-
-
-	
 
 	const auto materialTemplate = MaterialTemplate
 	{
@@ -419,16 +405,17 @@ int Application::run()
 	auto textureUploader = ImageDataUploader{};
 	auto textureManager = TextureManager{};
 	auto taskSystem = TaskSystem{};
+	auto dynamicFrameAllocator = DynamicFrameAllocator{};
 
 	taskSystem.initialize(TaskSystemDescriptor{});
-	auto ids = taskSystem.renderWorkers();
+	auto ids = taskSystem.workers();
 	ids.push_back(std::this_thread::get_id());
 
 	auto windowWidth = u32{1920};//u32{2560};
 	auto windowHeight = u32{1080};//u32{1440};
 
 	window.initialize(WindowDescriptor{ windowWidth, windowHeight });
-	window.setWindowTitle("Toy Engine"); // <- this course memory allocation
+	window.setWindowTitle("Toy Engine");
 	window.registerExternalDragExtension(".png");
 
 	auto materialEditor = toy::editor::materials::MaterialEditor{};
@@ -448,6 +435,8 @@ int Application::run()
 		.workers = ids
 	};
 	renderer.initialize(rendererDescriptor);
+
+	dynamicFrameAllocator.initialize({ .rhi = renderer, .size = 10 * 1024 * 1024, .framesInFlight = 3 });
 	textureUploader.initialize(renderer, 100 * 1024 * 1024);
 
 	const auto textureManagerDescriptor = TextureManagerDescriptor
@@ -533,26 +522,6 @@ int Application::run()
 	graphicsDebugger.initialize(renderDocDescriptor);
 	
 #pragma endregion
-#pragma region FrameRingLinearAllocator
-	//FEATURE: This should moved into a Frame Linear Allocator
-	//================================================================================
-	auto usage = toy::core::Flags<BufferAccessUsage>{ BufferAccessUsage::storage };
-	usage |= BufferAccessUsage::uniform;
-	usage |= BufferAccessUsage::index;
-
-	const auto frameDataSize = u32{ 1024 * 1024 * 100 };
-
-	const auto frameData = renderer.createBuffer(BufferDescriptor
-		{
-			.size = frameDataSize,
-			.accessUsage = usage,
-			.memoryUsage = MemoryUsage::cpuOnly,
-		});
-
-	void* frameDataPtr = nullptr;
-	renderer.map(frameData, &frameDataPtr);
-	//=================================================================================
-#pragma endregion
 #pragma region scene pipeline 
 
 	
@@ -580,7 +549,7 @@ int Application::run()
 			Binding
 			{
 				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::UniformBuffer}
+				.descriptor = BindingDescriptor{BindingType::StorageBuffer} //TODO: should be uniform
 			}
 		},
 		.flags = BindGroupFlag::none
@@ -1483,6 +1452,7 @@ int Application::run()
 		{
 			captureTool.start();
 			renderer.nextFrame();
+			dynamicFrameAllocator.nextFrame();
 			textureManager.nextFrame();
 			textureManager.updateBindGroup();
 
@@ -1493,30 +1463,26 @@ int Application::run()
 
 			auto bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
-			auto frameDataBeginPtr = static_cast<u8*>(frameDataPtr);
+			
+			const auto aspectRatio = static_cast<float>(window.width()/*/2*/) / static_cast<float>(window.height());
+			const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 100000.0f, 0.001f);//inverse z trick
+			const auto view = glm::lookAt(camera.position, camera.position + camera.forward, camera.up);
 
+			const auto viewData = View
 			{
-				const auto aspectRatio = static_cast<float>(window.width()/*/2*/) / static_cast<float>(window.height());
-				const auto projection = glm::perspective(glm::radians(60.0f), aspectRatio, 100000.0f, 0.001f);//inverse z trick
-				const auto view = glm::lookAt(camera.position, camera.position + camera.forward, camera.up);
+				.view = view,
+				.projection = projection,
+				.viewProjection = projection * view
+			};
 
-				const auto viewData = View
-				{
-					.view = view,
-					.projection = projection,
-					.viewProjection = projection * view
-				};
-
-				std::memcpy(frameDataBeginPtr, &viewData, sizeof(View));
-				frameDataBeginPtr += sizeof(View);
-			}
-
-			const auto myConstantBufferView = BufferView{ frameData, {}, sizeof(View) };
+			const auto viewAllocation = dynamicFrameAllocator.allocate(sizeof(View));
+			TOY_ASSERT(viewAllocation.bufferView.offset % 16 == 0);
+			std::memcpy(viewAllocation.dataPtr, &viewData, sizeof(View));
 
 			renderer.updateBindGroup(bindGroup, {
 				{
 					0,
-					CBV{ myConstantBufferView }
+					UAV{ viewAllocation.bufferView }
 				}
 				});
 
@@ -1646,9 +1612,10 @@ int Application::run()
 			if (!scene.drawInstances_.empty())
 			{
 				auto perInstanceGroup = renderer.allocateBindGroup(simpleTrianglePerInstanceGroupLayout);
-				const auto batchOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
+				
 
-				const auto dataMemSize = sizeof(InstanceData);
+				const auto perInstanceDrawAllocation = dynamicFrameAllocator.allocate(sizeof(InstanceData) * scene.drawInstances_.size());
+				
 				renderer.updateBindGroup(perInstanceGroup,
 					{
 						BindingDataMapping
@@ -1656,12 +1623,7 @@ int Application::run()
 							.binding = 0,
 							.view = UAV
 							{
-								.bufferView = BufferView
-								{
-									.buffer = frameData,
-									.offset = batchOffset,
-									.size = (u64)(dataMemSize * scene.drawInstances_.size())
-								}
+								perInstanceDrawAllocation.bufferView
 							}
 						}
 					});
@@ -1741,7 +1703,7 @@ int Application::run()
 							cmd.bindGroup(4, samplingGroup);
 
 
-							auto setOffset = batchOffsets[index] * dataMemSize;
+							auto setOffset = batchOffsets[index] * sizeof(InstanceData);
 
 							for (auto j = u32{}; j < static_cast<u32>(drawInstances.size()); j++)
 							{
@@ -1761,8 +1723,8 @@ int Application::run()
 									.positionStreamOffset = mesh.positionStreamOffset
 								};
 
-								std::memcpy(frameDataBeginPtr + setOffset, &instanceData, dataMemSize);
-								setOffset += dataMemSize;
+								std::memcpy((core::u8*)perInstanceDrawAllocation.dataPtr + setOffset, &instanceData, sizeof(InstanceData));
+								setOffset += sizeof(InstanceData);
 
 							}
 
@@ -1871,33 +1833,12 @@ int Application::run()
 
 					const auto indexRawDataSize = indexRawData.Size * sizeof(ImDrawIdx);
 				   
-					
-					auto size = std::size_t{ frameDataSize };
-					auto p = (void*)frameDataBeginPtr;
-					frameDataBeginPtr = (u8*)std::align(16, indexRawDataSize, p, size) ;
-
-					if (frameDataBeginPtr + indexRawDataSize > frameDataBeginPtr + frameDataSize)
-					{
-						frameDataBeginPtr = (u8*)frameDataPtr;
-					}
-					auto indexBufferOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-					std::memcpy(frameDataBeginPtr, indexRawData.Data, indexRawDataSize);
-					frameDataBeginPtr += indexRawDataSize;
+					const auto indexRawDataAllocation = dynamicFrameAllocator.allocate(indexRawDataSize);
+					std::memcpy(indexRawDataAllocation.dataPtr, indexRawData.Data, indexRawDataSize);
 
 					const auto vertexRawDataSize = vertexRawData.Size * sizeof(ImDrawVert);
-					
-					size = std::size_t{ frameDataSize };
-					p = (void*)frameDataBeginPtr;
-					frameDataBeginPtr = (u8*)std::align(16, vertexRawDataSize, p, size);
-					if (frameDataBeginPtr + indexRawDataSize > frameDataBeginPtr + frameDataSize)
-					{
-						frameDataBeginPtr = (u8*)frameDataPtr;
-					}
-
-					auto vertexBufferOffset = static_cast<u32>(frameDataBeginPtr - static_cast<u8*>(frameDataPtr));
-					std::memcpy(frameDataBeginPtr, vertexRawData.Data, vertexRawDataSize);
-					frameDataBeginPtr += vertexRawDataSize;
-
+					const auto vertexRawDataAllocation = dynamicFrameAllocator.allocate(vertexRawDataSize);
+					std::memcpy(vertexRawDataAllocation.dataPtr, vertexRawData.Data, vertexRawDataSize);
 					renderer.updateBindGroup(guiVertexDataGroup,
 						{
 							BindingDataMapping
@@ -1905,12 +1846,7 @@ int Application::run()
 								.binding = 0,
 								.view = UAV
 								{
-									.bufferView = BufferView
-									{
-										.buffer = frameData,
-										.offset = vertexBufferOffset,
-										.size = (u64)(vertexRawDataSize)
-									}
+									vertexRawDataAllocation.bufferView
 								}
 							}
 						});
@@ -1937,7 +1873,7 @@ int Application::run()
 						cmd.pushConstant(scaleTranslate);
 						const auto scissor = Scissor{ static_cast<i32>(clipMin.x), static_cast<i32>(clipMin.y), static_cast<u32>(clipMax.x- clipMin.x), static_cast<u32>(clipMax.y-clipMin.y) };
 						cmd.setScissor(scissor);
-						cmd.bindIndexBuffer(frameData, indexBufferOffset, sizeof(ImDrawIdx) == 2 ? IndexType::index16 : IndexType::index32);
+						cmd.bindIndexBuffer(indexRawDataAllocation.bufferView.buffer, indexRawDataAllocation.bufferView.offset, sizeof(ImDrawIdx) == 2 ? IndexType::index16 : IndexType::index32);
 						cmd.drawIndexed(drawCommand.ElemCount, 1, drawCommand.IdxOffset, drawCommand.VtxOffset, 0);
 						drawStatistics.gui.drawCalls++;
 					}
@@ -2002,6 +1938,7 @@ int Application::run()
 	ImGui::DestroyContext();
 	taskSystem.deinitialize();
 	textureUploader.deinitialize();
+	dynamicFrameAllocator.deinitialize();
 	graphicsDebugger.deinitialize();
 	renderer.deinitialize();
 	window.deinitialize();

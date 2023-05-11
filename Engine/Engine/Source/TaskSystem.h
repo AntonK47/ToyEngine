@@ -79,7 +79,7 @@ namespace toy::core
 
 		Barrier run(const std::vector<Task*>& tasks, WorkerTag tag = WorkerTag::common);
 		Barrier run(std::span<Task> tasks, WorkerTag tag = WorkerTag::common);
-		std::vector<std::thread::id> renderWorkers();
+		std::vector<std::thread::id> workers();
 	};
 
 }

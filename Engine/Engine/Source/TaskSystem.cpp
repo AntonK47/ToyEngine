@@ -278,7 +278,7 @@ namespace toy::core
 		return barrier;
 	}
 
-	std::vector<std::thread::id> TaskSystem::renderWorkers()
+	std::vector<std::thread::id> TaskSystem::workers()
 	{
 		auto renderWorkers = std::vector<std::thread::id>{};
 		renderWorkers.resize(workers_.size());

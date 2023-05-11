@@ -8,7 +8,8 @@ set(MODULE_SOURCES
 	Source/MapIO.cpp
 	Source/TextureManager.cpp
 	Source/Material.cpp
-	Source/TaskSystem.cpp)
+	Source/TaskSystem.cpp 
+	Source/DynamicFrameAllocator.cpp)
 
 set(MODULE_HEADERS 
 	Source/Application.h
