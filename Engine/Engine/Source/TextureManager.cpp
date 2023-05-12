@@ -107,7 +107,7 @@ namespace toy
 
 		textures_.push_back(texture);
 
-		const auto index = textures_.size() - 1;
+		const auto index = static_cast<core::u32>(textures_.size() - 1);
 		uidToIndexMap_.insert(std::make_pair(uid, index));
 		return uid;
 	}

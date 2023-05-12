@@ -197,18 +197,25 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 		assetTextures.push_back(uid);
 	}
 
+#pragma warning(push)
+#pragma warning(disable: 6001)
 
 	const auto samplingGroupDescriptor = BindGroupDescriptor
 	{
 		.bindings =
 		{
 			{
-				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::Sampler}
+				.binding = core::u32{0},
+				.descriptor = BindingDescriptor
+				{
+					.type = BindingType::Sampler,
+					.descriptorCount = core::u32{1}
+				}
 			}
 		},
 		.flags = BindGroupFlag::unboundLast
 	};
+
 	const auto samplingGroupLayout = renderer.createBindGroupLayout(samplingGroupDescriptor, DebugLabel{ .name = "textureSamplers" });
 	const auto samplingGroup = renderer.allocateBindGroup(samplingGroupLayout, UsageScope::async, DebugLabel{ "textureSamplers" });
 
@@ -219,9 +226,14 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 		{
 			{
 				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer} //TODO: should be uniform
+				.descriptor = BindingDescriptor
+				{
+					.type = BindingType::StorageBuffer, //TODO: should be uniform
+					.descriptorCount = 1
+				}
 			}
-		}
+		},
+		.flags = BindGroupFlag::none
 	};
 
 	const auto simpleTrianglePerInstanceGroup = BindGroupDescriptor
@@ -319,7 +331,7 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 		.shaderCode = fragmentShaderGlslCode,
 		.enableDebugCompilation = true
 	};
-
+#pragma warning(pop)
 
 	auto simpleTriangleVsSpirvCode = ShaderByteCode{};
 	auto simpleTriangleFsSpirvCode = ShaderByteCode{};
@@ -397,7 +409,7 @@ int Application::run()
 {
 #pragma region startup
 	logger::initialize();
-	auto window = SDLWindow{};
+	/*auto window = SDLWindow{};
 	auto renderer = RenderInterface{};
 	auto graphicsDebugger = debugger::RenderDocCapture{};
 	auto virtualTextureStreaming = VirtualTextureStreaming{};
@@ -405,127 +417,153 @@ int Application::run()
 	auto textureUploader = ImageDataUploader{};
 	auto textureManager = TextureManager{};
 	auto taskSystem = TaskSystem{};
-	auto dynamicFrameAllocator = DynamicFrameAllocator{};
+	auto dynamicFrameAllocator = DynamicFrameAllocator{};*/
 
-	taskSystem.initialize(TaskSystemDescriptor{});
-	auto ids = taskSystem.workers();
-	ids.push_back(std::this_thread::get_id());
+	auto windowPtr = std::make_unique<SDLWindow>();
+	auto rendererPtr = std::make_unique<RenderInterface>();
+	auto graphicsDebuggerPtr = std::make_unique<debugger::RenderDocCapture>();
+	auto virtualTextureStreamingPtr = std::make_unique<VirtualTextureStreaming>();
+	auto editorPtr = std::make_unique<Editor>();
+	auto textureUploaderPtr = std::make_unique<ImageDataUploader>();
+	auto textureManagerPtr = std::make_unique<TextureManager>();
+	auto taskSystemPtr = std::make_unique<TaskSystem>();
+	auto dynamicFrameAllocatorPtr = std::make_unique<DynamicFrameAllocator>();
 
-	auto windowWidth = u32{1920};//u32{2560};
-	auto windowHeight = u32{1080};//u32{1440};
+	auto& window = *windowPtr;
+	auto& renderer = *rendererPtr;
+	auto& graphicsDebugger = *graphicsDebuggerPtr;
+	auto& virtualTextureStreaming = *virtualTextureStreamingPtr;
+	auto& editor = *editorPtr;
+	auto& textureUploader = *textureUploaderPtr;
+	auto& textureManager = *textureManagerPtr;
+	auto& taskSystem = *taskSystemPtr;
+	auto& dynamicFrameAllocator = *dynamicFrameAllocatorPtr;
+	
+	auto windowWidth = u32{ 1920 };//u32{2560};
+	auto windowHeight = u32{ 1080 };//u32{1440};
+	auto ids = std::vector<std::thread::id>{};
 
-	window.initialize(WindowDescriptor{ windowWidth, windowHeight });
-	window.setWindowTitle("Toy Engine");
-	window.registerExternalDragExtension(".png");
-
-	auto materialEditor = toy::editor::materials::MaterialEditor{};
-
-	materialEditor.initialize();
-
-	const auto rendererDescriptor = toy::graphics::rhi::RendererDescriptor
 	{
-		.version = 1,
-		.instanceName = std::string{"ToyRenderer"},
-		.handler = window.getWindowHandler(),
-		.meta = window.getRendererMeta(),
-		.windowExtentGetter = [&window]()
+		taskSystem.initialize(TaskSystemDescriptor{});
+		ids = taskSystem.workers();
+		ids.push_back(std::this_thread::get_id());
+
+		window.initialize(WindowDescriptor{ windowWidth, windowHeight });
+		window.setWindowTitle("Toy Engine");
+		window.registerExternalDragExtension(".png");
+
+		auto materialEditor = toy::editor::materials::MaterialEditor{};
+
+		materialEditor.initialize();
+#pragma warning(push)
+#pragma warning(disable: 6001)
+		const auto rendererDescriptor = toy::graphics::rhi::RendererDescriptor
 		{
-			return WindowExtent{ window.width(), window.height()};
-		},
-		.workers = ids
-	};
-	renderer.initialize(rendererDescriptor);
+			.version = 1,
+			.instanceName = std::string{"ToyRenderer"},
+			.handler = window.getWindowHandler(),
+			.meta = window.getRendererMeta(),
+			.windowExtentGetter = [&window]()
+			{
+				return WindowExtent{ window.width(), window.height()};
+			},
+			.workers = ids
+		};
+#pragma warning(pop)
+		renderer.initialize(rendererDescriptor);
 
-	dynamicFrameAllocator.initialize({ .rhi = renderer, .size = 10 * 1024 * 1024, .framesInFlight = 3 });
-	textureUploader.initialize(renderer, 100 * 1024 * 1024);
+		dynamicFrameAllocator.initialize({ .rhi = renderer, .size = 10 * 1024 * 1024, .framesInFlight = 3 });
+		textureUploader.initialize(renderer, 100 * 1024 * 1024);
 
-	const auto textureManagerDescriptor = TextureManagerDescriptor
-	{
-		.rhi = renderer,
-		.frameInFlights = 3 //TODO:: this should be defined upfront
-	};
+		const auto textureManagerDescriptor = TextureManagerDescriptor
+		{
+			.rhi = renderer,
+			.frameInFlights = 3 //TODO:: this should be defined upfront
+		};
 
-	textureManager.initialize(textureManagerDescriptor);
+		textureManager.initialize(textureManagerDescriptor);
 
-	editor.initialize(taskSystem, renderer, window, textureUploader, textureManager);
-
-
-	ImGui::CreateContext();
-
-	ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
-	//ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
-
-	const auto dpiScale = std::floorf(window.getDiagonalDpiScale())/96;
-	float baseFontSize = 16.0f;
-	float iconFontSize = dpiScale * baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
-
-	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", dpiScale*baseFontSize);
-
-	static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
-	ImFontConfig config;
-	config.MergeMode = true;
-	config.PixelSnapH = true;
-	config.GlyphMinAdvanceX = iconFontSize;
+		editor.initialize(taskSystem, renderer, window, textureUploader, textureManager);
+		const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
+		{
+			.nativeBackend = renderer.getNativeBackend()
+		};
+		graphicsDebugger.initialize(renderDocDescriptor);
+	}
 	
-	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", dpiScale*baseFontSize, &config, icons_ranges);
-	ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-brands-400.ttf", dpiScale*baseFontSize, &config, icons_ranges);
-
-	int width, height;
-	unsigned char* pixels = NULL;
-	ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
-	const auto texelSize = 1;
-	const auto fontImageSize = width * height * texelSize;
-
-	ImGui::GetStyle().ScaleAllSizes(dpiScale);
-
-	Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
-	accessUsage |= ImageAccessUsage::transferDst;
-
-
-	const auto fontDescriptor = ImageDescriptor
+	auto fontSampler = Handle<Sampler>{};
+	auto fontTexture = Texture2D{};
 	{
-		.format = Format::r8,
-		.extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
-		.mips = 1,
-		.layers = 1,
-		.accessUsage = accessUsage
-	};
+		ImGui::CreateContext();
 
-	auto fontImage = renderer.createImage(fontDescriptor);
+		ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+		//ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
 
-	const auto fontView = renderer.createImageView(ImageViewDescriptor
-	{
-		.image = fontImage,
-		.format = Format::r8,
-		.type = ImageViewType::_2D
-	});
+		const auto dpiScale = std::floorf(window.getDiagonalDpiScale()) / 96;
+		float baseFontSize = 16.0f;
+		float iconFontSize = dpiScale * baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
 
-	const auto fontSampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", dpiScale * baseFontSize);
+
+		static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
+		ImFontConfig config;
+		config.MergeMode = true;
+		config.PixelSnapH = true;
+		config.GlyphMinAdvanceX = iconFontSize;
+
+		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", dpiScale * baseFontSize, &config, icons_ranges);
+		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-brands-400.ttf", dpiScale * baseFontSize, &config, icons_ranges);
+
+		int width, height;
+		unsigned char* pixels = NULL;
+		ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
+		const auto texelSize = 1;
+		const auto fontImageSize = width * height * texelSize;
+
+		ImGui::GetStyle().ScaleAllSizes(dpiScale);
+
+		Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
+		accessUsage |= ImageAccessUsage::transferDst;
 
 
-	const auto fontTexture = toy::Texture2D
-	{
-		.width = (u32)width,
-		.height = (u32)height,
-		.image = fontImage,
-		.view = fontView,
-		.hasMips = false,
-		.bytesPerTexel = texelSize
-	};
+		const auto fontDescriptor = ImageDescriptor
+		{
+			.format = Format::r8,
+			.extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
+			.mips = 1,
+			.layers = 1,
+			.accessUsage = accessUsage
+		};
 
-	textureUploader.upload(std::vector<std::byte>( (std::byte*)pixels, (std::byte*)pixels + fontImageSize ), fontTexture);
+		auto fontImage = renderer.createImage(fontDescriptor);
 
-	const auto renderDocDescriptor = debugger::RenderDocCaptureDescriptor
-	{
-		.nativeBackend = renderer.getNativeBackend()
-	};
-	graphicsDebugger.initialize(renderDocDescriptor);
-	
+		const auto fontView = renderer.createImageView(ImageViewDescriptor
+			{
+				.image = fontImage,
+				.format = Format::r8,
+				.type = ImageViewType::_2D
+			});
+
+		fontSampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+
+
+		fontTexture = toy::Texture2D
+		{
+			.width = (u32)width,
+			.height = (u32)height,
+			.image = fontImage,
+			.view = fontView,
+			.hasMips = false,
+			.bytesPerTexel = texelSize
+		};
+
+		textureUploader.upload(std::vector<std::byte>((std::byte*)pixels, (std::byte*)pixels + fontImageSize), fontTexture);
+
+	}
 #pragma endregion
 #pragma region scene pipeline 
-
-	
-	
+#pragma warning(push)
+#pragma warning(disable: 6001)
 	const auto samplingGroupDescriptor = BindGroupDescriptor
 	{
 		.bindings =
@@ -597,6 +635,7 @@ int Application::run()
 	};
 
 
+
 	auto guiVsSpirvCode = ShaderByteCode{};
 	auto guiFsSpirvCode = ShaderByteCode{};
 
@@ -637,7 +676,7 @@ int Application::run()
 			}
 		}
 	};
-
+#pragma warning(pop)
 	
 	const auto guiVertexDataGroupLayout = renderer.createBindGroupLayout(guiVertexDataGroup);
 	const auto guiFontGroupLayout = renderer.createBindGroupLayout(guiFontGroup);
@@ -808,7 +847,6 @@ int Application::run()
 	
 
 	//TODO: [#3] command submit should work also without calling nextFrame in a frame async scenario
-	auto time = 0.0f;
 	auto frameNumber = u32{};
 	bool stillRunning = true;
 	auto captureTool = graphicsDebugger.getScopeCapture();
@@ -855,7 +893,7 @@ int Application::run()
 
 	const auto fontUid = textureManager.addTexture(fontTexture);
 
-	ImGui::GetIO().Fonts->SetTexID(ImTextureID{ (void*)fontUid });
+	ImGui::GetIO().Fonts->SetTexID(ImTextureID{ reinterpret_cast<void*>(static_cast<core::u64>(fontUid)) });
 
 	std::atomic_flag isSceneReady;
 	auto newScene = Scene{};
@@ -1125,7 +1163,7 @@ int Application::run()
 			for(auto i = u32{}; i < assetTextures.size(); i++)
 			{
 				ImGui::PushID(i);
-				ImGui::ImageButton("b", (void*)assetTextures[i], assetItemSize);
+				ImGui::ImageButton("b", reinterpret_cast<void*>(static_cast<core::u64>(assetTextures[i])), assetItemSize);
 
 				const auto prevItemWidth = ImGui::GetItemRectMax().x;
 				const auto widthAfterItemPush = prevItemWidth + style.ItemSpacing.x + assetItemSize.x;
@@ -1512,7 +1550,8 @@ int Application::run()
 
 			std::transform_exclusive_scan(std::begin(setIndicies), std::end(setIndicies),
 				std::begin(batchOffsets), std::size_t{ 0 }, std::plus<std::size_t>{}, itemsPerBatches);
-
+#pragma warning(push)
+#pragma warning(disable: 6001)
 			const auto renderingDescriptor = RenderingDescriptor
 			{
 				.colorRenderTargets = {
@@ -1534,6 +1573,7 @@ int Application::run()
 					.clearValue = DepthClear{ 0.0f }
 				}
 			};
+#pragma warning(pop)
 
 			const auto area = RenderArea{ 0,0,windowWidth,windowHeight };
 
@@ -1653,6 +1693,8 @@ int Application::run()
 						auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
 						cmd.begin();
 
+#pragma warning(push)
+#pragma warning(disable: 6001)
 						const auto renderingDescriptor = RenderingDescriptor
 						{
 							.colorRenderTargets = {
@@ -1674,6 +1716,7 @@ int Application::run()
 								.clearValue = DepthClear{ 1.0f }
 							}
 						};
+#pragma warning(pop)
 
 						cmd.beginRendering(renderingDescriptor, area);
 
@@ -1779,7 +1822,6 @@ int Application::run()
 			}
 
 			
-
 			auto guiBatch = SubmitBatch{};
 			{
 				{
@@ -1794,6 +1836,8 @@ int Application::run()
 				drawStatistics.gui = GuiDrawStatistics{};
 				auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
 				cmd.begin();
+#pragma warning(push)
+#pragma warning(disable: 6001)
 				const auto renderingDescriptor = RenderingDescriptor
 				{
 					.colorRenderTargets = {
@@ -1807,6 +1851,7 @@ int Application::run()
 						}
 					}
 				};
+#pragma warning(pop)
 
 				cmd.beginRendering(renderingDescriptor, area);
 			   
@@ -1869,7 +1914,7 @@ int Application::run()
 						const auto clipMax = ImVec2(drawCommand.ClipRect.z - clipOff.x, drawCommand.ClipRect.w - clipOff.y);
 						if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
 							continue;
-						scaleTranslate.textureId = textureManager.getBindIndex((core::u32)drawCommand.TextureId);
+						scaleTranslate.textureId = textureManager.getBindIndex(static_cast<core::u32>(reinterpret_cast<core::u64>(drawCommand.TextureId)));
 						cmd.pushConstant(scaleTranslate);
 						const auto scissor = Scissor{ static_cast<i32>(clipMin.x), static_cast<i32>(clipMin.y), static_cast<u32>(clipMax.x- clipMin.x), static_cast<u32>(clipMax.y-clipMin.y) };
 						cmd.setScissor(scissor);
@@ -1891,11 +1936,8 @@ int Application::run()
 					renderer.submitBatches(QueueType::graphics, { guiBatch }); 
 					renderer.endDebugLabel(QueueType::graphics);
 					renderer.beginDebugLabel(QueueType::graphics, { "prepare present" });
-
-
 				};
 				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
-				
 			}
 			
 			{
@@ -1925,9 +1967,6 @@ int Application::run()
 				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
 			}
 			
-			
-
-			time += 0.01f;
 			captureTool.stopAndOpenCapture();
 		}
 		frameEndTime = std::chrono::high_resolution_clock::now();

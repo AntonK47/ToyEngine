@@ -16,6 +16,9 @@ foreach(MODULE
 	add_subdirectory(${MODULE} EXCLUDE_FROM_ALL)
 	set_property(TARGET ${MODULE} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+	#target_compile_options(${MODULE} PUBLIC "-Wall")
+
 	#DOTO: if sanitizer enable
 	#target_compile_options(${MODULE} PRIVATE /fsanitize=address)
 	#target_link_options(${MODULE} PRIVATE /fsanitize=address)

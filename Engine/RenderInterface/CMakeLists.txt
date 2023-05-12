@@ -4,10 +4,10 @@ set(MODULE_SOURCES
 	Source/CommandList.cpp
 	Source/RenderInterface.cpp
 	Source/RenderInterfaceValidator.cpp
-	"Source/VulkanRHI/Vulkan.cpp"
-	"Source/VulkanRHI/VulkanCommandList.cpp"
-	"Source/VulkanRHI/VulkanMappings.cpp"
-	"Source/VulkanRHI/VulkanRenderInterface.cpp"
+	Source/VulkanRHI/Vulkan.cpp
+	Source/VulkanRHI/VulkanCommandList.cpp
+	Source/VulkanRHI/VulkanMappings.cpp
+	Source/VulkanRHI/VulkanRenderInterface.cpp
 )
 set(MODULE_HEADERS 
 	Source/CommandList.h
@@ -24,12 +24,12 @@ set(MODULE_HEADERS
 	Source/SubmitDependency.h
 	Source/ValidationCommon.h 
 	Source/VirtualTextureStreaming.h
-	"Source/VulkanRHI/Vulkan.h"
-	"Source/VulkanRHI/VulkanCommandList.h"
-	"Source/VulkanRHI/VulkanMappings.h"
-	"Source/VulkanRHI/VulkanRenderInterface.h"
-	"Source/VulkanRHI/VulkanRenderInterfaceTypes.h"
-	"Source/VulkanRHI/VulkanSubmitBatch.h"
+	Source/VulkanRHI/Vulkan.h
+	Source/VulkanRHI/VulkanCommandList.h
+	Source/VulkanRHI/VulkanMappings.h
+	Source/VulkanRHI/VulkanRenderInterface.h
+	Source/VulkanRHI/VulkanRenderInterfaceTypes.h
+	Source/VulkanRHI/VulkanSubmitBatch.h
 )
 
 add_library(${MODULE_NAME}

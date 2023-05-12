@@ -537,7 +537,7 @@ namespace toy::editor
 					animationOffsetBase_ += 1.0f / 3.0f;
 				}
 
-				ImGui::Image((void*)splashScreenImage_, 
+				ImGui::Image(reinterpret_cast<void*>(static_cast<core::u64>(splashScreenImage_)), 
 					ImVec2(splashScreenSize_, splashScreenSize_), 
 					ImVec2(0 + animationOffsetBase_ + offset, 0), 
 					ImVec2(1.0f / 3 + animationOffsetBase_ + offset, 1.0f));
