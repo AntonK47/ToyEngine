@@ -17,6 +17,7 @@
     "mpmcqueue",
     "g3log",
     "zpp-bits",
-    "freetype"
+    "freetype",
+    "nlohmann-json"
   ]
 }

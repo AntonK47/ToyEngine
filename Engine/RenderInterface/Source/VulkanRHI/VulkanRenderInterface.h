@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 #include <map>
 #include <unordered_map>
 #include <rigtorp/MPMCQueue.h>
@@ -168,7 +166,6 @@ namespace toy::graphics::rhi::vulkan
 
 		std::unordered_map<std::thread::id, u32> workerIndexMap_{};
 
-
 		std::vector<vk::Semaphore> timelineSemaphorePerFrame_{};
 
 		std::map<QueueType, vk::Semaphore> timelineSemaphorePerQueue_{};
@@ -181,8 +178,6 @@ namespace toy::graphics::rhi::vulkan
 		std::vector<Handle<Image>> swapchainImages_{};
 		std::vector<vk::Fence> swapchainImageAfterPresentFences_{};
 
-
-
 		std::unordered_map < core::u32, VulkanBindGroupLayout > bindGroupLayoutCache_{};
 
 		LinearFrameAllocator<vk::DescriptorSet> bindGroupCache_{};
@@ -192,10 +187,8 @@ namespace toy::graphics::rhi::vulkan
 		std::vector<vk::DescriptorPool> descriptorPoolsPersistent_;
 		core::u32 lastFrameInUse_{};
 
-
 		static constexpr core::u32 maxCommandListsPerSubmit_ = 10;
 		static constexpr core::u32 maxSubmits_ = 100;
-
 
 		PipelineCache graphicsPipelineCache_{};
 		PipelineCache computePipelineCache_{};

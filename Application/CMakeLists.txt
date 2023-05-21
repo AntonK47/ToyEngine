@@ -11,10 +11,14 @@ add_executable(${APPLICATION_NAME}
 
 target_link_libraries(${APPLICATION_NAME}
 	PRIVATE
-		Engine
+		Runtime
 )
 
 set_property(TARGET ${APPLICATION_NAME} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+
+set_property(TARGET ${APPLICATION_NAME} PROPERTY
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 get_property(RESOURCES GLOBAL "${RESOURCE}" PROPERTY TOY_RESOURCE_DIR)
 

@@ -9,7 +9,8 @@ set(MODULE_HEADERS
 	Source/Hash.h
 	Source/Core.h
 	Source/Logger.h
-	Source/Scene.h)
+	Source/Scene.h 
+	Source/DebugHelper.h)
 
 find_path(ZPP_BITS_INCLUDE_DIRS "zpp_bits.h")
 
@@ -30,4 +31,7 @@ target_link_libraries(${MODULE_NAME}
 	PRIVATE
 		cityhash
 		g3log
+	PUBLIC
+		glm::glm
+
 )

@@ -460,8 +460,6 @@ namespace toy::editor
 			viewState_ = ViewState::splash;
 			window_->resize(splashScreenSize_, splashScreenSize_);
 
-			
-
 			auto t1 = Task{};
 			t1.taskFunction = [&]()
 			{
@@ -490,11 +488,8 @@ namespace toy::editor
 			return x < 0.5f ? 8.0f * x * x * x * x : 1.0f - std::powf(-2.0f * x + 2.0f, 4.0f) / 2.0f;
 		}
 
-
 		auto showSplashScreen()
 		{
-			//TODO
-			navigateToSceneView();
 
 			ImGuiWindowFlags windowFlags =
 				ImGuiWindowFlags_NoDecoration |
@@ -556,10 +551,10 @@ namespace toy::editor
 			ImGui::End();
 			ImGui::PopStyleVar(3);
 
-			if (totalTime_ >= 5.0f)
+			/*if (totalTime_ >= 5.0f)
 			{
 				navigateToSceneView();
-			}
+			}*/
 		}
 
 		auto showEditorGui() -> void

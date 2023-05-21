@@ -143,10 +143,17 @@ namespace toy::graphics::rhi
 		}
 
 		auto transfer(
-			const SourceBufferDescriptor& srcBufferDescriptor,
-			const DestinationImageDescriptor& dstImageDescription) -> void
+			const TransferBufferDescriptor& srcBufferDescriptor,
+			const TransferImageDescriptor& dstImageDescription) -> void
 		{
 			transferInternal(srcBufferDescriptor, dstImageDescription);
+		}
+
+		auto transfer(
+			const TransferImageDescriptor& srcImageDescriptor,
+			const TransferBufferDescriptor& dstBufferDescription) -> void
+		{
+			transferInternal(srcImageDescriptor, dstBufferDescription);
 		}
 
 	protected:

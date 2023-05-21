@@ -41,8 +41,12 @@ namespace toy::graphics::rhi::vulkan
 		) -> void;
 
 		auto transferInternal(
-			const SourceBufferDescriptor& srcBufferDescriptor,
-			const DestinationImageDescriptor& dstImageDescription) -> void;
+			const TransferBufferDescriptor& srcBufferDescriptor,
+			const TransferImageDescriptor& dstImageDescription) -> void;
+
+		auto transferInternal(
+			const TransferImageDescriptor& srcImageDescriptor,
+			const TransferBufferDescriptor& dstBufferDescription) -> void;
 
 		auto bindPipelineInternal(const Handle<Pipeline>& pipeline) -> void;
 		auto bindIndexBufferInternal(

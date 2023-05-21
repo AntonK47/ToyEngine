@@ -72,12 +72,12 @@ namespace toy
 				} });
 
 			uploadCommandList.transfer(
-				SourceBufferDescriptor
+				TransferBufferDescriptor
 				{
 					.buffer = stagingBuffer,
 					.offset = 0
 				},
-				DestinationImageDescriptor
+				TransferImageDescriptor
 				{
 					.image = dstTexture.image,
 					.regions = uploadRegions

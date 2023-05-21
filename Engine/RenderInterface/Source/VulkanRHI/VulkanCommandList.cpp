@@ -96,6 +96,11 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 				barrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
 				barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
 				break;
+			case Layout::transferSrc:
+				barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+				barrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
+				barrier.srcAccessMask = vk::AccessFlagBits2::eTransferRead;
+				break;
 			default:
 
 				barrier.newLayout = vk::ImageLayout::eUndefined;
@@ -127,7 +132,12 @@ void VulkanCommandList::barrierInternal(const std::initializer_list<BarrierDescr
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eTransferWrite;
 				break;
-			case Layout::shaderRead: //TODO: this enum name is not clear about futher resource usage
+			case Layout::transferSrc:
+				barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+				barrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
+				barrier.dstAccessMask = vk::AccessFlagBits2::eTransferRead;
+				break;
+			case Layout::shaderRead: //TODO: this enum name is not clear about further resource usage
 				barrier.newLayout = vk::ImageLayout::eReadOnlyOptimal;
 				barrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
 				barrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
@@ -258,7 +268,7 @@ void VulkanCommandList::drawIndexedInternal(
 	commandBuffer_.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstIndex);
 }
 
-void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBufferDescriptor, const DestinationImageDescriptor& dstImageDescription)
+void VulkanCommandList::transferInternal(const TransferBufferDescriptor& srcBufferDescriptor, const TransferImageDescriptor& dstImageDescription)
 {
 	TOY_ASSERT(!dstImageDescription.regions.empty());
 
@@ -280,7 +290,7 @@ void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBuffer
 		};
 		regions[i] = vk::BufferImageCopy2
 		{
-			.bufferOffset = region.bufferOffset,
+			.bufferOffset = srcBufferDescriptor.offset + region.bufferOffset,
 			.bufferRowLength = 0,
 			.bufferImageHeight = 0,
 			.imageSubresource = subresource,
@@ -299,6 +309,51 @@ void VulkanCommandList::transferInternal(const SourceBufferDescriptor& srcBuffer
 	};
 
 	commandBuffer_.copyBufferToImage2(copyBufferToImageInfo);
+}
+
+void VulkanCommandList::transferInternal(
+	const TransferImageDescriptor& srcImageDescriptor,
+	const TransferBufferDescriptor& dstBufferDescription)
+{
+	TOY_ASSERT(!srcImageDescriptor.regions.empty());
+
+	auto regions = std::vector<vk::BufferImageCopy2>{};
+	regions.resize(srcImageDescriptor.regions.size());
+
+	const auto& buffer = rhi_.bufferStorage_.get(dstBufferDescription.buffer);
+	const auto& image = rhi_.imageStorage_.get(srcImageDescriptor.image);
+
+	for (u32 i = {}; i < srcImageDescriptor.regions.size(); i++)
+	{
+		const auto& region = srcImageDescriptor.regions[i];
+		const auto subresource = vk::ImageSubresourceLayers
+		{
+			.aspectMask = vk::ImageAspectFlagBits::eColor,// image.aspect, TODO:
+			.mipLevel = region.mip,
+			.baseArrayLayer = region.baseLayer,
+			.layerCount = region.layerCount
+		};
+		regions[i] = vk::BufferImageCopy2
+		{
+			.bufferOffset = dstBufferDescription.offset + region.bufferOffset,
+			.bufferRowLength = 0,
+			.bufferImageHeight = 0,
+			.imageSubresource = subresource,
+			.imageOffset = vk::Offset3D{region.offset.x, region.offset.y, region.offset.z},
+			.imageExtent = vk::Extent3D{ region.extent.x, region.extent.y, region.extent.z }
+		};
+	}
+
+	const auto copyImageToBufferInfo = vk::CopyImageToBufferInfo2
+	{
+		.srcImage = image.image,
+		.srcImageLayout = vk::ImageLayout::eTransferSrcOptimal,
+		.dstBuffer = buffer.buffer,
+		.regionCount = static_cast<u32>(regions.size()),
+		.pRegions = regions.data()
+	};
+
+	commandBuffer_.copyImageToBuffer2(copyImageToBufferInfo);
 }
 
 void VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)

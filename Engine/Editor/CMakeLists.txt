@@ -1,4 +1,4 @@
-set(MODULE_NAME Engine)
+set(MODULE_NAME Editor)
 
 
 set(MODULE_SOURCES 

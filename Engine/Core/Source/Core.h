@@ -1,5 +1,12 @@
 #pragma once
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_LEFT_HANDED
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_common.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #if defined(__ANDROID__)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(__linux__)

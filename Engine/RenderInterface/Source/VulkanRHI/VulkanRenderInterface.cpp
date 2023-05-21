@@ -511,7 +511,7 @@ void VulkanRenderInterface::initializeInternal(const RendererDescriptor& descrip
             .imageColorSpace = supportedFormat.colorSpace,
             .imageExtent = vk::Extent2D{ extent.width, extent.height },
             .imageArrayLayers = 1,
-            .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+            .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst, //TODO
             .imageSharingMode = vk::SharingMode::eExclusive,
             .queueFamilyIndexCount = 1,
             .pQueueFamilyIndices = &queues_[QueueType::graphics].familyIndex,
@@ -1131,6 +1131,7 @@ void VulkanRenderInterface::presentInternal(const SubmitDependency& dependency)
     };
 
     //TODO: should be a present queue
+    TOY_ASSERT(adapter_.getWin32PresentationSupportKHR(queues_[QueueType::graphics].familyIndex));
     result = queues_[QueueType::graphics].queue.presentKHR(presentInfo);
     TOY_ASSERT(result == vk::Result::eSuccess);
 }
@@ -1474,7 +1475,6 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
         .image = image
     };
 
-
     const auto sparseRequirements = device_.getImageSparseMemoryRequirements2(imageSparseMemoryRequirementsInfo);
 
     const auto formatInfo = vk::PhysicalDeviceSparseImageFormatInfo2
@@ -1511,7 +1511,6 @@ auto VulkanRenderInterface::createVirtualTextureInternal(const VirtualTextureDes
     
     auto allocationInfos = std::vector<VmaAllocationInfo>{};
     allocationInfos.resize(pageCount);
-
 
     getMemoryRequirements();
     const  auto allocationResult = vmaAllocateMemoryPages(allocator_, (VkMemoryRequirements*) & pageMemoryRequirements, &allocationCreateInfo, pageCount, allocations.data(), allocationInfos.data());
@@ -1582,7 +1581,6 @@ auto VulkanRenderInterface::getMemoryRequirements() -> void
         mipLevels++;
     }
     allocatePageMemoryInternal();
-    
 }
 
 auto VulkanRenderInterface::allocatePageMemoryInternal() -> void
@@ -1664,7 +1662,6 @@ auto VulkanRenderInterface::unmapInternal(const Handle<Buffer>& buffer) -> void
     vulkanBuffer.isMapped = false;
     vmaUnmapMemory(allocator_, vulkanBuffer.allocation);
 }
-
 
 Handle<Pipeline> VulkanRenderInterface::createPipelineInternal(
 	const ComputePipelineDescriptor& descriptor,
@@ -1820,8 +1817,6 @@ Handle<ImageView> VulkanRenderInterface::createImageViewInternal(
     return imageViewStorage_.add(VulkanImageView{ result.value }, descriptor);
 }
 
-
-
 PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
 {
     auto graphicsPerFrame = std::vector<PerFrameCommandPoolData>(maxDeferredFrames_);
@@ -1865,9 +1860,6 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
                 {
                     graphicsPerFrame[i].commandBuffers.push_back(buffer);
                 }
-                
-
-                
             }
         }
         if constexpr (asyncComputeCommandListPerFrame != 0)
@@ -1908,7 +1900,6 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
         }
     }
 
-
     PerThreadCommandPoolData perThreadData
     {};
     if constexpr (graphicsCommandListPerFrame != 0)
@@ -1926,7 +1917,6 @@ PerThreadCommandPoolData VulkanRenderInterface::initializePerRenderThreadData()
 
     return perThreadData;
 }
-
 
 void VulkanRenderInterface::beginDebugLabelInternal(const QueueType queueType, const DebugLabel& label)
 {

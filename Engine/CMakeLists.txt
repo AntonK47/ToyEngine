@@ -3,7 +3,7 @@ message(STATUS ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_UNITY_BUILD ON)
 foreach(MODULE 
 	Core 
-	Engine
+	Runtime
 	Window
 	SDLWindow
 	Win32Window

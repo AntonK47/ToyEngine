@@ -141,6 +141,9 @@ namespace toy::graphics::rhi::vulkan
 		case Format::bc7:
 			vulkanFormat = vk::Format::eBc7UnormBlock;
 			break;
+		case Format::r32u:
+			vulkanFormat = vk::Format::eR32Uint;
+			break;
 		}
 		return vulkanFormat;
 	}

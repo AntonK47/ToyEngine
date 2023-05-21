@@ -1,64 +1,42 @@
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_LEFT_HANDED
-#define IMGUI_DEFINE_MATH_OPERATORS
-#include <glm/glm.hpp>
-#include <glm/ext/matrix_common.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-//TODO: Move glm defines into its own common header
-
 #include "Application.h"
+
 #include <Core.h>
 #include <fstream>
 #include <GlslRuntimeCompiler.h>
 #include <Logger.h>
 #include <RenderDocCapture.h>
 #include <Scene.h>
-
 #include <SDLWindow.h>
-
 #include <thread>
 #include <mutex>
 #include <rigtorp/MPMCQueue.h>
 #include <iostream>
 #include <chrono>
 #include <VirtualTextureStreaming.h>
-
 #include <RenderInterface.h>
 #include <RenderInterfaceTypes.h>
-
-#include "SceneLoader.h"
-
+#include <filesystem>
 #include <execution>
 #include <algorithm>
 #include <span>
 #include <stack>
 #include <regex>
+#include <compressonator.h>
 
-#define IMGUI_USER_CONFIG "toyimconfig.h"
-#include <imgui.h>
-#include <imgui_stdlib.h>
-#include "IconsFontAwesome6.h"
-
-#include <imgui_node_editor.h>
-
+#include "SceneLoader.h"
+#include "ImGuiInclude.h"
 #include "OutlineFeature.h"
-
 #include "MaterialEditor.h"
 #include "Editor.h"
 #include "ImageDataUploader.h"
 #include "TextureManager.h"
-
 #include "DDSLoader.h"
 #include "Material.h"
-
 #include "DynamicFrameAllocator.h"
 #include "TaskSystem.h"
 
 using namespace toy::io::loaders::dds;
-
 using namespace toy::graphics::rhi;
-
 using namespace toy::window;
 using namespace toy::graphics::compiler;
 using namespace toy::graphics;
@@ -84,7 +62,6 @@ namespace
 	}
 }
 
-
 struct TextureDataSource
 {
 	std::string path;
@@ -98,6 +75,21 @@ struct TextureDescriptor
 
 Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUploader& textureUploader, TextureManager& textureManager, std::vector<UID>& assetTextures)
 {
+	void* BC7block_encoder;
+	BC7block_encoder = NULL;
+	CMP_EncoderSetting encodeSettings{};
+	encodeSettings.format = CMP_FORMAT_BC7;
+	encodeSettings.quality = 1.0;
+	encodeSettings.width = 16;
+	encodeSettings.height = 16;
+
+	if (CMP_CreateBlockEncoder(&BC7block_encoder, encodeSettings) != 0) {
+		//CMP_FreeMipSet(&MipSetIn);
+		//CMP_FreeMipSet(&MipSetCmp);
+		std::printf("Error: Creating BC7 block encoder");
+		//return -1;
+	}
+
 	using namespace std::string_literals;
 	const auto knightTextureSet = std::array
 	{
@@ -132,7 +124,7 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 
 	const auto bladeRunnerCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
 
-	auto scene = Scene::loadSceneFromFile(renderer, knightData);
+	auto scene = Scene::loadSceneFromFile(renderer, splashData);
 
 
 	for (const auto& textureFile : knightTextureSet)
@@ -405,8 +397,38 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 
 
 
-int Application::run()
+int Application::run(const std::vector<std::string>& arguments)
 {
+	auto projectDirectory = std::optional<std::filesystem::path>{};
+	if (arguments.size() > 1)
+	{
+		auto validationFailed = false;
+
+		for (auto i = u32{ 1 }; i < arguments.size(); i+=2)
+		{
+			validationFailed |= arguments.size() < i + 1;
+			if (arguments[i] == std::string{"-projectDirectory"})
+			{
+				const auto directory = std::filesystem::path{ arguments[i + 1] };
+				validationFailed |= !std::filesystem::is_directory(directory);
+				projectDirectory = directory;
+			}
+			else
+			{
+				validationFailed |= true;
+			}
+		}
+
+		if (validationFailed)
+		{
+			return -1;
+		}
+
+	}
+	
+
+
+
 #pragma region startup
 	logger::initialize();
 	/*auto window = SDLWindow{};
@@ -708,7 +730,7 @@ int Application::run()
 			.fragmentShader = guiFragmentShaderModule,
 			.renderTargetDescriptor = RenderTargetsDescriptor
 			{
-				.colorRenderTargets = std::initializer_list
+				.colorRenderTargets =
 				{
 					ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
 				},
@@ -749,6 +771,28 @@ int Application::run()
 		.aspect = ImageViewAspect::depth
 	};
 	auto depthFramebufferView = renderer.createImageView(depthFramebufferViewDescriptor);
+
+#pragma region outline
+	const auto visibilityBufferDescriptor = ImageDescriptor
+	{
+		.format = Format::r32u,
+		.extent = Extent{window.width(), window.height()},
+		.mips = 1,
+		.layers = 1,
+		.accessUsage = ImageAccessUsage::colorAttachment
+	};
+
+	const auto visibilityBuffer = renderer.createImage(visibilityBufferDescriptor);
+	const auto visibilityBufferViewDescriptor = ImageViewDescriptor
+	{
+		.image = visibilityBuffer,
+		.format = Format::r32u,
+		.type = ImageViewType::_2D,
+		.aspect = ImageViewAspect::color
+	};
+	const auto visibilityBufferView = renderer.createImageView(visibilityBufferViewDescriptor);
+
+#pragma endregion
 
 	struct Camera
 	{
@@ -826,18 +870,7 @@ int Application::run()
 
 	auto editorScene = EditorScene();
 
-	for(const auto& object : scene.drawInstances_)
-	{
-		const auto editorObject = EditorSceneObject
-		{
-			.name = std::format("object_{}", object.meshIndex),
-			.transform = TransformComponent{ .transform = object.model },
-			.mesh = MeshComponent{ .meshIndex = object.meshIndex }
-		};
-
-		editorScene.scene.push_back(editorObject);
-
-	}
+	
 
 
 	static bool togglePipeline = false;
@@ -902,7 +935,11 @@ int Application::run()
 	sceneLoadTask.taskFunction = [&]()
 	{
 		newScene = loadScene(taskSystem, renderer, textureUploader, textureManager, assetTextures);
+
+		
 		isSceneReady.test_and_set();
+
+		editor.navigateToSceneView();
 	};
 
 	taskSystem.run({ &sceneLoadTask }, WorkerTag::background);
@@ -913,11 +950,39 @@ int Application::run()
 	window.show();
 #pragma endregion
 #pragma region gameloop
+
+
+	
+	auto readBackBuffer = renderer.createBuffer(BufferDescriptor
+		{
+			.size = 4,
+			.accessUsage = BufferAccessUsage::transferDst,
+			.memoryUsage = MemoryUsage::cpuOnly
+		});
+
+
+
+
+	bool loaded = false;
+
 	while (stillRunning)
 	{
-		if (isSceneReady.test())
+		if (isSceneReady.test() && !loaded)
 		{
+			loaded = true;
 			scene = newScene;
+			for (const auto& object : scene.drawInstances_)
+			{
+				const auto editorObject = EditorSceneObject
+				{
+					.name = std::format("object_{}", object.meshIndex),
+					.transform = TransformComponent{.transform = object.model },
+					.mesh = MeshComponent{.meshIndex = object.meshIndex }
+				};
+
+				editorScene.scene.push_back(editorObject);
+
+			}
 		}
 
 
@@ -958,7 +1023,7 @@ int Application::run()
 		static auto selectedObject = u32{0};
 
 		auto showSceneHierarchy = true;
-		/*
+		
 		if (ImGui::Begin("Scene Hierarchy", &showSceneHierarchy))
 		{
 			//TODO: remove table
@@ -1088,7 +1153,6 @@ int Application::run()
 		}
 		
 
-		*/
 		static bool drag = false;
 
 		if (io.dragDropState == io::DragDropEvent::dragBegin)
@@ -1338,6 +1402,25 @@ int Application::run()
 			ImGui::End();
 		}
 
+
+		static auto showReadBack = true;
+		if (ImGui::Begin("ToolsBar", &toolsBar, windowFlags))
+		{
+			std::byte* d;
+			renderer.map(readBackBuffer, (void**)& d);
+
+			//TODO: it depends on swapchain image format
+			auto b = d[0];
+			auto g = d[1];
+			auto r = d[2];
+			auto a = d[3];
+
+			renderer.unmap(readBackBuffer);
+			const auto color = ImColor(IM_COL32(r,g,b,a));
+			ImGui::ColorButton("abs", color);
+
+		}
+		ImGui::End();
 
 		/*
 
@@ -1821,6 +1904,62 @@ int Application::run()
 				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
 			}
 
+
+			auto readBackBatch = SubmitBatch{};
+			{
+				auto cmd = renderer.acquireCommandList(toy::graphics::rhi::QueueType::graphics);
+				cmd.begin();
+
+				cmd.barrier(
+					{
+						ImageBarrierDescriptor
+						{
+							.srcLayout = Layout::colorRenderTarget,
+							.dstLayout = Layout::transferSrc,
+							.image = swapchainImage.image
+						}
+					});
+
+				cmd.transfer(
+					TransferImageDescriptor
+					{
+						.image = swapchainImage.image,
+						.regions = { Region{ 0, 0, 1, glm::uvec3{ 1, 1, 1 }, glm::ivec3{ io.mouseState.position.x, io.mouseState.position.y, 0 } }}
+					},
+					TransferBufferDescriptor
+					{
+						.buffer = readBackBuffer,
+						.offset = 0
+					});
+
+
+
+				cmd.barrier(
+					{
+						ImageBarrierDescriptor
+						{
+							.srcLayout = Layout::transferSrc,
+							.dstLayout = Layout::colorRenderTarget,
+							.image = swapchainImage.image
+						}
+					});
+
+				cmd.end();
+
+
+				auto submits = std::vector<SubmitDependency>{};
+				submits.resize(10);
+				std::transform(perThreadSubmits.begin(), perThreadSubmits.end(), submits.begin(), [](auto& a) { return a.barrier(); });
+				readBackBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, submits);
+
+				auto submitTask = toy::core::Task{};
+				submitTask.taskFunction = [&]() {
+					renderer.submitBatches(QueueType::graphics, { readBackBatch });
+					};
+				taskSystem.run({ &submitTask }, WorkerTag::rhi).wait();
+			}
+
+
 			
 			auto guiBatch = SubmitBatch{};
 			{
@@ -1926,10 +2065,7 @@ int Application::run()
 				cmd.endRendering();
 				cmd.end();
 
-				auto submits = std::vector<SubmitDependency>{};
-				submits.resize(10);
-				std::transform(perThreadSubmits.begin(), perThreadSubmits.end(), submits.begin(), [](auto& a){ return a.barrier();} );
-				guiBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, submits);
+				guiBatch = renderer.submitCommandList(toy::graphics::rhi::QueueType::graphics, { cmd }, { readBackBatch.barrier() });
 
 				auto submitTask = toy::core::Task{};
 				submitTask.taskFunction = [&]() {

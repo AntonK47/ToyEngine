@@ -181,7 +181,8 @@ namespace toy::graphics::rhi
 		rgba16,
 		d16,
 		d32,
-		bc7
+		bc7,
+		r32u
 	};
 
 	enum class ColorFormat
@@ -528,7 +529,7 @@ namespace toy::graphics::rhi
 		Handle<AccelerationStructure> blas;
 	};
 
-	struct SourceBufferDescriptor
+	struct TransferBufferDescriptor
 	{
 		Handle<Buffer> buffer;
 		core::u32 offset;
@@ -544,7 +545,7 @@ namespace toy::graphics::rhi
 		core::u32 bufferOffset{};
 	};
 
-	struct DestinationImageDescriptor
+	struct TransferImageDescriptor
 	{
 		Handle<Image> image;
 		std::vector<Region> regions{};
