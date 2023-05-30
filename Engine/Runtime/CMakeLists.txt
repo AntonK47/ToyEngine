@@ -9,7 +9,9 @@ set(MODULE_SOURCES
 	Source/TextureManager.cpp
 	Source/Material.cpp
 	Source/TaskSystem.cpp 
-	Source/DynamicFrameAllocator.cpp)
+	Source/DynamicFrameAllocator.cpp
+	Source/Gui.cpp
+)
 
 set(MODULE_HEADERS 
 	Source/Application.h
@@ -28,7 +30,9 @@ set(MODULE_HEADERS
 	Source/Texture2D.h 
 	Source/Material.h 
 	Source/BackgroundTasksSystem.h 
-	Source/TaskSystem.h)
+	Source/TaskSystem.h
+	Source/Gui.h
+)
 
 add_library(${MODULE_NAME}
 	STATIC
@@ -58,7 +62,12 @@ target_link_libraries(${MODULE_NAME}
 		#Win32Window
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+	get_property(RESOURCES GLOBAL "${RESOURCE}" PROPERTY TOY_RESOURCE_DIR)
+	if(EXISTS ${RESOURCES})
+	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR ${RESOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+	else()
 	set_property(GLOBAL PROPERTY TOY_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+	endif()
 endif()
 
 if(BUILD_TOY_ENGINE_MODULE_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tests" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tests/CMakeLists.txt")

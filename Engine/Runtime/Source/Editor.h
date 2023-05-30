@@ -1,5 +1,4 @@
 #pragma once
-#define IMGUI_DEFINE_MATH_OPERATORS
 #include <string>
 #include <vector>
 #include <variant>
@@ -8,13 +7,10 @@
 #include <unordered_map>
 #include <array>
 
-#define IMGUI_USER_CONFIG "toyimconfig.h"
-#include <imgui.h>
-#include "IconsFontAwesome6.h"
-#include "IconsFontAwesome6Brands.h"
+#include <ImGuiInclude.h>
+
 #include "ImageDataUploader.h"
 
-#include <imgui_node_editor.h>
 #include <Core.h>
 #include <ValidationCommon.h>
 #include <Window.h>

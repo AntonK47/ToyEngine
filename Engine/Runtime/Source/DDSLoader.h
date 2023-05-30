@@ -76,6 +76,7 @@ namespace toy::io::loaders::dds
 		explicit FilestreamTextureDataSourceDescriptor(const std::string& fileName)
 		{
 			file_.open( fileName, std::fstream::in | std::fstream::binary);
+			TOY_ASSERT(file_.is_open());
 			file_ >> info_;
 			dataBlockOffset_ = file_.tellg();
 		}
