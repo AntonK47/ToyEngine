@@ -32,6 +32,8 @@ set(MODULE_HEADERS
 	Source/BackgroundTasksSystem.h 
 	Source/TaskSystem.h
 	Source/Gui.h
+	Source/Statistics.h
+	Source/Utils.h
 )
 
 add_library(${MODULE_NAME}

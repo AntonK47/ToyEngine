@@ -358,6 +358,7 @@ void VulkanCommandList::transferInternal(
 
 void VulkanCommandList::bindPipelineInternal(const Handle<Pipeline>& pipeline)
 {
+	TOY_ASSERT(rhi_.pipelineStorage_.contains(pipeline));
 	currentPipeline_ = rhi_.pipelineStorage_.get(pipeline);
 	commandBuffer_.bindPipeline(currentPipeline_.bindPoint, currentPipeline_.pipeline);
 }

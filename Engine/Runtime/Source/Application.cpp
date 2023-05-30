@@ -24,7 +24,7 @@
 #include <compressonator.h>
 
 #include "SceneLoader.h"
-#include "ImGuiInclude.h"
+#include "Gui.h"
 #include "OutlineFeature.h"
 #include "MaterialEditor.h"
 #include "Editor.h"
@@ -34,6 +34,8 @@
 #include "Material.h"
 #include "DynamicFrameAllocator.h"
 #include "TaskSystem.h"
+#include "Statistics.h"
+#include "Utils.h"
 
 using namespace toy::io::loaders::dds;
 using namespace toy::graphics::rhi;
@@ -43,24 +45,6 @@ using namespace toy::graphics;
 using namespace toy::editor;
 using namespace toy;
 
-namespace 
-{
-	std::string loadShaderFile(const std::string& filePath)
-	{
-	   
-		auto fileStream = std::ifstream{ filePath, std::ios::ate };
-		assert(fileStream.is_open());
-
-		const auto length = static_cast<uint32_t>(fileStream.tellg());
-		fileStream.seekg(0);
-
-		auto code = std::vector<char>{};
-		code.resize(length);
-
-		fileStream.read(code.data(), length);
-		return std::string{ code.data(), length };
-	}
-}
 
 struct TextureDataSource
 {
@@ -395,8 +379,6 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 	return scene;
 }
 
-
-
 int Application::run(const std::vector<std::string>& arguments)
 {
 	auto projectDirectory = std::optional<std::filesystem::path>{};
@@ -423,7 +405,6 @@ int Application::run(const std::vector<std::string>& arguments)
 		{
 			return -1;
 		}
-
 	}
 	
 
@@ -450,6 +431,8 @@ int Application::run(const std::vector<std::string>& arguments)
 	auto textureManagerPtr = std::make_unique<TextureManager>();
 	auto taskSystemPtr = std::make_unique<TaskSystem>();
 	auto dynamicFrameAllocatorPtr = std::make_unique<DynamicFrameAllocator>();
+	auto guiPtr = std::make_unique<Gui>();
+
 
 	auto& window = *windowPtr;
 	auto& renderer = *rendererPtr;
@@ -460,7 +443,8 @@ int Application::run(const std::vector<std::string>& arguments)
 	auto& textureManager = *textureManagerPtr;
 	auto& taskSystem = *taskSystemPtr;
 	auto& dynamicFrameAllocator = *dynamicFrameAllocatorPtr;
-	
+	auto& gui = *guiPtr;
+
 	auto windowWidth = u32{ 1920 };//u32{2560};
 	auto windowHeight = u32{ 1080 };//u32{1440};
 	auto ids = std::vector<std::thread::id>{};
@@ -511,77 +495,19 @@ int Application::run(const std::vector<std::string>& arguments)
 			.nativeBackend = renderer.getNativeBackend()
 		};
 		graphicsDebugger.initialize(renderDocDescriptor);
+
+
+		const auto guiDescriptor = GuiDescriptor
+		{
+			.renderer = renderer,
+			.textureManager = textureManager,
+			.imageUploader = textureUploader,
+			.dynamicFrameAllocator = dynamicFrameAllocator,
+			.dpiScale = window.getDiagonalDpiScale()
+		};
+		gui.initialize(guiDescriptor);
 	}
 	
-	auto fontSampler = Handle<Sampler>{};
-	auto fontTexture = Texture2D{};
-	{
-		ImGui::CreateContext();
-
-		ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
-		//ImGui::GetIO().BackendFlags = ImGuiBackendFlags_HasMouseCursors;
-
-		const auto dpiScale = std::floorf(window.getDiagonalDpiScale()) / 96;
-		float baseFontSize = 16.0f;
-		float iconFontSize = dpiScale * baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
-
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", dpiScale * baseFontSize);
-
-		static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
-		ImFontConfig config;
-		config.MergeMode = true;
-		config.PixelSnapH = true;
-		config.GlyphMinAdvanceX = iconFontSize;
-
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", dpiScale * baseFontSize, &config, icons_ranges);
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-brands-400.ttf", dpiScale * baseFontSize, &config, icons_ranges);
-
-		int width, height;
-		unsigned char* pixels = NULL;
-		ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
-		const auto texelSize = 1;
-		const auto fontImageSize = width * height * texelSize;
-
-		ImGui::GetStyle().ScaleAllSizes(dpiScale);
-
-		Flags<ImageAccessUsage> accessUsage = ImageAccessUsage::sampled;
-		accessUsage |= ImageAccessUsage::transferDst;
-
-
-		const auto fontDescriptor = ImageDescriptor
-		{
-			.format = Format::r8,
-			.extent = Extent{ static_cast<u32>(width), static_cast<u32>(height)},
-			.mips = 1,
-			.layers = 1,
-			.accessUsage = accessUsage
-		};
-
-		auto fontImage = renderer.createImage(fontDescriptor);
-
-		const auto fontView = renderer.createImageView(ImageViewDescriptor
-			{
-				.image = fontImage,
-				.format = Format::r8,
-				.type = ImageViewType::_2D
-			});
-
-		fontSampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
-
-
-		fontTexture = toy::Texture2D
-		{
-			.width = (u32)width,
-			.height = (u32)height,
-			.image = fontImage,
-			.view = fontView,
-			.hasMips = false,
-			.bytesPerTexel = texelSize
-		};
-
-		textureUploader.upload(std::vector<std::byte>((std::byte*)pixels, (std::byte*)pixels + fontImageSize), fontTexture);
-
-	}
 #pragma endregion
 #pragma region scene pipeline 
 #pragma warning(push)
@@ -630,128 +556,8 @@ int Application::run(const std::vector<std::string>& arguments)
 
 	const auto simpleTrianglePerInstanceGroupLayout = renderer.createBindGroupLayout(simpleTrianglePerInstanceGroup);
 #pragma endregion
-#pragma region gui pipeline
 
 
-	const auto guiVertexShaderGlslCode = loadShaderFile("Resources/gui.vert");
-	const auto guiFragmentShaderGlslCode = loadShaderFile("Resources/gui.frag");
-
-	const auto guiVertexShaderInfo =
-		GlslRuntimeCompiler::ShaderInfo
-	{
-		.entryPoint = "main",
-		.compilationDefines = {},
-		.shaderStage = compiler::ShaderStage::vertex,
-		.shaderCode = guiVertexShaderGlslCode,
-		.enableDebugCompilation = true
-	};
-
-	const auto guiFragmentShaderInfo =
-		GlslRuntimeCompiler::ShaderInfo
-	{
-		.entryPoint = "main",
-		.compilationDefines = {},
-		.shaderStage = compiler::ShaderStage::fragment,
-		.shaderCode = guiFragmentShaderGlslCode,
-		.enableDebugCompilation = true
-	};
-
-
-
-	auto guiVsSpirvCode = ShaderByteCode{};
-	auto guiFsSpirvCode = ShaderByteCode{};
-
-	{
-		const auto result = GlslRuntimeCompiler::compileToSpirv(guiVertexShaderInfo, guiVsSpirvCode);
-		TOY_ASSERT(result == CompilationResult::success);
-	}
-	{
-		const auto result = GlslRuntimeCompiler::compileToSpirv(guiFragmentShaderInfo, guiFsSpirvCode);
-		TOY_ASSERT(result == CompilationResult::success);
-	}
-
-	
-
-
-	const auto guiVertexShaderModule = renderer.createShaderModule(toy::graphics::rhi::ShaderStage::vertex, { ShaderLanguage::spirv1_6, guiVsSpirvCode });
-	const auto guiFragmentShaderModule = renderer.createShaderModule(toy::graphics::rhi::ShaderStage::fragment, { ShaderLanguage::spirv1_6, guiFsSpirvCode });
-
-
-	const auto guiVertexDataGroup = BindGroupDescriptor
-	{
-		.bindings =
-		{
-			{
-				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::StorageBuffer}
-			}
-		}
-	};
-
-	const auto guiFontGroup = BindGroupDescriptor
-	{
-		.bindings =
-		{
-			{
-				.binding = 0,
-				.descriptor = BindingDescriptor{BindingType::Sampler}
-			}
-		}
-	};
-#pragma warning(pop)
-	
-	const auto guiVertexDataGroupLayout = renderer.createBindGroupLayout(guiVertexDataGroup);
-	const auto guiFontGroupLayout = renderer.createBindGroupLayout(guiFontGroup);
-
-	
-
-
-	
-
-	Handle<BindGroup> guiFontBindGroup = renderer.allocateBindGroup(guiFontGroupLayout, UsageScope::async);
-	renderer.updateBindGroup(guiFontBindGroup,
-		{
-		
-				{
-					0, SamplerSRV{fontSampler}
-				},
-		});
-
-	struct ScaleTranslate {
-		glm::vec2 scale;
-		glm::vec2 translate;
-		core::u32 textureId;
-	};
-
-	const auto guiPipeline = renderer.createPipeline(
-		GraphicsPipelineDescriptor
-		{
-			.vertexShader = guiVertexShaderModule,
-			.fragmentShader = guiFragmentShaderModule,
-			.renderTargetDescriptor = RenderTargetsDescriptor
-			{
-				.colorRenderTargets =
-				{
-					ColorRenderTargetDescriptor{ ColorFormat::rgba8 }
-				},
-				//.depthRenderTarget = DepthRenderTargetDescriptor{ DepthFormat::d32 }
-			},
-			.state = PipelineState
-			{
-				.depthTestEnabled = false,
-				.faceCulling = FaceCull::none,
-				.blending = Blending::alphaBlend
-			}
-		},
-		{
-			SetBindGroupMapping{0, guiVertexDataGroupLayout},
-			SetBindGroupMapping{1, guiFontGroupLayout},
-			SetBindGroupMapping{2, textureManager.getTextureBindGroupLayout() }
-		},
-		{
-			PushConstant({ .size = sizeof(ScaleTranslate) })
-		});
-#pragma endregion
 #pragma region preparation
 	const auto imageDescriptor = ImageDescriptor
 	{
@@ -839,7 +645,8 @@ int Application::run(const std::vector<std::string>& arguments)
 	auto scene = Scene{};
 	//===========================BINDLESS================================
 
-	renderer.updateBindGroup(samplingGroup, { BindingDataMapping{0, SamplerSRV{fontSampler}, 0 } });
+	auto sampler = renderer.createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+	renderer.updateBindGroup(samplingGroup, { BindingDataMapping{0, SamplerSRV{sampler}, 0 } });
 	
 
 	//===========================EDITOR==================================
@@ -893,24 +700,7 @@ int Application::run(const std::vector<std::string>& arguments)
 	SubmitBatch postRenderingBatch;
 
 
-	struct SceneDrawStatistics
-	{
-		u32 drawCalls{};
-		u32 totalTrianglesCount{};
-	};
-
-	struct GuiDrawStatistics
-	{
-		u32 drawCalls{};
-		u32 totalIndicesCount{};
-		u32 totalVerticesCount{};
-	};
-
-	struct DrawStatistics
-	{
-		SceneDrawStatistics scene{};
-		GuiDrawStatistics gui{};
-	};
+	
 
 	struct PerThreadDrawStatistics
 	{
@@ -924,9 +714,7 @@ int Application::run(const std::vector<std::string>& arguments)
 
 
 
-	const auto fontUid = textureManager.addTexture(fontTexture);
-
-	ImGui::GetIO().Fonts->SetTexID(ImTextureID{ reinterpret_cast<void*>(static_cast<core::u64>(fontUid)) });
+	
 
 	std::atomic_flag isSceneReady;
 	auto newScene = Scene{};
@@ -1579,8 +1367,7 @@ int Application::run(const std::vector<std::string>& arguments)
 
 			const auto b = renderer.requestMemoryBudget();
 
-			ImGui::Render();
-			const auto drawData = ImGui::GetDrawData();
+			gui.render();
 
 			auto bindGroup = renderer.allocateBindGroup(simpleTriangleGroupLayout);
 
@@ -1996,72 +1783,9 @@ int Application::run(const std::vector<std::string>& arguments)
 			   
 				const auto viewport = Viewport{ 0.0, (float)windowHeight,(float)windowWidth, -(float)windowHeight };
 
-				cmd.bindPipeline(guiPipeline);
+				
 				cmd.setViewport(viewport);
-				cmd.bindGroup(1, guiFontBindGroup);
-				cmd.bindGroup(2, textureManager.getTextureBindGroup());
-
-				const auto dataMemSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-				const auto clipOff = drawData->DisplayPos;
-
-				for (auto i = u32{}; i < drawData->CmdListsCount; i++)
-				{
-					auto guiVertexDataGroup = renderer.allocateBindGroup(guiVertexDataGroupLayout);
-					const auto cmdList = drawData->CmdLists[i];
-
-					const auto& indexRawData = cmdList->IdxBuffer;
-					const auto& vertexRawData = cmdList->VtxBuffer;
-
-					drawStatistics.gui.totalIndicesCount += indexRawData.Size;
-					drawStatistics.gui.totalVerticesCount += vertexRawData.Size;
-
-					const auto indexRawDataSize = indexRawData.Size * sizeof(ImDrawIdx);
-				   
-					const auto indexRawDataAllocation = dynamicFrameAllocator.allocate(indexRawDataSize);
-					std::memcpy(indexRawDataAllocation.dataPtr, indexRawData.Data, indexRawDataSize);
-
-					const auto vertexRawDataSize = vertexRawData.Size * sizeof(ImDrawVert);
-					const auto vertexRawDataAllocation = dynamicFrameAllocator.allocate(vertexRawDataSize);
-					std::memcpy(vertexRawDataAllocation.dataPtr, vertexRawData.Data, vertexRawDataSize);
-					renderer.updateBindGroup(guiVertexDataGroup,
-						{
-							BindingDataMapping
-							{
-								.binding = 0,
-								.view = UAV
-								{
-									vertexRawDataAllocation.bufferView
-								}
-							}
-						});
-
-					const auto scale = std::array<float, 2>{2.0f / drawData->DisplaySize.x, 2.0f / drawData->DisplaySize.y};
-					
-					cmd.bindGroup(0, guiVertexDataGroup);
-					
-
-					for (auto j = u32{}; j < cmdList->CmdBuffer.Size; j++)
-					{
-						auto scaleTranslate = ScaleTranslate
-						{
-							.scale = glm::vec2(scale[0], scale[1]),
-							.translate = glm::vec2(-1.0f - drawData->DisplayPos.x * scale[0], -1.0f - drawData->DisplayPos.y * scale[1])
-						};
-						const auto& drawCommand = cmdList->CmdBuffer[j];
-						
-						const auto clipMin = ImVec2(drawCommand.ClipRect.x - clipOff.x, drawCommand.ClipRect.y - clipOff.y);
-						const auto clipMax = ImVec2(drawCommand.ClipRect.z - clipOff.x, drawCommand.ClipRect.w - clipOff.y);
-						if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
-							continue;
-						scaleTranslate.textureId = textureManager.getBindIndex(static_cast<core::u32>(reinterpret_cast<core::u64>(drawCommand.TextureId)));
-						cmd.pushConstant(scaleTranslate);
-						const auto scissor = Scissor{ static_cast<i32>(clipMin.x), static_cast<i32>(clipMin.y), static_cast<u32>(clipMax.x- clipMin.x), static_cast<u32>(clipMax.y-clipMin.y) };
-						cmd.setScissor(scissor);
-						cmd.bindIndexBuffer(indexRawDataAllocation.bufferView.buffer, indexRawDataAllocation.bufferView.offset, sizeof(ImDrawIdx) == 2 ? IndexType::index16 : IndexType::index32);
-						cmd.drawIndexed(drawCommand.ElemCount, 1, drawCommand.IdxOffset, drawCommand.VtxOffset, 0);
-						drawStatistics.gui.drawCalls++;
-					}
-				}
+				drawStatistics.gui = gui.fillCommandList(cmd);
 				cmd.endRendering();
 				cmd.end();
 
@@ -2110,7 +1834,7 @@ int Application::run(const std::vector<std::string>& arguments)
 #pragma endregion
 #pragma region shotdown
 
-	ImGui::DestroyContext();
+	gui.deinitialize();
 	taskSystem.deinitialize();
 	textureUploader.deinitialize();
 	dynamicFrameAllocator.deinitialize();
