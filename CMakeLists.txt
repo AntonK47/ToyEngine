@@ -142,25 +142,8 @@ set_target_properties(compressonator-static PROPERTIES
 )
 
 
-
-#add_library(compressonator SHARED IMPORTED)
-#set_target_properties(compressonator PROPERTIES
-#  IMPORTED_LOCATION "c:/Compressonator_4.3.206/lib/VS2019/x64/Compressonator_MD_DLL.dll"
-#  IMPORTED_IMPLIB "c:/Compressonator_4.3.206/lib/VS2019/x64/Compressonator_MD_DLL.lib"
-#)
-#set_target_properties(compressonator PROPERTIES
-#  INTERFACE_INCLUDE_DIRECTORIES "c:/Compressonator_4.3.206/include"
-#)
-
-
-
-
-
-
-#list(APPEND CMAKE_MODULE_PATH "${imgui-node-editor_SOURCE_DIR}/misc/cmake-modules")
-#find_package(imgui-node-editor CONFIG REQUIRED)
 message(STATUS "imgui node editor: " ${imgui-node-editor_SOURCE_DIR})
 add_subdirectory(Engine)
 add_subdirectory(Application)
+add_subdirectory(EditorApplication)
 add_subdirectory(Tools)
-#add_subdirectory(External)

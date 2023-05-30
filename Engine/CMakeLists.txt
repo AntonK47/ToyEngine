@@ -4,6 +4,7 @@ set(CMAKE_UNITY_BUILD ON)
 foreach(MODULE 
 	Core 
 	Runtime
+	Editor
 	Window
 	SDLWindow
 	Win32Window
