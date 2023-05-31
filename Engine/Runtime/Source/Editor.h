@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <array>
 
-#include <ImGuiInclude.h>
+#include "Gui.h"
 
 #include "ImageDataUploader.h"
 
@@ -26,7 +26,7 @@ namespace ed = ax::NodeEditor;
 
 namespace ImGui
 {
-	void ToggleButton(const char* label, bool* toggleValue, const ImVec2& size = ImVec2(0, 0))
+	inline void ToggleButton(const char* label, bool* toggleValue, const ImVec2& size = ImVec2(0, 0))
 	{
 		const auto color1 = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
 		const auto color2 = ImGui::GetStyle().Colors[ImGuiCol_Button];

@@ -22,6 +22,15 @@ target_include_directories(${MODULE_NAME}
 
 target_link_libraries(${MODULE_NAME}
 	PRIVATE
+		Core
+		SDLWindow
+		RenderInterface
+		GLSLRuntimeCompiler
+		GraphicsDebugger
+		MPMCQueue::MPMCQueue
+		Freetype::Freetype
+		imgui::imgui
+		imgui-node-editor-static
 		Runtime
 )
 

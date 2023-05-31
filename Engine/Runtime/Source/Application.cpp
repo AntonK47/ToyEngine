@@ -14,7 +14,6 @@
 #include <chrono>
 #include <VirtualTextureStreaming.h>
 #include <RenderInterface.h>
-#include <RenderInterfaceTypes.h>
 #include <filesystem>
 #include <execution>
 #include <algorithm>
@@ -108,7 +107,7 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 
 	const auto bladeRunnerCity = "E:\\Develop\\ToyEngineContent\\blade-runner-style-cityscapes.dat";
 
-	auto scene = Scene::loadSceneFromFile(renderer, splashData);
+	auto scene = Scene::loadSceneFromFile(renderer, knightData);
 
 
 	for (const auto& textureFile : knightTextureSet)

@@ -27,6 +27,7 @@ namespace toy
 
 		auto deinitialize() -> void
 		{
+			//TODO: wait until finished
 			rhi_->unmap(stagingBuffer);
 			rhi_->destroyBuffer(stagingBuffer);
 		}
