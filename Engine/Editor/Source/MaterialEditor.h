@@ -15,6 +15,7 @@
 #include <array>
 #include <memory>
 #include <format>
+#include <concepts>
 
 namespace ed = ax::NodeEditor;
 
@@ -22,11 +23,14 @@ namespace toy::editor
 {
 	enum class PinType
 	{
-		floatType,
+		scalarType,
 		vector2Type,
 		vector3Type,
-		vector4Type
+		vector4Type,
+		colorType
 	};
+
+	
 
 	struct Pin
 	{
@@ -44,22 +48,107 @@ namespace toy::editor
 
 	using ValueType = std::variant<Vec4Type, Vec3Type, Vec2Type, FloatType>;
 
+	ImColor getTypePinColor(const PinType& type)
+	{
+		auto color = ImColor{};
+		switch (type)
+		{
+		case PinType::scalarType:
+			color = ImColor(150, 150, 150);
+			break;
+		case PinType::colorType:
+			color = ImColor(140, 60, 50);
+		default:
+			break;
+		}
+		return color;
+	}
+
 
 	struct MaterialNode
 	{
 		ed::NodeId id{};
 		std::string title{};
 		std::string description{};
-		ImColor accentColor{};
 		ImColor headerColor{};
 		std::vector<Pin> inputPins{};
 		std::vector<Pin> outputPins{};
 		constexpr static float defaultWidth{ 200 };
 		float width{ defaultWidth };
 
-		virtual void draw() = 0;
+		virtual void draw(){};
 		virtual void deferredDraw(){}
 		virtual ~MaterialNode(){}
+	};
+
+	struct ScalarNode final : public MaterialNode
+	{
+		ScalarNode()
+		{
+			auto scalarPin = Pin{};
+			scalarPin.id = ed::PinId{ core::UIDGenerator::generate() };
+			scalarPin.name = "scalar";
+			scalarPin.valueType = PinType::scalarType;
+
+			const auto nodeId = core::UIDGenerator::generate();
+
+			id = ed::NodeId{ nodeId };
+			title = "Scalar";
+			outputPins.push_back(scalarPin);
+			headerColor = ImColor(110, 110, 110);
+		}
+
+		void draw() override
+		{
+			ImGui::SetNextItemWidth(width);
+			ImGui::DragFloat("", &scalar);
+		}
+
+	private:
+		float scalar{ 0 };
+	};
+
+	struct Vector4dNode final : public MaterialNode
+	{
+
+	};
+
+	struct Vector3dNode final : public MaterialNode
+	{
+
+	};
+
+	struct Vector3dDecompose final : public MaterialNode
+	{
+
+	};
+
+	struct UnaryArithmeticNode final : public MaterialNode
+	{
+		enum class UniraArithmeticOperations
+		{
+			sign,
+			reciprocal
+		};
+	};
+
+	struct ArithmeticNode final : public MaterialNode
+	{
+		enum class ArithmeticOperations
+		{
+			addition,
+			substraction,
+			multiplication,
+			division,
+			dotproduct,
+			crossproduct,
+			vectorScalarMultiplication
+		};
+	};
+
+	struct Texture2dNode final : public MaterialNode
+	{
+
 	};
 
 	struct ColorNode final : public MaterialNode
@@ -75,21 +164,19 @@ namespace toy::editor
 			auto color = Pin{};
 			color.id = ed::PinId{ core::UIDGenerator::generate() };
 			color.name = "color";
-			color.accentColor = ImColor(0, 150, 0);//<< vec2 type color
-			color.valueType = PinType::vector4Type;
+			color.valueType = PinType::colorType;
 
 			const auto nodeId = core::UIDGenerator::generate();
 
 			
 			id = ed::NodeId{ nodeId };
 			title = "Color";
-			accentColor = ImColor(100, 0, 0);
 			outputPins.push_back(color);
 			headerColor = ImColor(100, 20, 10);
 		}
 
 		ColorSpace selectedColorSpace{ ColorSpace::RGBA };
-		Vec4Type color{};
+		Vec4Type color{ 0.0f, 0.0f, 0.0f, 1.0f };
 		bool openPickerPopup{ false };
 
 		void draw() override
@@ -175,6 +262,11 @@ namespace toy::editor
 	{
 	public:
 		auto initialize() -> void;
+		template<std::derived_from<MaterialNode> T>
+		auto registerMaterialNode(const std::vector<std::string> category)
+		{
+
+		}
 	private:
 
 		auto drawNode(MaterialNode& node) -> void;
@@ -197,6 +289,8 @@ namespace toy::editor
 		std::vector<Link> links_;
 
 		std::unordered_map<core::u32, std::unique_ptr<MaterialNode>> graphModel_;
+
+
 	};
 
 }

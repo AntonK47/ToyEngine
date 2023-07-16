@@ -23,7 +23,6 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		ImGui::Text(pin.name.c_str());
 		ImGui::SameLine();
 		
-		
 		ed::BeginPin(pin.id, ed::PinKind::Output);
 		const auto currentPosition = ImGui::GetCursorScreenPos();
 		//TODO: here I can use ed::PinPivotRect to move link pin position, without affecting visual pin
@@ -31,7 +30,7 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		ImGui::SameLine();
 		const auto center = ImGui::GetItemRectSize() * ImVec2(0.5, 0.5) + currentPosition;
 		const auto radius = ImGui::IsItemHovered() || pin.id == pulledOutputPin_ || pin.id == pulledInputPin_ ? 3 : 4;
-		ImGui::GetWindowDrawList()->AddCircleFilled(center, radius, pin.accentColor, 24);
+		ImGui::GetWindowDrawList()->AddCircleFilled(center, radius, getTypePinColor(pin.valueType), 24);
 		ed::EndPin();
 	}
 
@@ -46,7 +45,7 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		ImGui::SameLine();
 		const auto center = ImGui::GetItemRectSize() * ImVec2(0.5, 0.5) + currentPosition;
 		const auto radius = ImGui::IsItemHovered() || pin.id == pulledOutputPin_ || pin.id == pulledInputPin_ ? 3 : 4;
-		ImGui::GetWindowDrawList()->AddCircleFilled(center, radius, pin.accentColor, 24);
+		ImGui::GetWindowDrawList()->AddCircleFilled(center, radius, getTypePinColor(pin.valueType), 24);
 		ed::EndPin();
 		ImGui::SameLine();
 		ImGui::Text(pin.name.c_str());
@@ -213,11 +212,23 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 			/*auto node = MaterialOutputNode::create();
 			nodes_.push_back(node);*/
 		}
-		if (ImGui::MenuItem("Add Color Node"))
+		if (ImGui::BeginMenu("Input"))
 		{
-			auto node = std::make_unique<ColorNode>();
-			nodes_.push_back(std::move(node));
+
+			if (ImGui::MenuItem("Color"))
+			{
+				/*if(ImGui::M)*/
+				auto node = std::make_unique<ColorNode>();
+				nodes_.push_back(std::move(node));
+			}
+			if (ImGui::MenuItem("Scalar"))
+			{
+				auto node = std::make_unique<ScalarNode>();
+				nodes_.push_back(std::move(node));
+			}
+			ImGui::EndMenu();
 		}
+		
 
 		ImGui::EndPopup();
 	}
