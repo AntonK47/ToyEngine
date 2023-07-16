@@ -1,0 +1,76 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "x64-debug",
+      "displayName": "x64 Debug",
+      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
+      "inherits": "windows-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "x64-release",
+      "description": "",
+      "displayName": "x64 Release",
+      "inherits": "windows-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TOY_ENGINE_ENABLE_GPU_PROFILING": "OFF",
+        "TOY_ENGINE_ENABLE_VULKAN_VALIDATION": "OFF",
+        "TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION": "OFF",
+        "TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING": "OFF",
+        "TOY_ENGINE_ENABLE_RAY_TRACING": "OFF"
+      }
+    },
+    {
+      "name": "windows-base",
+      "description": "Target Windows with the Visual Studio development environment.",
+      "hidden": true,
+      "generator": "Ninja",
+      //"generator": "Visual Studio 17 2022", this generator has issues with relese build preset
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
+      //${VCPKG_ROOT} do not work now, see https://github.com/microsoft/vcpkg/issues/31915
+      "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "DebugVulkanValidation",
+      "displayName": "Debug Validation",
+      "description": "Debug configuration with enabled vulkan debug layer.",
+      "configurePreset": "x64-debug"
+    },
+    {
+      "name": "Release",
+      "displayName": "Release",
+      "description": "Release configuration.",
+      "configurePreset": "x64-release"
+    }
+  ]
+}
