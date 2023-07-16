@@ -3,10 +3,13 @@ set(MODULE_NAME Editor)
 
 set(MODULE_SOURCES 
 	Source/EditorApplication.cpp
+	Source/MaterialEditor.cpp
 	)
 
 set(MODULE_HEADERS
 	Source/EditorApplication.h
+	Source/MaterialEditor.h
+	Source/Editor.h
 	)
 
 add_library(${MODULE_NAME}
