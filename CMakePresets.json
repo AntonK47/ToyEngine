@@ -20,6 +20,24 @@
       }
     },
     {
+      "name": "x64-debug-no-validation",
+      "displayName": "x64 Debug No Validation",
+      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
+      "inherits": "x64-debug",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TOY_ENGINE_ENABLE_GPU_PROFILING": "OFF",
+        "TOY_ENGINE_ENABLE_VULKAN_VALIDATION": "OFF",
+        "TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION": "OFF",
+        "TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING": "OFF",
+        "TOY_ENGINE_ENABLE_RAY_TRACING": "OFF"
+      }
+    },
+    {
       "name": "x64-release",
       "description": "",
       "displayName": "x64 Release",
@@ -65,6 +83,12 @@
       "displayName": "Debug Validation",
       "description": "Debug configuration with enabled vulkan debug layer.",
       "configurePreset": "x64-debug"
+    },
+    {
+      "name": "DebugNoVulkanValidation",
+      "displayName": "Debug No Validation",
+      "description": "Debug configuration with disabled vulkan debug layer.",
+      "configurePreset": "x64-debug-no-validation"
     },
     {
       "name": "Release",
