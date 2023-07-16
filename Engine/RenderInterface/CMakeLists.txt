@@ -49,8 +49,8 @@ target_link_libraries(${MODULE_NAME}
 		Core
 		Window
 		glm::glm
-		PUBLIC 
-		unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+	PUBLIC 
+		GPUOpen::VulkanMemoryAllocator
 		Vulkan::Vulkan
 )
 

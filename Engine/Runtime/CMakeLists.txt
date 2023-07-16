@@ -62,6 +62,7 @@ target_link_libraries(${MODULE_NAME}
 		#Compressator
 		compressonator-static
 		#Win32Window
+		nlohmann_json::nlohmann_json
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	get_property(RESOURCES GLOBAL "${RESOURCE}" PROPERTY TOY_RESOURCE_DIR)

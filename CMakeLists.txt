@@ -22,8 +22,8 @@ option(TOY_ENGINE_ENABLE_VULKAN_VALIDATION "Enable Vulkan validation layer." on)
 option(TOY_ENGINE_ENABLE_GPU_PROFILING "Enable GPU profiling." off)
 option(TOY_ENGINE_VULKAN_BACKEND "Enable Vulkan backend." on)
 option(TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION "Enable renderer abstraction interface validation" on)
-option(TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING "Enable RenderDoc captureing" on)
-option(TOY_ENGINE_ENABLE_RAY_TRACING "Enable Hardware Ray Tracing support" on)
+option(TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING "Enable RenderDoc captureing" off)
+option(TOY_ENGINE_ENABLE_RAY_TRACING "Enable Hardware Ray Tracing support" off)
 
 #if(MSVC)
 #  set(CMAKE_EXE_LINKER_FLAGS
@@ -60,19 +60,21 @@ find_package(Vulkan REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 find_package(cityhash CONFIG REQUIRED)
 find_package(g3log CONFIG REQUIRED)
-find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(MPMCQueue CONFIG REQUIRED)
 find_package(glslang CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
-find_package(freetype REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 include(FetchContent)
 #imgui-node-editor  
 FetchContent_Declare(imgui-node-editor
-    GIT_REPOSITORY https://github.com/ocornut/imgui_node_editor.git
-    GIT_TAG origin/fix-for-v189.4 #fix-for-v189.4
+    GIT_REPOSITORY https://github.com/AntonK47/imgui-node-editor.git
+    #https://github.com/ocornut/imgui_node_editor.git
+    GIT_TAG origin/develop#origin/fix-for-v189.4 #fix-for-v189.4
 )
 
 FetchContent_MakeAvailable(imgui-node-editor)
@@ -125,11 +127,6 @@ set_target_properties(imgui-node-editor-static PROPERTIES FOLDER Misc)
 #    ${compressonator_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
 #
 ##
-
-
-
-
-
 
 add_library(compressonator-static STATIC IMPORTED)
 set_target_properties(compressonator-static PROPERTIES#  IMPORTED_LOCATION "E:/Develop/compressonator/lib/Debug/CMP_Framework.lib"
