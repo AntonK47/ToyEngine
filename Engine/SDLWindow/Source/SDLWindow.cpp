@@ -372,6 +372,11 @@ void SDLWindow::showInternal()
     SDL_ShowWindow(window_);
 }
 
+bool SDLWindow::isWindowVisibleInternal()
+{
+    return isVisible_;
+}
+
 void SDLWindow::enableBorderInternal()
 {
     SDL_SetWindowBordered(window_, SDL_TRUE);

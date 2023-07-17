@@ -27,6 +27,7 @@ namespace toy::window
 
         void hideInternal() override;
         void showInternal() override;
+        bool isWindowVisibleInternal() override;
 
         void enableBorderInternal() override;
         void disableBorderInternal() override;
@@ -45,5 +46,6 @@ namespace toy::window
         core::u32 newWidth_;
         core::u32 newHeight_;
         core::Rectangle draggableRegion_ = core::Rectangle{ 0,0,0,0 };
+        bool isVisible_{ true };
     };
 }

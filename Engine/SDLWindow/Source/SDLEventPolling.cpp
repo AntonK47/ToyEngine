@@ -43,20 +43,36 @@ void SDLWindow::pollEventsInternal()
         {
             switch (event.window.event)
             {
+                
+
                 case SDL_WINDOWEVENT_RESIZED:
                 {
                     const auto newWidth = event.window.data1;
                     const auto newHeight = event.window.data2;
+
+                    if(newWidth <= 0 || newHeight <= 0)
+                    {
+                        isVisible_ = false;
+                    }
+                    else
+                    {
+                        isVisible_ = true;
+                    }
 
                     width_ = newWidth;
                     height_ = newHeight;
                     currentPolledEvents_.push_back(Event::resize);
                 }
                 break;
+                case SDL_WINDOWEVENT_MINIMIZED:
+                {
+                    isVisible_ = false;
+                }
+                break;
                 case SDL_WINDOWEVENT_MAXIMIZED:
                 case SDL_WINDOWEVENT_RESTORED:
-                
                 {
+                    isVisible_ = true;
                     auto newWidth = core::i32{};
                     auto newHeight = core::i32{};
                     SDL_GetWindowSize(window_, &newWidth, &newHeight);

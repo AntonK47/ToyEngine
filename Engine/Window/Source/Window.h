@@ -75,6 +75,11 @@ namespace toy::window
             showInternal();
         }
 
+        bool isWindowVisible()
+        {
+            return isWindowVisibleInternal();
+        }
+
         void enableBorder()
         {
             enableBorderInternal();
@@ -100,6 +105,8 @@ namespace toy::window
         
         virtual void hideInternal() = 0;
         virtual void showInternal() = 0;
+
+        virtual bool isWindowVisibleInternal() = 0;
 
         virtual void enableBorderInternal() = 0;
         virtual void disableBorderInternal() = 0;

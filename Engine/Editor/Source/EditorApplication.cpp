@@ -302,6 +302,7 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 		ImGui::End();
 		ImGui::EndFrame();
 
+		if(window.isWindowVisible())
 		{
 			captureTool.start();
 			renderer.nextFrame();
