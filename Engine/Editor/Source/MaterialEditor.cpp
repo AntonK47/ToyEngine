@@ -3,7 +3,7 @@
 inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 {
 	
-	ed::PushStyleColor(ed::StyleColor_NodeBorder, node.headerColor);
+	ed::PushStyleColor(ed::StyleColor_NodeBorder, node.nodeColor);
 	ed::BeginNode(node.id);
 
 	auto& style = ed::GetStyle();
@@ -16,7 +16,7 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 	ImGui::SetCursorPos(pos);
 	ImGui::Text(node.title.c_str());
 
-	const auto radius = 2;
+	const auto radius = 3;
 	const auto padding = style.NodePadding;
 	const auto border = style.NodeBorderWidth;
 	const auto isNodeHovered = ed::GetHoveredNode() == node.id;
@@ -35,17 +35,19 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		const auto isHovered = ed::GetHoveredPin() == pin.id;
 		const auto pinColor = getTypePinColor(pin.valueType);
 		const auto borderPosition = ImVec2(headerMax.x + padding.x - border, currentPosition.y + 10);
-		const auto stretch = isHovered ? 3 : 1;
+		const auto stretch = isHovered ? 5 : 2;
 		ed::PinRect(borderPosition + ImVec2(-radius, 0) * 2.0, borderPosition + ImVec2(radius, radius) * 2.0);
 		ed::PinPivotRect(borderPosition + ImVec2(-radius, radius * 0.5), borderPosition + ImVec2(radius * 0.5, radius * 0.5));
 		const auto center = (borderPosition + ImVec2(-radius, 0) + borderPosition + ImVec2(radius, radius)) * 0.5;
 		ImGui::GetWindowDrawList()->AddCircleFilled(center - ImVec2(stretch, 0), radius, pinColor, 24);
-		ImGui::GetWindowDrawList()->AddRectFilled(center - ImVec2(stretch, radius), center + ImVec2(radius + (isHovered || isNodeHovered || isNodeSelected ? border * 0.5 : 0) , radius), pinColor) ;
+		ImGui::GetWindowDrawList()->AddCircleFilled(center + ImVec2(radius + (isHovered || isNodeHovered || isNodeSelected ? 0 : -border), 0), radius, pinColor, 24);
+		ImGui::GetWindowDrawList()->AddRectFilled(center - ImVec2(stretch, radius), center + ImVec2(radius + (isHovered || isNodeHovered || isNodeSelected ? 0 : -border) , radius), pinColor) ;
 
 		ed::EndPin();
 	}
-
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(node.nodeColor));
 	node.draw();
+	ImGui::PopStyleColor();
 
 	for (const auto& pin : node.inputPins)
 	{
@@ -75,7 +77,7 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		if ((headerMax.x > headerMin.x) && (headerMax.y > headerMin.y))
 		{
 			drawList->AddRectFilled(headerMin - ImVec2(8 + halfBorderWidth - padding.x + 1, 8 + halfBorderWidth - padding.x + 1),
-				headerMax + ImVec2(halfBorderWidth + 8 - padding.y + 1, 0), node.headerColor,
+				headerMax + ImVec2(halfBorderWidth + 8 - padding.y + 1, 0), node.nodeColor,
 				ed::GetStyle().NodeRounding - 1, ImDrawFlags_RoundCornersTop);
 		}
 	}
@@ -175,7 +177,7 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 	}
 	ed::EndDelete();
 
-	auto openPopupPosition = ImGui::GetMousePos();
+	
 	ed::Suspend();
 	if (ed::ShowNodeContextMenu(&selectedNodeId))
 	{
@@ -192,6 +194,9 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 	else if (ed::ShowBackgroundContextMenu())
 	{
 		ImGui::OpenPopup("EditorContextMenu");
+		ed::Resume();
+		openPopupPosition_ = ImGui::GetMousePos();
+		ed::Suspend();
 	}
 
 	if (ImGui::BeginPopup("NodeContextMenu"))
@@ -216,21 +221,20 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 	{
 		if (ImGui::MenuItem("Add Material Output"))
 		{
-			/*auto node = MaterialOutputNode::create();
-			nodes_.push_back(node);*/
 		}
 		if (ImGui::BeginMenu("Input"))
 		{
 
 			if (ImGui::MenuItem("Color"))
 			{
-				/*if(ImGui::M)*/
 				auto node = std::make_unique<ColorNode>();
+				ed::SetNodePosition(node->id, openPopupPosition_);
 				nodes_.push_back(std::move(node));
 			}
 			if (ImGui::MenuItem("Scalar"))
 			{
 				auto node = std::make_unique<ScalarNode>();
+				ed::SetNodePosition(node->id, openPopupPosition_);
 				nodes_.push_back(std::move(node));
 			}
 			ImGui::EndMenu();

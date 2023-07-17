@@ -31,9 +31,6 @@ namespace toy::editor
 		colorType
 	};
 
-	
-
-	
 
 	using Vec4Type = std::array<float, 4>;
 	using Vec3Type = std::array<float, 3>;
@@ -82,7 +79,7 @@ namespace toy::editor
 		ed::NodeId id{};
 		std::string title{};
 		std::string description{};
-		ImColor headerColor{};
+		ImColor nodeColor{};
 		std::vector<Pin> inputPins{};
 		std::vector<Pin> outputPins{};
 		constexpr static float defaultWidth{ 200 };
@@ -107,7 +104,7 @@ namespace toy::editor
 			id = ed::NodeId{ nodeId };
 			title = "Scalar";
 			outputPins.push_back(scalarPin);
-			headerColor = ImColor(110, 110, 110);
+			nodeColor = getTypePinColor(PinType::scalarType);
 		}
 
 		void draw() override
@@ -192,7 +189,7 @@ namespace toy::editor
 			id = ed::NodeId{ nodeId };
 			title = "Color";
 			outputPins.push_back(color);
-			headerColor = ImColor(100, 20, 10);
+			nodeColor = getTypePinColor(PinType::colorType);
 		}
 
 		ColorSpace selectedColorSpace{ ColorSpace::RGBA };
@@ -366,6 +363,8 @@ namespace toy::editor
 
 		ed::PinId pulledInputPin_{};
 		ed::PinId pulledOutputPin_{};
+
+		ImVec2 openPopupPosition_{};
 
 		ed::EditorContext* context_;
 		bool isFirstFrame_ = true;
