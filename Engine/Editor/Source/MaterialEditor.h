@@ -24,6 +24,7 @@ namespace toy::editor
 	enum class PinType
 	{
 		scalarType,
+		rangedScalarType,
 		vector2Type,
 		vector3Type,
 		vector4Type,
@@ -32,6 +33,22 @@ namespace toy::editor
 
 	
 
+	
+
+	using Vec4Type = std::array<float, 4>;
+	using Vec3Type = std::array<float, 3>;
+	using Vec2Type = std::array<float, 2>;
+	using ScalarType = float;
+
+	struct RangedScalarType
+	{
+		float value{};
+		float min{ std::numeric_limits<float>::min() };
+		float man{ std::numeric_limits<float>::max() };
+	};
+
+	using ValueType = std::variant<Vec4Type, Vec3Type, Vec2Type, ScalarType, RangedScalarType>;
+
 	struct Pin
 	{
 		ed::PinId id{};
@@ -39,14 +56,9 @@ namespace toy::editor
 		std::string description{};
 		ImColor accentColor{};
 		PinType valueType{};
+		ValueType defaultValue{};
+		bool isRequired{ true };
 	};
-
-	using Vec4Type = std::array<float, 4>;
-	using Vec3Type = std::array<float, 3>;
-	using Vec2Type = std::array<float, 2>;
-	using FloatType = float;
-
-	using ValueType = std::variant<Vec4Type, Vec3Type, Vec2Type, FloatType>;
 
 	ImColor getTypePinColor(const PinType& type)
 	{
@@ -100,12 +112,16 @@ namespace toy::editor
 
 		void draw() override
 		{
+			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(getTypePinColor(PinType::scalarType)));
 			ImGui::SetNextItemWidth(width);
-			ImGui::DragFloat("", &scalar);
+			ImGui::PushID(id.Get());
+			ImGui::DragFloat("" , &scalar, 0.1f, 0.0f,0.0f, "%0.1f");
+			ImGui::PopID();
+			ImGui::PopStyleColor();
 		}
 
 	private:
-		float scalar{ 0 };
+		float scalar{ 1 };
 	};
 
 	struct Vector4dNode final : public MaterialNode
@@ -144,6 +160,10 @@ namespace toy::editor
 			crossproduct,
 			vectorScalarMultiplication
 		};
+
+	private:
+		float a;
+		float b;
 	};
 
 	struct Texture2dNode final : public MaterialNode
@@ -178,17 +198,23 @@ namespace toy::editor
 		ColorSpace selectedColorSpace{ ColorSpace::RGBA };
 		Vec4Type color{ 0.0f, 0.0f, 0.0f, 1.0f };
 		bool openPickerPopup{ false };
+		bool openColorSpaceDropDown{ false };
 
 		void draw() override
 		{
+			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(getTypePinColor(PinType::colorType)));
+
 			const char* items[] = { "RGB", "HSV" };
 			int selected = (int)selectedColorSpace;
 
 			ImGui::PushID(id.Get());
-			ImGui::RadioButton(items[0], &selected, 0);
-			ImGui::SameLine();
-			ImGui::RadioButton(items[1], &selected, 1);
-
+			
+			
+			ImGui::SetNextItemWidth(width);
+			if (ImGui::Button(items[selected], ImVec2(width,0))) 
+			{
+				openColorSpaceDropDown = true;
+			}
 
 			auto flags = ImGuiColorEditFlags_NoPicker 
 				| ImGuiColorEditFlags_NoOptions
@@ -206,11 +232,6 @@ namespace toy::editor
 				break;
 			case toy::editor::ColorNode::ColorSpace::HSV:
 				flags |= ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_DisplayHSV;
-				/*float r, g, b;
-				ImGui::ColorConvertHSVtoRGB(color[0], color[1], color[2], r, g, b);
-				colorRGB.x = r;
-				colorRGB.y = g;
-				colorRGB.z = b;*/
 				break;
 			default:
 				break;
@@ -218,7 +239,7 @@ namespace toy::editor
 
 			auto& style = ed::GetStyle();
 			const auto colorButtonWidth = style.NodePadding.x + 20;
-			ImGui::SetNextItemWidth(width - colorButtonWidth);
+			ImGui::SetNextItemWidth(width - colorButtonWidth - ImGui::GetStyle().ItemSpacing.x);
 			ImGui::ColorEdit4("##current", color.data(), flags);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(colorButtonWidth);
@@ -227,7 +248,8 @@ namespace toy::editor
 				openPickerPopup = true;
 			}
 			ImGui::PopID();
-			selectedColorSpace = (ColorSpace)selected;
+			
+			ImGui::PopStyleColor();
 		}
 
 		void deferredDraw() override
@@ -235,17 +257,78 @@ namespace toy::editor
 			ed::Suspend();
 
 			const auto stringId = std::format("color_picker##{}", (int)id.Get());
+			const auto colorSpaceId = std::format("color_space##{}", (int)id.Get());
 
-			if (openPickerPopup) {
+			const char* items[] = { "RGB", "HSV" };
+			int selected = (int)selectedColorSpace;
+
+			if (openColorSpaceDropDown)
+			{
+				ImGui::OpenPopup(colorSpaceId.c_str());
+				openColorSpaceDropDown = false;
+			}
+
+	
+			if (ImGui::BeginPopup(colorSpaceId.c_str())) 
+			{
+				if (ImGui::Button(items[0])) 
+				{
+					if (selectedColorSpace != ColorSpace::RGBA)
+					{
+						float r, g, b;
+						ImGui::ColorConvertHSVtoRGB(color[0], color[1], color[2], r, g, b);
+						color[0] = r;
+						color[1] = g;
+						color[2] = b;
+					}
+					selectedColorSpace = ColorSpace::RGBA;
+
+					ImGui::CloseCurrentPopup(); 
+				}
+				if (ImGui::Button(items[1])) {
+					if (selectedColorSpace != ColorSpace::HSV)
+					{
+						float h, s, v;
+						ImGui::ColorConvertRGBtoHSV(color[0], color[1], color[2], h, s, v);
+						color[0] = h;
+						color[1] = s;
+						color[2] = v;
+					}
+					selectedColorSpace = ColorSpace::HSV;
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::EndPopup();
+			}
+
+
+			if (openPickerPopup) 
+			{
 				ImGui::OpenPopup(stringId.c_str());
 				openPickerPopup = false;
 			}
 
 			if (ImGui::BeginPopup(stringId.c_str()))
 			{
-				ImGui::ColorPicker4("", color.data());
+				auto flags = ImGuiColorEditFlags_Uint8 |
+					ImGuiColorEditFlags_DisplayRGB | 
+					ImGuiColorEditFlags_DisplayHSV |
+					ImGuiColorEditFlags_DisplayHex |
+					ImGuiColorEditFlags_PickerHueBar;
+				switch (selectedColorSpace)
+				{
+				case ColorSpace::RGBA:
+					flags |= ImGuiColorEditFlags_InputRGB;
+					break;
+				case ColorSpace::HSV:
+					flags |= ImGuiColorEditFlags_InputHSV;
+					break;
+				default:
+					break;
+				}
+				ImGui::ColorPicker4("", color.data(), flags);
 				ImGui::EndPopup();
 			}
+
 				
 			ed::Resume();
 		}
@@ -262,6 +345,7 @@ namespace toy::editor
 	{
 	public:
 		auto initialize() -> void;
+		auto deinitialize() -> void;
 		template<std::derived_from<MaterialNode> T>
 		auto registerMaterialNode(const std::vector<std::string> category)
 		{

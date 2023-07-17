@@ -708,7 +708,6 @@ namespace toy::editor::materials
 			ed::Resume();
 
 			ed::End();
-			ed::SetCurrentEditor(nullptr);
         }
 		ImGui::End();
         isFirstFrame_ = false;
@@ -719,5 +718,6 @@ namespace toy::editor::materials
 		ed::Config nodeConfig;
 	    nodeConfig.SettingsFile = "Simple.json";
 	    context_ = ed::CreateEditor(&nodeConfig);
+		ed::SetCurrentEditor(context_);
 	}
 }
