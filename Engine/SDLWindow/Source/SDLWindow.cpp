@@ -241,6 +241,7 @@ void SDLWindow::initializeInternal(const WindowDescriptor& descriptor)
 {
 #ifdef WIN32
     OleInitialize(NULL);
+    SetProcessDPIAware();//This ignores display scale setting on windows
 #endif
     {
         auto result = SDL_Init(SDL_INIT_VIDEO);

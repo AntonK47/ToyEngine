@@ -444,8 +444,8 @@ int Application::run(const std::vector<std::string>& arguments)
 	auto& dynamicFrameAllocator = *dynamicFrameAllocatorPtr;
 	auto& gui = *guiPtr;
 
-	auto windowWidth = u32{ 1920 };//u32{2560};
-	auto windowHeight = u32{ 1080 };//u32{1440};
+	auto windowWidth = u32{2560};
+	auto windowHeight = u32{1440};
 	auto ids = std::vector<std::thread::id>{};
 
 	{

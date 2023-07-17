@@ -34,17 +34,31 @@ auto toy::Gui::initialize(const GuiDescriptor& descriptor) -> void
 		const auto dpiScale = std::floorf(descriptor.dpiScale) / 96;
 		float baseFontSize = 16.0f;
 		float iconFontSize = dpiScale * baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
-
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", dpiScale * baseFontSize);
-
-		static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
 		ImFontConfig config;
+		
+		config.OversampleH = 8;
+		config.OversampleV = 8;
+		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/Fonts/Roboto-Medium.ttf", dpiScale * baseFontSize, &config);
+
+		const auto iconsRanges = std::vector<ImWchar>{ ICON_MIN_FA, ICON_MAX_16_FA, 0 };
+		
+		auto brandRanges = ImVector<ImWchar>{};
+		ImFontGlyphRangesBuilder builder;
+		builder.AddText(ICON_FA_SQUARE_TWITTER);
+		builder.BuildRanges(&brandRanges);
+
+
 		config.MergeMode = true;
 		config.PixelSnapH = true;
+		config.OversampleH = 2;
+		config.OversampleV = 2;
 		config.GlyphMinAdvanceX = iconFontSize;
 
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", dpiScale * baseFontSize, &config, icons_ranges);
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-brands-400.ttf", dpiScale * baseFontSize, &config, icons_ranges);
+		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-solid-900.ttf", dpiScale * baseFontSize, &config, iconsRanges.data());
+		
+		config.OversampleH = 8;
+		config.OversampleV = 8;
+		ImGui::GetIO().Fonts->AddFontFromFileTTF("Resources/fa-brands-400.ttf", dpiScale * baseFontSize, &config, brandRanges.Data);
 
 		int width, height;
 		unsigned char* pixels = NULL;
@@ -76,7 +90,7 @@ auto toy::Gui::initialize(const GuiDescriptor& descriptor) -> void
 				.type = ImageViewType::_2D
 			});
 
-		fontSampler = renderer_->createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
+		fontSampler = renderer_->createSampler(SamplerDescriptor{ Filter::cubic, Filter::cubic, MipFilter::linear });
 
 
 		fontTexture = toy::Texture2D

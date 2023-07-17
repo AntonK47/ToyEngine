@@ -23,7 +23,7 @@ namespace toy
 		float dpiScale;
 	};
 
-	class Gui
+	class Gui final
 	{
 	public:
 		auto initialize(const GuiDescriptor& descriptor) -> void;
