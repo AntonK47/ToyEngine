@@ -4,19 +4,29 @@ set(MODULE_NAME Editor)
 set(MODULE_SOURCES 
 	Source/EditorApplication.cpp
 	Source/MaterialEditor.cpp
+	Source/MaterialEditorResolver.cpp
+	Source/MaterialEditorGlslResolver.cpp
+	Source/MaterialEditorNode.cpp
+	Source/MaterialEditorScalarNode.cpp
+	Source/MaterialEditorColorNode.cpp
 	)
 
 set(MODULE_HEADERS
 	Source/EditorApplication.h
 	Source/MaterialEditor.h
 	Source/Editor.h
+	Source/MaterialEditorResolver.h
+	Source/MaterialEditorGlslResolver.h
+	Source/MaterialEditorNode.h
+	Source/MaterialEditorScalarNode.h
+	Source/MaterialEditorColorNode.h
 	)
 
 add_library(${MODULE_NAME}
 	STATIC
 		${MODULE_SOURCES}
 		${MODULE_HEADERS}
-)
+ )
 
 target_include_directories(${MODULE_NAME} 
 	PUBLIC

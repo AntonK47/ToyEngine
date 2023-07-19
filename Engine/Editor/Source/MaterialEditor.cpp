@@ -1,5 +1,11 @@
 #include "MaterialEditor.h"
 
+#include <MaterialEditorNode.h>
+#include <Logger.h>
+#include <MaterialEditorScalarNode.h>
+#include <MaterialEditorColorNode.h>
+#include <MaterialEditorGlslResolver.h>
+
 inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 {
 	
@@ -86,15 +92,16 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 
 inline void toy::editor::MaterialEditor::onDrawGui()
 {
-	
-	static auto generatedCode = std::string{};
+	auto generatedCode = std::string{};
 
 	if (ImGui::Button("generate"))
 	{
-
-		graphModel_.clear();
 		generatedCode = "!!!!";
+
+		resolver_->solve(*this);
 	}
+
+	ImGui::Text(generatedCode.c_str());
 	
 	ed::SetCurrentEditor(context_);
 	ed::PushStyleColor(ed::StyleColor_PinRect, ImColor(0, 0, 0, 0));
@@ -235,6 +242,8 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 			{
 				auto node = std::make_unique<ScalarNode>();
 				ed::SetNodePosition(node->id, openPopupPosition_);
+
+				//node->nodeResolver = std::make_unique<resolver::ScalarNodeGlslResolver>(resolver_.get());
 				nodes_.push_back(std::move(node));
 			}
 			ImGui::EndMenu();
@@ -254,9 +263,34 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 
 inline void toy::editor::MaterialEditor::initialize()
 {
-	ed::Config nodeConfig{};
-	nodeConfig.SettingsFile = nullptr;// "Simple.json";
-	context_ = ed::CreateEditor(&nodeConfig);
+	ed::Config config{};
+	config.SettingsFile = nullptr;// "Simple.json";
+	config.SaveNodeSettings = [](ed::NodeId nodeId, const char* data, size_t size, ed::SaveReasonFlags reason, void* userPointer) -> bool
+		{
+			auto s = std::string{};
+
+			s.assign(data, size);
+
+			LOG(WARNING) << std::to_string(nodeId.Get()) << ": " << s;
+
+			return true;
+		};
+
+
+	config.SaveSettings = [](const char* data, size_t size, ed::SaveReasonFlags reason, void* userPointer) -> bool
+		{
+			auto s = std::string{};
+
+			s.assign(data, size);
+
+			LOG(WARNING) << s;
+			return true;
+		};
+	context_ = ed::CreateEditor(&config);
+
+
+
+	resolver_ = std::make_unique<resolver::glsl::MaterialEditorGlslResolver>();
 }
 
 inline void toy::editor::MaterialEditor::deinitialize()

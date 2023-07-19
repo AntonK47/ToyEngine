@@ -454,7 +454,7 @@ namespace toy::editor::materials
 		auto drawMaterialEditor() -> void;
         auto initialize() -> void;
 
-    private:
+    //private:
 
 		ed::NodeId selectedNodeId{};
 		ed::PinId selectedPinId{};
