@@ -12,7 +12,7 @@
 using namespace toy::graphics::compiler;
 namespace toy
 {
-	auto MaterialGenerator::compilePipeline(RenderInterface& renderer, const MaterialCompiolationDescriptor& descriptor) -> SharedMaterial
+	auto MaterialGenerator::compilePipeline(RenderInterface& renderer, const MaterialCompilationDescriptor& descriptor) -> SharedMaterial
 	{
 		const std::string generatedFragmentCode =
 			"vec3 evaluateMaterialLighting(Attributes attributes)"

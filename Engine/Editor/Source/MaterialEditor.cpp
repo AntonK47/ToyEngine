@@ -4,9 +4,25 @@
 #include <Logger.h>
 #include <MaterialEditorScalarNode.h>
 #include <MaterialEditorColorNode.h>
+#include <MaterialEditorArithmeticNode.h>
 #include <MaterialEditorGlslResolver.h>
 
-inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
+#include <stack>
+#include <memory>
+
+using namespace toy::editor;
+
+MaterialNode* toy::editor::MaterialEditor::findNode(const ed::NodeId id)
+{
+	for (auto& node : nodes_)
+	{
+		if (node->id == id)
+			return node.get();
+	}
+	TOY_ASSERT(true);
+}
+
+inline auto MaterialEditor::drawNode(MaterialNode& node) -> void
 {
 	
 	ed::PushStyleColor(ed::StyleColor_NodeBorder, node.nodeColor);
@@ -39,7 +55,7 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		ed::BeginPin(pin.id, ed::PinKind::Output);
 		const auto currentPosition = ImGui::GetCursorScreenPos();
 		const auto isHovered = ed::GetHoveredPin() == pin.id;
-		const auto pinColor = getTypePinColor(pin.valueType);
+		const auto pinColor = getTypePinColor(pin.type);
 		const auto borderPosition = ImVec2(headerMax.x + padding.x - border, currentPosition.y + 10);
 		const auto stretch = isHovered ? 5 : 2;
 		ed::PinRect(borderPosition + ImVec2(-radius, 0) * 2.0, borderPosition + ImVec2(radius, radius) * 2.0);
@@ -52,22 +68,30 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		ed::EndPin();
 	}
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(node.nodeColor));
-	node.draw();
+	node.drawNodeContent();
 	ImGui::PopStyleColor();
 
+	auto i = core::u8{};
 	for (const auto& pin : node.inputPins)
 	{
-		const auto pinHalfSize = ImVec2(4, 16);
 		ed::BeginPin(pin.id, ed::PinKind::Input);
-		const auto currentPosition = ImGui::GetCursorScreenPos();
-		ImGui::Dummy(pinHalfSize * ImVec2(2, 1));
-		ImGui::SameLine();
-		const auto center = ImGui::GetItemRectSize() * ImVec2(0.5, 0.5) + currentPosition;
-		const auto radius = ImGui::IsItemHovered() || pin.id == pulledOutputPin_ || pin.id == pulledInputPin_ ? 3 : 4;
-		ImGui::GetWindowDrawList()->AddCircleFilled(center, radius, getTypePinColor(pin.valueType), 24);
+		auto currentPosition = ImGui::GetCursorScreenPos();
+		const auto isHovered = ed::GetHoveredPin() == pin.id;
+		const auto pinColor = getTypePinColor(pin.type);
+		const auto borderPosition = ImVec2(currentPosition.x - padding.x - border, currentPosition.y + 10);
+		const auto stretch = isHovered ? 5 : 2;
+		ed::PinRect(borderPosition + ImVec2(-radius, 0) * 2.0, borderPosition + ImVec2(radius, radius) * 2.0);
+		ed::PinPivotRect(borderPosition + ImVec2(-radius, radius * 0.5), borderPosition + ImVec2(radius * 0.5, radius * 0.5));
+		const auto center = (borderPosition + ImVec2(-radius, 0) + borderPosition + ImVec2(radius, radius)) * 0.5;
+		ImGui::GetWindowDrawList()->AddCircleFilled(center - ImVec2(stretch, 0), radius, pinColor, 24);
+		ImGui::GetWindowDrawList()->AddCircleFilled(center + ImVec2(radius + (isHovered || isNodeHovered || isNodeSelected ? 0 : -border), 0), radius, pinColor, 24);
+		ImGui::GetWindowDrawList()->AddRectFilled(center - ImVec2(stretch, radius), center + ImVec2(radius + (isHovered || isNodeHovered || isNodeSelected ? 0 : -border), radius), pinColor);
 		ed::EndPin();
 		ImGui::SameLine();
-		ImGui::Text(pin.name.c_str());
+		currentPosition = ImGui::GetCursorScreenPos();
+		const auto maxWidth = headerMax.x - border - currentPosition.x;
+		node.drawPinContent(maxWidth, i++);
+		//ImGui::Text(pin.name.c_str());
 	}
 
 	ed::EndNode();
@@ -88,9 +112,18 @@ inline auto toy::editor::MaterialEditor::drawNode(MaterialNode& node) -> void
 		}
 	}
 	node.deferredDraw();
+
+	if (node.hasStateChanged)
+	{
+		auto lastState = node.getStateCopy();
+		node.submitState();
+		auto newState = node.getStateCopy();
+		pushAction(std::make_unique<NodeStateChangeAction>(&node, std::move(lastState), std::move(newState)));
+		node.hasStateChanged = false;
+	}
 }
 
-inline void toy::editor::MaterialEditor::onDrawGui()
+inline void MaterialEditor::onDrawGui()
 {
 	auto generatedCode = std::string{};
 
@@ -103,6 +136,7 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 
 	ImGui::Text(generatedCode.c_str());
 	
+
 	ed::SetCurrentEditor(context_);
 	ed::PushStyleColor(ed::StyleColor_PinRect, ImColor(0, 0, 0, 0));
 	ed::PushStyleColor(ed::StyleColor_NodeBg, ImColor(0.0f, 0.0f, 0.0f, 1.0f));
@@ -122,7 +156,7 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 	
 	for (const auto& link : links_)
 	{
-		ed::Link(link.id, link.fromPinId, link.toPinId);
+		ed::Link(link->id, link->fromPinId, link->toPinId, link->color, link->thickness);
 	}
 
 	if (ed::BeginCreate())
@@ -131,23 +165,64 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 
 		if (ed::QueryNewLink(&iPinId, &oPinId))
 		{
-			pulledOutputPin_ = oPinId;
-			pulledInputPin_ = iPinId;
+			
 			if (iPinId && oPinId)
 			{
-				if (ed::AcceptNewItem())
+				auto inputPin = findInputPin(iPinId);
+
+				if (inputPin)
 				{
-					const auto linkId = core::UIDGenerator::generate();
-					links_.push_back(Link{ linkId, iPinId, oPinId });
-					// Draw new link.
-					ed::Link(linkId, iPinId, oPinId);
+					ed::BreakLinks(iPinId);
+				}
+
+				auto outputPin = findOutputPin(oPinId);
+
+				if (!inputPin || !outputPin)
+				{
+					inputPin = findInputPin(oPinId);
+					outputPin = findOutputPin(iPinId);
+				}
+
+
+				auto isRejected = false;
+
+				isRejected = !inputPin
+					|| !outputPin
+					|| (!inputPin->acceptedTypes.empty() && std::find(
+						std::begin(inputPin->acceptedTypes),
+						std::end(inputPin->acceptedTypes),
+						outputPin->type) == std::end(inputPin->acceptedTypes))
+					|| (inputPin->acceptedTypes.empty() && inputPin->type != outputPin->type)
+					|| inputPin->nodeOwner == outputPin->nodeOwner;
+
+
+				if (isRejected)
+				{
+					ed::RejectNewItem(ImVec4(255, 0, 0, 255), 2.0f);
+				}
+				else
+				{
+					if (ed::AcceptNewItem())
+					{
+						const auto linkId = core::UIDGenerator::generate();
+
+						auto link = std::make_unique<Link>(linkId,outputPin->id, inputPin->id, outputPin, inputPin);
+						inputPin->connectedLink = link.get();
+						inputPin->nodeOwner->notifyInputPinConnection();
+
+						const auto hasCircle = hasAnyCircle(outputPin->nodeOwner);
+						if (hasCircle)
+						{
+							link->color = ImColor(255, 0, 0, 255);
+							link->thickness = 4.0f;
+						}
+
+						outputPin->connectedLinksCount++;
+						ed::Link(link->id, link->fromPinId, link->toPinId, link->color, link->thickness);
+						links_.push_back(std::move(link));
+					}
 				}
 			}
-		}
-		else
-		{
-			pulledOutputPin_ = ed::PinId{};
-			pulledInputPin_ = ed::PinId{};
 		}
 	}
 	ed::EndCreate();
@@ -160,9 +235,9 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 			if (ed::AcceptDeletedItem())
 			{
 				std::erase_if(links_,
-					[&linkId](Link& link)
+					[&linkId](std::unique_ptr<Link>& link)
 					{
-						return link.id == linkId;
+						return link->id == linkId;
 					}
 				);
 			}
@@ -174,11 +249,37 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 			if (ed::AcceptDeletedItem())
 			{
 				std::erase_if(nodes_,
-					[&nodeId](std::unique_ptr<MaterialNode>& node)
+					[&](std::unique_ptr<MaterialNode>& node)
 					{
-						return node->id == nodeId;
+						if (node->id == nodeId)
+						{
+							for (const auto& pin : node->inputPins)
+							{
+								std::erase_if(links_,
+									[&pin](std::unique_ptr<Link>& link)
+									{
+										return link->toPinId == pin.id;
+									}
+								);
+							}
+
+							for (const auto& pin : node->outputPins)
+							{
+								std::erase_if(links_,
+									[&pin](std::unique_ptr<Link>& link)
+									{
+										return link->fromPinId == pin.id;
+									}
+								);
+							}
+							return true;
+						}
+						return false;
 					}
 				);
+
+
+				
 			}
 		}
 	}
@@ -231,18 +332,27 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 		}
 		if (ImGui::BeginMenu("Input"))
 		{
-
+			
 			if (ImGui::MenuItem("Color"))
 			{
 				auto node = std::make_unique<ColorNode>();
 				ed::SetNodePosition(node->id, openPopupPosition_);
+				node->position = ed::GetNodePosition(node->id);
 				nodes_.push_back(std::move(node));
 			}
 			if (ImGui::MenuItem("Scalar"))
 			{
 				auto node = std::make_unique<ScalarNode>();
 				ed::SetNodePosition(node->id, openPopupPosition_);
-
+				node->position = ed::GetNodePosition(node->id);
+				//node->nodeResolver = std::make_unique<resolver::ScalarNodeGlslResolver>(resolver_.get());
+				nodes_.push_back(std::move(node));
+			}
+			if (ImGui::MenuItem("Math"))
+			{
+				auto node = std::make_unique<ArithmeticNode>();
+				ed::SetNodePosition(node->id, openPopupPosition_);
+				node->position = ed::GetNodePosition(node->id);
 				//node->nodeResolver = std::make_unique<resolver::ScalarNodeGlslResolver>(resolver_.get());
 				nodes_.push_back(std::move(node));
 			}
@@ -258,21 +368,95 @@ inline void toy::editor::MaterialEditor::onDrawGui()
 	ImGui::PopStyleVar(2);
 	ed::PopStyleVar();
 	ed::PopStyleColor(2);
-	
 }
 
-inline void toy::editor::MaterialEditor::initialize()
+OutputPin* MaterialEditor::findOutputPin(const ed::PinId id)
 {
+	for (const auto& node : nodes_)
+	{
+		for (auto& pin : node->outputPins)
+		{
+			if (pin.id == id)
+			{
+				return &pin;
+			}
+		}
+	}
+	return nullptr;
+}
+
+InputPin* MaterialEditor::findInputPin(const ed::PinId id)
+{
+	for (const auto& node : nodes_)
+	{
+		for (auto& pin : node->inputPins)
+		{
+			if (pin.id == id)
+			{
+				return &pin;
+			}
+		}
+	}
+	return nullptr;
+}
+
+bool toy::editor::MaterialEditor::hasAnyCircle(MaterialNode* root)
+{
+	auto visitedNodesCount = std::unordered_map<MaterialNode*, core::u8>{};
+
+	auto visitedNodes = std::stack<MaterialNode*>{};
+	visitedNodes.push(root);
+
+	while (!visitedNodes.empty())
+	{
+		auto node = visitedNodes.top();
+		visitedNodes.pop();
+		visitedNodesCount[node]++;
+		if (visitedNodesCount[node] > 1)
+		{
+			return true;
+		}
+
+		for (const auto& input : node->inputPins)
+		{
+			if (input.connectedLink)
+			{
+				visitedNodes.push(input.connectedLink->fromPin->nodeOwner);
+			}
+		}
+	}
+	return false;
+}
+
+inline void MaterialEditor::initialize()
+{
+	
 	ed::Config config{};
 	config.SettingsFile = nullptr;// "Simple.json";
+	config.UserPointer = this;
 	config.SaveNodeSettings = [](ed::NodeId nodeId, const char* data, size_t size, ed::SaveReasonFlags reason, void* userPointer) -> bool
 		{
-			auto s = std::string{};
+			auto editor = (MaterialEditor*)userPointer;
+			if ((reason & ed::SaveReasonFlags::Position) == ed::SaveReasonFlags::Position
+				&& (reason & ed::SaveReasonFlags::AddNode) != ed::SaveReasonFlags::AddNode)
+			{
+				/*auto s = std::string{};
 
-			s.assign(data, size);
+				s.assign(data, size);*/
+				const auto position = ed::GetNodePosition(nodeId);
+				auto node = editor->findNode(nodeId);
 
-			LOG(WARNING) << std::to_string(nodeId.Get()) << ": " << s;
+				if (node->position.x != position.x && node->position.y != position.y)
+				{
+					auto moveAction = std::make_unique<MoveNodeAction>(node, node->position, position);
+					node->position = position;
+					editor->pushAction(std::move(moveAction));
 
+					LOG(WARNING) << "position changed!" << std::to_string(nodeId.Get()) << ": [" << position.x << ", " << position.y << "]";
+				}
+				
+			}
+			
 			return true;
 		};
 
@@ -293,7 +477,7 @@ inline void toy::editor::MaterialEditor::initialize()
 	resolver_ = std::make_unique<resolver::glsl::MaterialEditorGlslResolver>();
 }
 
-inline void toy::editor::MaterialEditor::deinitialize()
+inline void MaterialEditor::deinitialize()
 {
 	ed::DestroyEditor(context_);
 }

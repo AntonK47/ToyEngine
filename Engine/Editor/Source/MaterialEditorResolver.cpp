@@ -13,22 +13,22 @@ auto MaterialEditorResolver::solve(MaterialModel& model) -> void
 	auto pinsRefs = std::unordered_map<std::uintptr_t, core::u8>{};
 	for (const auto& link : model.links())
 	{
-		if (pinsRefs.contains(link.fromPinId.Get()))
+		if (pinsRefs.contains(link->fromPin->id.Get()))
 		{
-			pinsRefs[link.fromPinId.Get()]++;
+			pinsRefs[link->fromPin->id.Get()]++;
 		}
 		else
 		{
-			pinsRefs[link.fromPinId.Get()] = 1;
+			pinsRefs[link->fromPin->id.Get()] = 1;
 		}
 
-		if (pinsRefs.contains(link.toPinId.Get()))
+		if (pinsRefs.contains(link->toPin->id.Get()))
 		{
-			pinsRefs[link.toPinId.Get()]++;
+			pinsRefs[link->toPin->id.Get()]++;
 		}
 		else
 		{
-			pinsRefs[link.toPinId.Get()] = 1;
+			pinsRefs[link->toPin->id.Get()] = 1;
 		}
 	}
 
@@ -38,7 +38,7 @@ auto MaterialEditorResolver::solve(MaterialModel& model) -> void
 		{
 			if (pinsRefs.contains(pin.id.Get()))
 			{
-				pin.referenceCount = pinsRefs[pin.id.Get()];
+				//pin.referenceCount = pinsRefs[pin.id.Get()];
 			}
 		}
 	}

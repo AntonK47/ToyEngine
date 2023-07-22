@@ -7,6 +7,10 @@
 #include <Core.h>
 #include <ImGuiNodeEditor.h>
 #include <memory>
+#include <optional>
+#include <format>
+
+#include <Undo.h>
 
 namespace toy::editor::resolver
 {
@@ -16,6 +20,10 @@ namespace toy::editor::resolver
 
 namespace toy::editor
 {
+	struct Pin;
+	struct OutputPin;
+	struct InputPin;
+
 	enum class PinType
 	{
 		scalarType,
@@ -26,13 +34,18 @@ namespace toy::editor
 		colorType
 	};
 
-	struct Link
+	struct Link final
 	{
 		ed::LinkId id{};
 		ed::PinId fromPinId{};
 		ed::PinId toPinId{};
-		ed::NodeId fromNodeId{};
-		ed::NodeId toNodeId{};
+		OutputPin* fromPin{};
+		InputPin* toPin{};
+		ImColor color{ 255,255,255,255 };
+		float thickness{ 1.0f };
+
+		~Link();
+
 	};
 
 	ImColor getTypePinColor(const PinType& type)
@@ -65,16 +78,39 @@ namespace toy::editor
 
 	using ValueType = std::variant<Vec4Type, Vec3Type, Vec2Type, ScalarType, RangedScalarType>;
 
+	struct MaterialNode;
+
 	struct Pin
 	{
 		ed::PinId id{};
-		core::u8 referenceCount{ 0 };
+		MaterialNode* nodeOwner;
+		ImColor color{};
+		PinType type;
 		std::string name{};
 		std::string description{};
-		ImColor accentColor{};
-		PinType valueType{};
-		ValueType defaultValue{ ScalarType{} };
-		bool isRequired{ true };
+	};
+
+	struct OutputPin final : Pin
+	{
+		core::u8 connectedLinksCount{ 0 };
+	};
+
+	struct InputPin final : Pin
+	{
+		std::vector<PinType> acceptedTypes{};
+		Link* connectedLink{};
+
+	};
+
+	struct NodeState
+	{
+		inline virtual ~NodeState(){}
+		auto operator<=>(const NodeState&) const = default;
+		NodeState& operator=(NodeState&) = default;
+		NodeState() = default;
+		NodeState(const NodeState&) = default;
+		NodeState(NodeState&&) = default;
+		virtual std::unique_ptr<NodeState> clone() { return nullptr; }
 	};
 
 	struct MaterialNode
@@ -83,16 +119,72 @@ namespace toy::editor
 		std::string title{};
 		std::string description{};
 		ImColor nodeColor{};
-		std::vector<Pin> inputPins{};
-		std::vector<Pin> outputPins{};
+		std::vector<InputPin> inputPins{};
+		std::vector<OutputPin> outputPins{};
 		float width{ 200 };
 		std::unique_ptr<resolver::MaterialNodeResolver> nodeResolver{ nullptr };
+		ImVec2 position{};
 
-		virtual void draw() {};
-		virtual void deferredDraw() {}
+		bool hasStateChanged{ false };
+
+		inline virtual std::unique_ptr<NodeState> getStateCopy() = 0;
+		inline virtual void setState(NodeState* state) = 0;
+		inline virtual void submitState() = 0;
+		inline virtual void drawNodeContent() {};
+		inline virtual void drawPinContent(float maxWidth, core::u8 pinIndex){}
+		inline virtual void deferredDraw() {}
+		inline virtual void notifyInputPinConnection(){}
+		inline virtual void notifyStateChange(){}
+		inline virtual std::string toString() { return std::format("[{}]", id.Get()); }
 
 		auto resolve(core::u8 outputPinIndex) -> resolver::PinResolveResult*;
 
-		virtual ~MaterialNode() {}
+		virtual ~MaterialNode();
 	};
+
+	//TODO: replace node pointer with node id
+	struct MoveNodeAction final : public UndoAction
+	{
+	public:
+		MoveNodeAction(MaterialNode* node, const ImVec2 lastPosition, const ImVec2 newPosition) : lastPosition(lastPosition), newPosition(newPosition), node(node){}
+
+		void redo() override;
+		void undo() override;
+		std::string toString() override;
+	private:
+		ImVec2 lastPosition;
+		ImVec2 newPosition;
+		MaterialNode* node;
+	};
+
+
+	struct NodeStateChangeAction final : public UndoAction
+	{
+	public:
+		NodeStateChangeAction(MaterialNode* node, std::unique_ptr<NodeState> lastState, std::unique_ptr<NodeState> newState) :
+			lastState(std::move(lastState)),
+			newState(std::move(newState)),
+			node(node) {}
+
+		void redo() override;
+		void undo() override;
+		std::string toString() override;
+	private:
+		std::unique_ptr<NodeState> lastState;
+		std::unique_ptr<NodeState> newState;
+		MaterialNode* node;
+	};
+	inline void NodeStateChangeAction::redo()
+	{
+		node->setState(newState.get());
+	}
+	inline void NodeStateChangeAction::undo()
+	{
+		node->setState(lastState.get());
+	}
+
+	inline std::string NodeStateChangeAction::toString()
+	{
+		return std::format("{} changes values", node->toString());
+	}
 }

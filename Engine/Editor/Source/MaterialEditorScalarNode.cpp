@@ -1,5 +1,6 @@
+#include "MaterialEditorScalarNode.h"
+
 #include <MaterialEditorGlslResolver.h>
-#include <MaterialEditorScalarNode.h>
 #include <MaterialEditor.h>
 #include <format>
 
@@ -9,10 +10,11 @@ using namespace toy::editor::resolver::glsl;
 
 inline ScalarNode::ScalarNode()
 {
-	auto scalarPin = Pin{};
+	auto scalarPin = OutputPin{};
 	scalarPin.id = ed::PinId{ core::UIDGenerator::generate() };
 	scalarPin.name = "scalar";
-	scalarPin.valueType = PinType::scalarType;
+	scalarPin.type = PinType::scalarType;
+	scalarPin.nodeOwner = this;
 
 	const auto nodeId = core::UIDGenerator::generate();
 
@@ -22,14 +24,38 @@ inline ScalarNode::ScalarNode()
 	nodeColor = getTypePinColor(PinType::scalarType);
 }
 
-inline void ScalarNode::draw()
+inline void ScalarNode::drawNodeContent()
 {
 	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(getTypePinColor(PinType::scalarType)));
 	ImGui::SetNextItemWidth(width);
 	ImGui::PushID(id.Get());
-	ImGui::DragFloat("", &scalar, 0.1f, 0.0f, 0.0f, "%0.1f");
+	ImGui::DragFloat("", &state_.scalar, 0.1f, 0.0f, 0.0f, "%0.1f");
+	if (ImGui::IsItemDeactivatedAfterEdit())
+	{
+		hasStateChanged = true;
+	}
 	ImGui::PopID();
 	ImGui::PopStyleColor();
+}
+
+std::string ScalarNode::toString()
+{
+	return std::format("ScalarNode [{}]", id.Get());
+}
+
+std::unique_ptr<NodeState> ScalarNode::getStateCopy()
+{
+	return std::make_unique<ScalarNode::State>(lastState_);
+}
+
+void ScalarNode::submitState()
+{
+	lastState_ = state_;
+}
+
+void ScalarNode::setState(NodeState* state)
+{
+	state_.scalar = dynamic_cast<ScalarNode::State*>(state)->scalar;
 }
 
 inline auto ScalarNodeGlslResolver::resolve(core::u8 outputPinIndex) -> PinResolveResult*
@@ -42,16 +68,16 @@ inline auto ScalarNodeGlslResolver::resolve(core::u8 outputPinIndex) -> PinResol
 	}
 
 	auto result = std::make_unique<MaterialEditorGlslResolver::PinResolveResultType>();
-	if (node->outputPins[outputPinIndex].referenceCount > 1)
+	if (node->outputPins[outputPinIndex].connectedLinksCount > 1)
 	{
 		auto var = resolver->generateVariableName();
-		resolver->localDeclarationBlock.push_back(std::format("float {} = {};", var, scalarNode->scalar));
+		resolver->localDeclarationBlock.push_back(std::format("float {} = {};", var, scalarNode->state_.scalar));
 
 		result->value = var;
 	}
 	else
 	{
-		result->value = std::to_string(scalarNode->scalar);
+		result->value = std::to_string(scalarNode->state_.scalar);
 	}
 
 	cachedResults[outputPinIndex] = std::move(result);

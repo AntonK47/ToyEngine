@@ -7,10 +7,11 @@ using namespace toy::editor::resolver::glsl;
 
 inline ColorNode::ColorNode()
 {
-	auto color = Pin{};
+	auto color = OutputPin{};
 	color.id = ed::PinId{ core::UIDGenerator::generate() };
 	color.name = "color";
-	color.valueType = PinType::colorType;
+	color.type = PinType::colorType;
+	color.nodeOwner = this;
 
 	const auto nodeId = core::UIDGenerator::generate();
 
@@ -21,7 +22,7 @@ inline ColorNode::ColorNode()
 	nodeColor = getTypePinColor(PinType::colorType);
 }
 
-inline void toy::editor::ColorNode::draw()
+inline void ColorNode::drawNodeContent()
 {
 	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(getTypePinColor(PinType::colorType)));
 
@@ -73,7 +74,7 @@ inline void toy::editor::ColorNode::draw()
 	ImGui::PopStyleColor();
 }
 
-inline void toy::editor::ColorNode::deferredDraw()
+inline void ColorNode::deferredDraw()
 {
 	ed::Suspend();
 
@@ -152,6 +153,19 @@ inline void toy::editor::ColorNode::deferredDraw()
 
 
 	ed::Resume();
+}
+
+std::unique_ptr<NodeState> ColorNode::getStateCopy()
+{
+	return std::unique_ptr<NodeState>();
+}
+
+void ColorNode::submitState()
+{
+}
+
+void toy::editor::ColorNode::setState(NodeState* state)
+{
 }
 
 auto ColorNodeGlslResolver::resolve(core::u8 outputPinIndex) -> PinResolveResult*

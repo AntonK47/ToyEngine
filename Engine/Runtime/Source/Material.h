@@ -47,7 +47,7 @@ namespace toy
 		Handle<BindGroupLayout> samplerLayout;
 	};
 
-	struct MaterialCompiolationDescriptor
+	struct MaterialCompilationDescriptor
 	{
 		const MaterialTemplate& materialTemplate;
 		const FrameContext& frameContext;
@@ -57,6 +57,6 @@ namespace toy
 
 	struct MaterialGenerator
 	{
-		static auto compilePipeline(RenderInterface& renderer, const MaterialCompiolationDescriptor& descriptor) -> SharedMaterial;
+		static auto compilePipeline(RenderInterface& renderer, const MaterialCompilationDescriptor& descriptor) -> SharedMaterial;
 	};
 }

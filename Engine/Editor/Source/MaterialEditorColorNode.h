@@ -21,8 +21,12 @@ namespace toy::editor
 		bool openPickerPopup{ false };
 		bool openColorSpaceDropDown{ false };
 
-		void draw() override;
+		void drawNodeContent() override;
 		void deferredDraw() override;
+
+		std::unique_ptr<NodeState> getStateCopy() override;
+		void submitState() override;
+		void setState(NodeState* state) override;
 	};
 }
 

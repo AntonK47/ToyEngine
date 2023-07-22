@@ -276,7 +276,7 @@ Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUplo
 	};
 
 	const auto sharedMaterial = MaterialGenerator::compilePipeline(renderer,
-		MaterialCompiolationDescriptor
+		MaterialCompilationDescriptor
 		{
 			.materialTemplate = materialTemplate,
 			.frameContext = frameContext,

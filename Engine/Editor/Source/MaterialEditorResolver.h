@@ -13,7 +13,7 @@ namespace toy::editor::resolver
 	struct MaterialModel
 	{
 		virtual auto nodes() -> std::vector<std::unique_ptr<MaterialNode>>& = 0;
-		virtual auto links() -> std::vector<Link>& = 0;
+		virtual auto links() -> std::vector<std::unique_ptr<Link>>& = 0;
 	};
 
 	struct PinResolveResult

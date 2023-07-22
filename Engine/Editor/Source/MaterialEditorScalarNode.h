@@ -2,16 +2,37 @@
 
 #include <MaterialEditorNode.h>
 #include <MaterialEditorGlslResolver.h>
-#include <unordered_map>
+#include <string>
 
 namespace toy::editor
 {
+
+
+
 	struct ScalarNode final : public MaterialNode
 	{
 		ScalarNode();
-		void draw() override;
+		void drawNodeContent() override;
+		std::string toString() override;
 
-		float scalar{ 1 };
+		
+		struct State : NodeState
+		{
+			float scalar{ 1 };
+
+			inline std::unique_ptr<NodeState> clone() override
+			{
+				return std::make_unique<State>(*this);
+			}
+		} state_{}, lastState_{};
+
+
+		std::unique_ptr<NodeState> getStateCopy() override;
+		void submitState() override;
+		void setState(NodeState* state) override;
+		//REGISTER_NODE("Input", "Scalar", ScalarNode)
+		
+
 	};
 }
 

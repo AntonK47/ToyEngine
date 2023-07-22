@@ -3,12 +3,7 @@
 namespace toy::editor
 {
 
-	class Undo
-	{
-	public:
-		void redo();
-		void undo();
-	};
+	
 
 	class Document
 	{
@@ -16,6 +11,7 @@ namespace toy::editor
 		void save();
 		void build();
 	};
+
 
 	class Asset
 	{

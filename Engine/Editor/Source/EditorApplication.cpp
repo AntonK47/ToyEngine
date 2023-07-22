@@ -262,6 +262,7 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 	window.show();
 	window.enableBorder();
 	bool stillRunning = true;
+	
 	while(stillRunning)
 	{
 		const auto cpuFrameTime = frameEndTime - frameStartTime;
@@ -292,6 +293,34 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 
 		ImGui::NewFrame();
 		ImGui::ShowDemoWindow();
+
+		ImGui::SetNextWindowSize(ImVec2(200, 400), ImGuiCond_FirstUseEver);
+
+		ImGui::Begin("History");
+		if (ImGui::Button("Undo"))
+		{
+			materialEditor.undo();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("redo"))
+		{
+			materialEditor.redo();
+		}
+		if (ImGui::BeginListBox("##historyList", ImVec2(-FLT_MIN, -FLT_MIN)))
+		{
+			const auto& history = materialEditor.getUndoHistory();
+			for (int n = 0; n < history.size(); n++)
+			{
+				const bool is_selected = n == materialEditor.pointer()-1;
+				ImGui::Selectable(history[n]->toString().c_str(), is_selected);
+
+				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndListBox();
+		}
+		ImGui::End();
 
 		ImGui::SetNextWindowSize(ImVec2(400, 400), ImGuiCond_FirstUseEver);
 		if (ImGui::Begin("Node Editor"))
