@@ -294,6 +294,16 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 		ImGui::NewFrame();
 		ImGui::ShowDemoWindow();
 
+		if(ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z))
+		{
+			materialEditor.undo();
+		}
+
+		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_Y))
+		{
+			materialEditor.redo();
+		}
+
 		ImGui::SetNextWindowSize(ImVec2(200, 400), ImGuiCond_FirstUseEver);
 
 		ImGui::Begin("History");
@@ -302,7 +312,7 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 			materialEditor.undo();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("redo"))
+		if (ImGui::Button("Redo"))
 		{
 			materialEditor.redo();
 		}

@@ -9,6 +9,7 @@
 
 #include <stack>
 #include <memory>
+#include <set>
 
 using namespace toy::editor;
 
@@ -43,6 +44,9 @@ inline auto MaterialEditor::drawNode(MaterialNode& node) -> void
 	const auto border = style.NodeBorderWidth;
 	const auto isNodeHovered = ed::GetHoveredNode() == node.id;
 	const auto isNodeSelected = ed::IsNodeSelected(node.id);
+	const auto pivotScale = ImVec2(4.0f, 2.0f);
+	const auto textHeight = ImGui::GetTextLineHeight();
+
 	for (const auto& pin : node.outputPins)
 	{
 		const auto textSize = ImGui::CalcTextSize(pin.name.c_str());
@@ -51,14 +55,13 @@ inline auto MaterialEditor::drawNode(MaterialNode& node) -> void
 		ImGui::SameLine(node.width - textSize.x - padding.x - border);
 		ImGui::Text(pin.name.c_str());
 		ImGui::SameLine();
-		
 		ed::BeginPin(pin.id, ed::PinKind::Output);
 		const auto currentPosition = ImGui::GetCursorScreenPos();
 		const auto isHovered = ed::GetHoveredPin() == pin.id;
 		const auto pinColor = getTypePinColor(pin.type);
-		const auto borderPosition = ImVec2(headerMax.x + padding.x - border, currentPosition.y + 10);
+		const auto borderPosition = ImVec2(headerMax.x + padding.x - border, currentPosition.y + textHeight*0.5f);
 		const auto stretch = isHovered ? 5 : 2;
-		ed::PinRect(borderPosition + ImVec2(-radius, 0) * 2.0, borderPosition + ImVec2(radius, radius) * 2.0);
+		ed::PinRect(borderPosition + ImVec2(-radius, -radius) * pivotScale, borderPosition + ImVec2(radius, radius) * pivotScale);
 		ed::PinPivotRect(borderPosition + ImVec2(-radius, radius * 0.5), borderPosition + ImVec2(radius * 0.5, radius * 0.5));
 		const auto center = (borderPosition + ImVec2(-radius, 0) + borderPosition + ImVec2(radius, radius)) * 0.5;
 		ImGui::GetWindowDrawList()->AddCircleFilled(center - ImVec2(stretch, 0), radius, pinColor, 24);
@@ -78,9 +81,9 @@ inline auto MaterialEditor::drawNode(MaterialNode& node) -> void
 		auto currentPosition = ImGui::GetCursorScreenPos();
 		const auto isHovered = ed::GetHoveredPin() == pin.id;
 		const auto pinColor = getTypePinColor(pin.type);
-		const auto borderPosition = ImVec2(currentPosition.x - padding.x - border, currentPosition.y + 10);
+		const auto borderPosition = ImVec2(currentPosition.x - padding.x - border, currentPosition.y + textHeight * 0.5f);
 		const auto stretch = isHovered ? 5 : 2;
-		ed::PinRect(borderPosition + ImVec2(-radius, 0) * 2.0, borderPosition + ImVec2(radius, radius) * 2.0);
+		ed::PinRect(borderPosition + ImVec2(-radius, 0) * pivotScale, borderPosition + ImVec2(radius, radius) * pivotScale);
 		ed::PinPivotRect(borderPosition + ImVec2(-radius, radius * 0.5), borderPosition + ImVec2(radius * 0.5, radius * 0.5));
 		const auto center = (borderPosition + ImVec2(-radius, 0) + borderPosition + ImVec2(radius, radius)) * 0.5;
 		ImGui::GetWindowDrawList()->AddCircleFilled(center - ImVec2(stretch, 0), radius, pinColor, 24);
@@ -327,38 +330,23 @@ inline void MaterialEditor::onDrawGui()
 
 	if (ImGui::BeginPopup("EditorContextMenu"))
 	{
-		if (ImGui::MenuItem("Add Material Output"))
+		for (const auto& [group, list] : nodeRegistry)
 		{
+			if (ImGui::BeginMenu(group.c_str()))
+			{
+				for (const auto& [name, create] : list)
+				{
+					if (ImGui::MenuItem(name.c_str()))
+					{
+						auto node = create();
+						ed::SetNodePosition(node->id, openPopupPosition_);
+						node->position = ed::GetNodePosition(node->id);
+						nodes_.push_back(std::move(node));
+					}
+				}
+				ImGui::EndMenu();
+			}
 		}
-		if (ImGui::BeginMenu("Input"))
-		{
-			
-			if (ImGui::MenuItem("Color"))
-			{
-				auto node = std::make_unique<ColorNode>();
-				ed::SetNodePosition(node->id, openPopupPosition_);
-				node->position = ed::GetNodePosition(node->id);
-				nodes_.push_back(std::move(node));
-			}
-			if (ImGui::MenuItem("Scalar"))
-			{
-				auto node = std::make_unique<ScalarNode>();
-				ed::SetNodePosition(node->id, openPopupPosition_);
-				node->position = ed::GetNodePosition(node->id);
-				//node->nodeResolver = std::make_unique<resolver::ScalarNodeGlslResolver>(resolver_.get());
-				nodes_.push_back(std::move(node));
-			}
-			if (ImGui::MenuItem("Math"))
-			{
-				auto node = std::make_unique<ArithmeticNode>();
-				ed::SetNodePosition(node->id, openPopupPosition_);
-				node->position = ed::GetNodePosition(node->id);
-				//node->nodeResolver = std::make_unique<resolver::ScalarNodeGlslResolver>(resolver_.get());
-				nodes_.push_back(std::move(node));
-			}
-			ImGui::EndMenu();
-		}
-		
 
 		ImGui::EndPopup();
 	}
@@ -417,12 +405,19 @@ bool toy::editor::MaterialEditor::hasAnyCircle(MaterialNode* root)
 			return true;
 		}
 
+		auto connectedNodes = std::set<MaterialNode*>{};
+
 		for (const auto& input : node->inputPins)
 		{
 			if (input.connectedLink)
 			{
-				visitedNodes.push(input.connectedLink->fromPin->nodeOwner);
+				connectedNodes.insert(input.connectedLink->fromPin->nodeOwner);
 			}
+		}
+
+		for (const auto& node : connectedNodes)
+		{
+			visitedNodes.push(node);
 		}
 	}
 	return false;
@@ -430,7 +425,7 @@ bool toy::editor::MaterialEditor::hasAnyCircle(MaterialNode* root)
 
 inline void MaterialEditor::initialize()
 {
-	
+
 	ed::Config config{};
 	config.SettingsFile = nullptr;// "Simple.json";
 	config.UserPointer = this;
@@ -446,13 +441,18 @@ inline void MaterialEditor::initialize()
 				const auto position = ed::GetNodePosition(nodeId);
 				auto node = editor->findNode(nodeId);
 
-				if (node->position.x != position.x && node->position.y != position.y)
+				if (node->position.x != position.x || node->position.y != position.y)
 				{
 					auto moveAction = std::make_unique<MoveNodeAction>(node, node->position, position);
 					node->position = position;
 					editor->pushAction(std::move(moveAction));
 
 					LOG(WARNING) << "position changed!" << std::to_string(nodeId.Get()) << ": [" << position.x << ", " << position.y << "]";
+
+					if((reason & ed::SaveReasonFlags::Selection) == ed::SaveReasonFlags::Selection)
+					{
+						LOG(WARNING) << "selected! " << std::to_string(nodeId.Get());
+					}
 				}
 				
 			}
@@ -475,6 +475,13 @@ inline void MaterialEditor::initialize()
 
 
 	resolver_ = std::make_unique<resolver::glsl::MaterialEditorGlslResolver>();
+
+
+	registerMaterialNode<ScalarNode>("Input", "Scalar");
+	registerMaterialNode<ColorNode>("Input", "Color");
+	registerMaterialNode<ArithmeticNode>("Math", "Ar");
+
+
 }
 
 inline void MaterialEditor::deinitialize()

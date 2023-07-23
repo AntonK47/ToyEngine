@@ -18,7 +18,6 @@
 
 namespace toy::editor
 {
-
 	struct InputPin;
 	struct OutputPin;
 
@@ -27,11 +26,6 @@ namespace toy::editor
 	public:
 		auto initialize() -> void;
 		auto deinitialize() -> void;
-		template<std::derived_from<MaterialNode> T>
-		auto registerMaterialNode(const std::vector<std::string> category)
-		{
-
-		}
 
 		inline auto nodes() -> std::vector<std::unique_ptr<MaterialNode>>& override
 		{

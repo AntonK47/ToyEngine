@@ -23,7 +23,8 @@ set(MODULE_HEADERS
 	Source/MaterialEditorColorNode.h
 	Source/MaterialEditorArithmeticNode.h
 	Source/Undo.h
-)
+	Source/MaterialNodeRegistry.h
+	)
 
 add_library(${MODULE_NAME}
 	STATIC
