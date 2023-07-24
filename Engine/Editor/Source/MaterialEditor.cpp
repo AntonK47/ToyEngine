@@ -13,16 +13,6 @@
 
 using namespace toy::editor;
 
-MaterialNode* toy::editor::MaterialEditor::findNode(const ed::NodeId id)
-{
-	for (auto& node : nodes_)
-	{
-		if (node->id == id)
-			return node.get();
-	}
-	TOY_ASSERT(true);
-}
-
 inline auto MaterialEditor::drawNode(MaterialNode& node) -> void
 {
 	
@@ -121,7 +111,7 @@ inline auto MaterialEditor::drawNode(MaterialNode& node) -> void
 		auto lastState = node.getStateCopy();
 		node.submitState();
 		auto newState = node.getStateCopy();
-		pushAction(std::make_unique<NodeStateChangeAction>(&node, std::move(lastState), std::move(newState)));
+		pushAction(std::make_unique<NodeStateChangeAction>(dynamic_cast<MaterialModel*>(this), node.id, std::move(lastState), std::move(newState)));
 		node.hasStateChanged = false;
 	}
 }
@@ -171,6 +161,17 @@ inline void MaterialEditor::onDrawGui()
 			
 			if (iPinId && oPinId)
 			{
+				//disconnect and drag link (not supported now)
+				/*if (iPinId == oPinId)
+				{
+					auto inputPin = findInputPin(iPinId);
+					if (inputPin && inputPin->connectedLink)
+					{
+						auto link = inputPin->connectedLink;
+						ed::Link(link->id, link->fromPinId, iPinId, link->color, link->thickness*4.0f);
+						
+					}
+				}*/
 				auto inputPin = findInputPin(iPinId);
 
 				if (inputPin)
@@ -358,36 +359,6 @@ inline void MaterialEditor::onDrawGui()
 	ed::PopStyleColor(2);
 }
 
-OutputPin* MaterialEditor::findOutputPin(const ed::PinId id)
-{
-	for (const auto& node : nodes_)
-	{
-		for (auto& pin : node->outputPins)
-		{
-			if (pin.id == id)
-			{
-				return &pin;
-			}
-		}
-	}
-	return nullptr;
-}
-
-InputPin* MaterialEditor::findInputPin(const ed::PinId id)
-{
-	for (const auto& node : nodes_)
-	{
-		for (auto& pin : node->inputPins)
-		{
-			if (pin.id == id)
-			{
-				return &pin;
-			}
-		}
-	}
-	return nullptr;
-}
-
 bool toy::editor::MaterialEditor::hasAnyCircle(MaterialNode* root)
 {
 	auto visitedNodesCount = std::unordered_map<MaterialNode*, core::u8>{};
@@ -443,7 +414,7 @@ inline void MaterialEditor::initialize()
 
 				if (node->position.x != position.x || node->position.y != position.y)
 				{
-					auto moveAction = std::make_unique<MoveNodeAction>(node, node->position, position);
+					auto moveAction = std::make_unique<MoveNodeAction>(dynamic_cast<MaterialModel*>(editor), node->id, node->position, position);
 					node->position = position;
 					editor->pushAction(std::move(moveAction));
 

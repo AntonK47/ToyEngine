@@ -10,6 +10,7 @@ set(MODULE_SOURCES
 	Source/MaterialEditorScalarNode.cpp
 	Source/MaterialEditorColorNode.cpp
 	Source/MaterialEditorArithmeticNode.cpp
+	Source/MaterialModel.cpp
 	)
 
 set(MODULE_HEADERS
@@ -24,7 +25,8 @@ set(MODULE_HEADERS
 	Source/MaterialEditorArithmeticNode.h
 	Source/Undo.h
 	Source/MaterialNodeRegistry.h
-	)
+	Source/MaterialModel.h
+)
 
 add_library(${MODULE_NAME}
 	STATIC

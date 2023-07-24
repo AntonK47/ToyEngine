@@ -11,6 +11,8 @@
 #include <format>
 
 #include <Undo.h>
+#include <MaterialModel.h>
+#include <MaterialEditorResolver.h>
 
 namespace toy::editor::resolver
 {
@@ -48,7 +50,7 @@ namespace toy::editor
 
 	};
 
-	ImColor getTypePinColor(const PinType& type)
+	inline ImColor getTypePinColor(const PinType& type)
 	{
 		auto color = ImColor{};
 		switch (type)
@@ -142,11 +144,14 @@ namespace toy::editor
 		virtual ~MaterialNode();
 	};
 
-	//TODO: replace node pointer with node id
 	struct MoveNodeAction final : public UndoAction
 	{
 	public:
-		MoveNodeAction(MaterialNode* node, const ImVec2 lastPosition, const ImVec2 newPosition) : lastPosition(lastPosition), newPosition(newPosition), node(node){}
+		MoveNodeAction(MaterialModel* model, ed::NodeId nodeId, const ImVec2 lastPosition, const ImVec2 newPosition) :
+			lastPosition(lastPosition),
+			newPosition(newPosition),
+			model(model),
+			nodeId(nodeId) {}
 
 		void redo() override;
 		void undo() override;
@@ -154,17 +159,19 @@ namespace toy::editor
 	private:
 		ImVec2 lastPosition;
 		ImVec2 newPosition;
-		MaterialNode* node;
+		MaterialModel* model;
+		ed::NodeId nodeId;
 	};
 
 
 	struct NodeStateChangeAction final : public UndoAction
 	{
 	public:
-		NodeStateChangeAction(MaterialNode* node, std::unique_ptr<NodeState> lastState, std::unique_ptr<NodeState> newState) :
+		NodeStateChangeAction(MaterialModel* model, ed::NodeId nodeId, std::unique_ptr<NodeState> lastState, std::unique_ptr<NodeState> newState) :
 			lastState(std::move(lastState)),
 			newState(std::move(newState)),
-			node(node) {}
+			model(model),
+			nodeId(nodeId){}
 
 		void redo() override;
 		void undo() override;
@@ -172,19 +179,7 @@ namespace toy::editor
 	private:
 		std::unique_ptr<NodeState> lastState;
 		std::unique_ptr<NodeState> newState;
-		MaterialNode* node;
+		MaterialModel* model;
+		ed::NodeId nodeId;
 	};
-	inline void NodeStateChangeAction::redo()
-	{
-		node->setState(newState.get());
-	}
-	inline void NodeStateChangeAction::undo()
-	{
-		node->setState(lastState.get());
-	}
-
-	inline std::string NodeStateChangeAction::toString()
-	{
-		return std::format("{} changes values", node->toString());
-	}
 }

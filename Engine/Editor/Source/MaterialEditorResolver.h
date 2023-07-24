@@ -1,6 +1,7 @@
 #pragma once
 #include <Core.h>
 #include <memory>
+#include <MaterialModel.h>
 
 namespace toy::editor
 {
@@ -10,12 +11,6 @@ namespace toy::editor
 
 namespace toy::editor::resolver
 {
-	struct MaterialModel
-	{
-		virtual auto nodes() -> std::vector<std::unique_ptr<MaterialNode>>& = 0;
-		virtual auto links() -> std::vector<std::unique_ptr<Link>>& = 0;
-	};
-
 	struct PinResolveResult
 	{
 		virtual ~PinResolveResult() {}

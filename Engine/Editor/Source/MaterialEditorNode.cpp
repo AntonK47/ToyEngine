@@ -16,8 +16,6 @@ auto MaterialNode::resolve(core::u8 outputPinIndex) -> resolver::PinResolveResul
 
 toy::editor::MaterialNode::~MaterialNode()
 {
-	
-
 }
 
 inline Link::~Link()
@@ -29,19 +27,50 @@ inline Link::~Link()
 	toPin->nodeOwner->notifyInputPinConnection();
 }
 
-void toy::editor::MoveNodeAction::redo()
+void MoveNodeAction::redo()
 {
-	node->position = newPosition;
-	ed::SetNodePosition(node->id, node->position);
+	auto node = model->findNode(nodeId);
+	if (node)
+	{
+		node->position = newPosition;
+		ed::SetNodePosition(node->id, node->position);
+	}
 }
 
-void toy::editor::MoveNodeAction::undo()
+void MoveNodeAction::undo()
 {
-	node->position = lastPosition;
-	ed::SetNodePosition(node->id, node->position);
+	auto node = model->findNode(nodeId);
+	if (node)
+	{
+		node->position = lastPosition;
+		ed::SetNodePosition(node->id, node->position);
+	}
 }
 
-std::string toy::editor::MoveNodeAction::toString()
+std::string MoveNodeAction::toString()
 {
-	return std::format("{} moved to [{}, {}]", node->toString(), newPosition.x, newPosition.y);
+	return std::format("Node [{}] moved to [{}, {}]", nodeId.Get(), newPosition.x, newPosition.y);
+}
+
+void NodeStateChangeAction::redo()
+{
+	auto node = model->findNode(nodeId);
+	if (node)
+	{
+		node->setState(newState.get());
+	}
+}
+
+void NodeStateChangeAction::undo()
+{
+	auto node = model->findNode(nodeId);
+	if (node)
+	{
+		node->setState(lastState.get());
+	}
+}
+
+std::string NodeStateChangeAction::toString()
+{
+	return std::format("Node [{}] changes values", nodeId.Get());
 }

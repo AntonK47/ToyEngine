@@ -1,6 +1,7 @@
 #include "MaterialEditorResolver.h"
 
 #include <MaterialEditorNode.h>
+#include <MaterialModel.h>
 #include <memory>
 #include <Core.h>
 #include <unordered_map>

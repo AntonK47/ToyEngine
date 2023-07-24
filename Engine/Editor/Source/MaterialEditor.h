@@ -14,6 +14,7 @@
 
 #include <MaterialEditorResolver.h>
 #include <ImGuiNodeEditor.h>
+#include <MaterialModel.h>
 #include <Undo.h>
 
 namespace toy::editor
@@ -21,7 +22,7 @@ namespace toy::editor
 	struct InputPin;
 	struct OutputPin;
 
-	class MaterialEditor final : public Editor, Document, resolver::MaterialModel, public Undo
+	class MaterialEditor final : public Editor, Document, MaterialModel, public Undo
 	{
 	public:
 		auto initialize() -> void;
@@ -36,19 +37,11 @@ namespace toy::editor
 		{
 			return links_;
 		}
-
-		MaterialNode* findNode(const ed::NodeId id);
 	private:
 
 		auto drawNode(MaterialNode& node) -> void;
 		auto drawMaterialEditor() -> void;
-		
-
 		void onDrawGui() override;
-
-		
-		OutputPin* findOutputPin(const ed::PinId id);
-		InputPin* findInputPin(const ed::PinId id);
 		bool hasAnyCircle(MaterialNode* root);
 
 		ed::NodeId selectedNodeId{};
@@ -63,8 +56,6 @@ namespace toy::editor
 		std::vector<std::unique_ptr<Link>> links_;
 
 		std::unique_ptr<resolver::MaterialEditorResolver> resolver_;
-
-		
 	};
 }
 
