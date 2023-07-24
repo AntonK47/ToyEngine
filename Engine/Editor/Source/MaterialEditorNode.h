@@ -182,4 +182,17 @@ namespace toy::editor
 		MaterialModel* model;
 		ed::NodeId nodeId;
 	};
+
+	struct GroupAction final : public UndoAction
+	{
+	public:
+		GroupAction(std::vector<std::unique_ptr<UndoAction>>& actions) :
+			actions(std::move(actions)){}
+
+		void redo() override;
+		void undo() override;
+		std::string toString() override;
+	private:
+		std::vector<std::unique_ptr<UndoAction>> actions;
+	};
 }

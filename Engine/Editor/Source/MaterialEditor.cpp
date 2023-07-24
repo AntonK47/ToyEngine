@@ -394,6 +394,24 @@ bool toy::editor::MaterialEditor::hasAnyCircle(MaterialNode* root)
 	return false;
 }
 
+namespace
+{
+	std::unique_ptr<MoveNodeAction> createMoveActionIfChanged(ed::NodeId nodeId, MaterialEditor* editor)
+	{
+		const auto position = ed::GetNodePosition(nodeId);
+		auto node = editor->findNode(nodeId);
+
+		if (node->position.x != position.x || node->position.y != position.y)
+		{
+			auto moveAction = std::make_unique<MoveNodeAction>(dynamic_cast<MaterialModel*>(editor), node->id, node->position, position);
+			node->position = position;
+			return moveAction;
+		}
+
+		return nullptr;
+	}
+}
+
 inline void MaterialEditor::initialize()
 {
 
@@ -404,28 +422,17 @@ inline void MaterialEditor::initialize()
 		{
 			auto editor = (MaterialEditor*)userPointer;
 			if ((reason & ed::SaveReasonFlags::Position) == ed::SaveReasonFlags::Position
-				&& (reason & ed::SaveReasonFlags::AddNode) != ed::SaveReasonFlags::AddNode)
+				&& (reason & ed::SaveReasonFlags::User) == ed::SaveReasonFlags::User
+				&& (reason & ed::SaveReasonFlags::AddNode) != ed::SaveReasonFlags::AddNode
+				&& ed::GetSelectedObjectCount() < 2)
 			{
-				/*auto s = std::string{};
+				auto action = createMoveActionIfChanged(nodeId, editor);
 
-				s.assign(data, size);*/
-				const auto position = ed::GetNodePosition(nodeId);
-				auto node = editor->findNode(nodeId);
-
-				if (node->position.x != position.x || node->position.y != position.y)
+				if (action)
 				{
-					auto moveAction = std::make_unique<MoveNodeAction>(dynamic_cast<MaterialModel*>(editor), node->id, node->position, position);
-					node->position = position;
-					editor->pushAction(std::move(moveAction));
-
-					LOG(WARNING) << "position changed!" << std::to_string(nodeId.Get()) << ": [" << position.x << ", " << position.y << "]";
-
-					if((reason & ed::SaveReasonFlags::Selection) == ed::SaveReasonFlags::Selection)
-					{
-						LOG(WARNING) << "selected! " << std::to_string(nodeId.Get());
-					}
+					LOG(INFO) << action->toString();
+					editor->pushAction(std::move(action));
 				}
-				
 			}
 			
 			return true;
@@ -435,8 +442,42 @@ inline void MaterialEditor::initialize()
 	config.SaveSettings = [](const char* data, size_t size, ed::SaveReasonFlags reason, void* userPointer) -> bool
 		{
 			auto s = std::string{};
-
+			
 			s.assign(data, size);
+
+			const auto selectObjectCount = ed::GetSelectedObjectCount();
+			auto editor = (MaterialEditor*)userPointer;
+			if ((reason & ed::SaveReasonFlags::Position) == ed::SaveReasonFlags::Position
+				&& (reason & ed::SaveReasonFlags::User) == ed::SaveReasonFlags::User
+				&& selectObjectCount > 1)
+			{
+				LOG(WARNING) << selectObjectCount;
+
+				auto nodes = std::vector<ed::NodeId>{};
+				nodes.resize(selectObjectCount);
+
+				ed::GetSelectedNodes(nodes.data(), nodes.size());
+
+				auto actions = std::vector<std::unique_ptr<UndoAction>>{};
+
+				for (const auto& node : nodes)
+				{
+					if (node)
+					{
+						auto action = createMoveActionIfChanged(node, editor);
+						if (action)
+						{
+							LOG(INFO) << action->toString();
+							actions.push_back(std::move(action));
+						}
+					}
+				}
+
+				auto groupAction = std::make_unique<GroupAction>(actions);
+				LOG(INFO) << groupAction->toString();
+				editor->pushAction(std::move(groupAction));
+			}
+
 
 			LOG(WARNING) << s;
 			return true;

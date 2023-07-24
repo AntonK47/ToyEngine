@@ -2,6 +2,7 @@
 #include "MaterialEditorResolver.h"
 
 #include <format>
+#include <vector>
 
 using namespace toy::editor;
 
@@ -73,4 +74,25 @@ void NodeStateChangeAction::undo()
 std::string NodeStateChangeAction::toString()
 {
 	return std::format("Node [{}] changes values", nodeId.Get());
+}
+
+void GroupAction::redo()
+{
+	for (const auto& action : actions)
+	{
+		action->redo();
+	}
+}
+
+void GroupAction::undo()
+{
+	for (const auto& action : actions)
+	{
+		action->undo();
+	}
+}
+
+std::string GroupAction::toString()
+{
+	return "Group action";
 }

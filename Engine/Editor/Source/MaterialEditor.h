@@ -22,7 +22,7 @@ namespace toy::editor
 	struct InputPin;
 	struct OutputPin;
 
-	class MaterialEditor final : public Editor, Document, MaterialModel, public Undo
+	class MaterialEditor final : public Editor, Document, public MaterialModel, public Undo
 	{
 	public:
 		auto initialize() -> void;
