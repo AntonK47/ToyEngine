@@ -12,6 +12,7 @@ set(MODULE_SOURCES
 	Source/MaterialEditorArithmeticNode.cpp
 	Source/MaterialModel.cpp
 	 Source/AssetDatabase.cpp
+	 Source/AssetBrowser.cpp
 )
 
 set(MODULE_HEADERS
@@ -28,6 +29,7 @@ set(MODULE_HEADERS
 	Source/MaterialNodeRegistry.h
 	Source/MaterialModel.h
 	Source/AssetDatabase.h
+	Source/AssetBrowser.h
 )
 
 add_library(${MODULE_NAME}

@@ -14,6 +14,7 @@
 #include <ImageDataUploader.h>
 
 #include "MaterialEditor.h"
+#include "AssetBrowser.h"
 #include "AssetDatabase.h"
 
 using namespace toy::io::loaders::dds;
@@ -129,6 +130,7 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 
 	auto materialEditor = MaterialEditor{};
 	materialEditor.initialize();
+	
 
 	auto& window = *windowPtr;
 	auto& renderer = *rendererPtr;
@@ -265,9 +267,12 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 	bool stillRunning = true;
 	
 	doAssetStuff(arguments[1]);
-	auto db = AssetDatabase(arguments[1]);
-	db.rebuildCache();
-	db.flush();
+	auto db = std::make_unique<AssetDatabase>(arguments[1]);
+	db->rebuildCache();
+	db->flush();
+
+	auto assetBrowser = AssetBrowser{};
+	assetBrowser.initialize({db.get()});
 
 	while(stillRunning)
 	{
@@ -343,7 +348,12 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 		{
 			materialEditor.drawGui();
 		}
-		
+		ImGui::End();
+
+		if (ImGui::Begin("Asset Browser"))
+		{
+			assetBrowser.drawGui();
+		}
 		ImGui::End();
 		ImGui::EndFrame();
 
