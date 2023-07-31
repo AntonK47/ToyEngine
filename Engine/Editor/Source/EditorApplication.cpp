@@ -14,6 +14,7 @@
 #include <ImageDataUploader.h>
 
 #include "MaterialEditor.h"
+#include "AssetDatabase.h"
 
 using namespace toy::io::loaders::dds;
 using namespace toy::graphics::rhi;
@@ -263,6 +264,11 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 	window.enableBorder();
 	bool stillRunning = true;
 	
+	doAssetStuff(arguments[1]);
+	auto db = AssetDatabase(arguments[1]);
+	db.rebuildCache();
+	db.flush();
+
 	while(stillRunning)
 	{
 		const auto cpuFrameTime = frameEndTime - frameStartTime;

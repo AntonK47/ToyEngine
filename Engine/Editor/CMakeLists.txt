@@ -11,7 +11,8 @@ set(MODULE_SOURCES
 	Source/MaterialEditorColorNode.cpp
 	Source/MaterialEditorArithmeticNode.cpp
 	Source/MaterialModel.cpp
-	)
+	 Source/AssetDatabase.cpp
+)
 
 set(MODULE_HEADERS
 	Source/EditorApplication.h
@@ -26,6 +27,7 @@ set(MODULE_HEADERS
 	Source/Undo.h
 	Source/MaterialNodeRegistry.h
 	Source/MaterialModel.h
+	Source/AssetDatabase.h
 )
 
 add_library(${MODULE_NAME}
@@ -51,6 +53,7 @@ target_link_libraries(${MODULE_NAME}
 		imgui::imgui
 		imgui-node-editor-static
 		Runtime
+		nlohmann_json::nlohmann_json
 )
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
