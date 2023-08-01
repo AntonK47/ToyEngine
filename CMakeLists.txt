@@ -72,6 +72,7 @@ find_package(SDL2 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(crossguid CONFIG REQUIRED)
 
 include(FetchContent)
 #imgui-node-editor  

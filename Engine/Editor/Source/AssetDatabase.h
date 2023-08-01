@@ -7,8 +7,44 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
+using uuid = xg::Guid;
+
+
+namespace nlohmann {
+	template<>
+	struct adl_serializer<uuid> {
+		static void to_json(json& j, const uuid& id) {
+			j = id.str();
+		}
+
+		static void from_json(const json& j, uuid& id) {
+			if (j.is_null()) {
+				id = uuid{};
+			}
+			else {
+				id = uuid{ j.template get<std::string>() };
+			}
+		}
+	};
+}
+
+	/*inline void to_json(nlohmann::json& j, const uuid& p) 
+	{
+		j = nlohmann::json{ {"uuid", p.str()}};
+	}
+
+	inline void from_json(const nlohmann::json& j, uuid& p) 
+	{
+		auto s = std::string{};
+		j.at("uuid").get_to(s);
+		p = uuid(s);
+	}*/
+
+
 namespace toy::editor
 {
+	
+
 	struct LoaderVersion
 	{
 		core::u8 major{};
@@ -36,12 +72,12 @@ namespace toy::editor
 		LoaderVersion version{};
 		std::string type{};
 		std::string name{};
-		std::string uuid{};
+		uuid uuid{};
 		nlohmann::json object{};
 	};
 	NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ObjectCoreEntry, type, name, uuid, object)
 
-		struct CoreFile
+	struct CoreFile
 	{
 		LoaderVersion version{};
 		std::vector<ObjectCoreEntry> objects{};

@@ -58,6 +58,7 @@ target_link_libraries(${MODULE_NAME}
 		imgui-node-editor-static
 		Runtime
 		nlohmann_json::nlohmann_json
+		crossguid
 )
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")

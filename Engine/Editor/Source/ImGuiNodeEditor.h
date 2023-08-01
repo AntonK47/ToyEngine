@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include "IconsFontAwesome6.h"
 #include <imgui_node_editor.h>
+#include <imgui_stdlib.h>
 
 namespace ed = ax::NodeEditor;
 

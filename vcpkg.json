@@ -18,6 +18,7 @@
     "g3log",
     "zpp-bits",
     "freetype",
-    "nlohmann-json"
+    "nlohmann-json",
+    "crossguid"
   ]
 }
