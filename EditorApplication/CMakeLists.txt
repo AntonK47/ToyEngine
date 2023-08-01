@@ -7,6 +7,7 @@ set(ToyEngineEditor_RESOURCE_DIRECTORY_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/
 
 add_executable(${APPLICATION_NAME}
 		${MODULE_SOURCES}
+		App.rc
 )
 
 target_link_libraries(${APPLICATION_NAME}
