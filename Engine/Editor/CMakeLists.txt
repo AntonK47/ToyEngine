@@ -13,6 +13,7 @@ set(MODULE_SOURCES
 	Source/MaterialModel.cpp
 	 Source/AssetDatabase.cpp
 	 Source/AssetBrowser.cpp
+	 Source/AssetDropWidget.cpp
 )
 
 set(MODULE_HEADERS
@@ -30,6 +31,7 @@ set(MODULE_HEADERS
 	Source/MaterialModel.h
 	Source/AssetDatabase.h
 	Source/AssetBrowser.h
+	Source/AssetDropWidget.h
 )
 
 add_library(${MODULE_NAME}

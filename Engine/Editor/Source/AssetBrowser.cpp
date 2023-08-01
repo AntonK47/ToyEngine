@@ -18,6 +18,10 @@ auto AssetBrowser::deinitialize() -> void
 auto AssetBrowser::onDrawGui() -> void
 {
     filter_.Draw(ICON_FA_FILTER);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone))
+    {
+        ImGui::SetItemTooltip(std::format("{} {}", ICON_FA_SCREWDRIVER_WRENCH, "IN DEVELOPMENT!").c_str());
+    }
     ImGui::SameLine(0.0f, 40.0f);
 
     auto isGridView = view_ == BrowserView::grid;
@@ -25,8 +29,16 @@ auto AssetBrowser::onDrawGui() -> void
     
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 8));
     ImGui::ToggleButton(std::format("{}##gridViewToggle", ICON_FA_GRIP).c_str(), &isGridView);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone))
+    {
+        ImGui::SetItemTooltip(std::format("{} {}", ICON_FA_SCREWDRIVER_WRENCH, "IN DEVELOPMENT!").c_str());
+    }
     ImGui::SameLine();
     ImGui::ToggleButton(std::format("{}##gridViewToggle", ICON_FA_LIST).c_str(), &isListView);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone))
+    {
+        ImGui::SetItemTooltip(std::format("{} {}", ICON_FA_SCREWDRIVER_WRENCH, "IN DEVELOPMENT!").c_str());
+    }
     ImGui::PopStyleVar();
 
     if (isListView && isGridView)
@@ -84,6 +96,13 @@ auto AssetBrowser::onDrawGui() -> void
                     selectedAssets_.clear();
                     selectedAssets_.push_back(index);
                 }
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+                {
+                    ImGui::SetDragDropPayload(std::format("AssetPayload{}", entry.type).c_str(), &index, sizeof(int));
+                    ImGui::Text(entry.name.c_str());
+                    ImGui::EndDragDropSource();
+                }
+
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text(entry.name.c_str());
                 ImGui::TableSetColumnIndex(2);

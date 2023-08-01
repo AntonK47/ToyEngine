@@ -16,6 +16,7 @@
 #include "MaterialEditor.h"
 #include "AssetBrowser.h"
 #include "AssetDatabase.h"
+#include "AssetDropWidget.h"
 
 using namespace toy::io::loaders::dds;
 using namespace toy::graphics::rhi;
@@ -274,6 +275,8 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 	auto assetBrowser = AssetBrowser{};
 	assetBrowser.initialize({db.get()});
 
+	auto testEntry = AssetEntry{};
+
 	while(stillRunning)
 	{
 		const auto cpuFrameTime = frameEndTime - frameStartTime;
@@ -355,6 +358,13 @@ int toy::editor::EditorApplication::run(const std::vector<std::string>& argument
 			assetBrowser.drawGui();
 		}
 		ImGui::End();
+
+		if (ImGui::Begin("Asset Drop Widget Test"))
+		{
+			widget::assetDropTarget("some asset", "Object1", &testEntry, *db);
+		}
+		ImGui::End();
+
 		ImGui::EndFrame();
 
 		if(window.isWindowVisible())
