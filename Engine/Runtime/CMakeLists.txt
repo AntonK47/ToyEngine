@@ -42,11 +42,7 @@ add_library(${MODULE_NAME}
 		${MODULE_HEADERS}
 )
 
-target_include_directories(${MODULE_NAME} 
-	PUBLIC
-		Source/
-		${imgui-node-editor_SOURCE_DIR}
-)
+
 
 target_link_libraries(${MODULE_NAME}
 	PRIVATE
@@ -60,9 +56,14 @@ target_link_libraries(${MODULE_NAME}
 		imgui::imgui
 		imgui-node-editor-static
 		#Compressator
-		compressonator-static
+		#compressonator-static
 		#Win32Window
 		nlohmann_json::nlohmann_json
+)
+
+target_include_directories(${MODULE_NAME} 
+	PUBLIC
+		Source/
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 	get_property(RESOURCES GLOBAL "${RESOURCE}" PROPERTY TOY_RESOURCE_DIR)

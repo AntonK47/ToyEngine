@@ -1,0 +1,3 @@
+#add_subdirectory(Compressator)
+add_subdirectory(ImGuiNodeEditor EXCLUDE_FROM_ALL)
+#add_subdirectory(IconFontCppHeaders EXCLUDE_FROM_ALL)

@@ -2,79 +2,114 @@
   "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 27,
+    "minor": 26,
     "patch": 0
   },
   "configurePresets": [
     {
-      "name": "x64-debug",
-      "displayName": "x64 Debug",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
-      "inherits": "windows-base",
-      "architecture": {
+      "name": "vcpkg",
+      "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": 
+      {
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      },
+      "hidden": true
+    },
+    {
+      "name": "msvc",
+      "cacheVariables": 
+      {
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe"
+      },
+      "hidden": true
+    },
+    {
+      "name": "x64",
+      "architecture": 
+      {
         "value": "x64",
         "strategy": "external"
       },
-      "cacheVariables": {
+      "hidden": true
+    },
+    {
+      "name": "debug",
+      "cacheVariables": 
+      { 
         "CMAKE_BUILD_TYPE": "Debug"
-      }
+       },
+      "hidden": true
     },
     {
-      "name": "x64-debug-no-validation",
-      "displayName": "x64 Debug No Validation",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
-      "inherits": "x64-debug",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
+      "name": "release",
+      "cacheVariables":
+      {
+          "CMAKE_BUILD_TYPE": "Release",
+          "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true
       },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
+      "hidden": true
+    },
+    {
+      "name": "no-gpu-profiling",
+      "description": "disables gpu profiling",
+      "cacheVariables": 
+      {
         "TOY_ENGINE_ENABLE_GPU_PROFILING": "OFF",
         "TOY_ENGINE_ENABLE_VULKAN_VALIDATION": "OFF",
         "TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION": "OFF",
-        "TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING": "OFF",
-        "TOY_ENGINE_ENABLE_RAY_TRACING": "OFF"
-      }
-    },
-    {
-      "name": "x64-release",
-      "description": "",
-      "displayName": "x64 Release",
-      "inherits": "windows-base",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
+        "TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING": "OFF"
       },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "TOY_ENGINE_ENABLE_GPU_PROFILING": "OFF",
-        "TOY_ENGINE_ENABLE_VULKAN_VALIDATION": "OFF",
-        "TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION": "OFF",
-        "TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING": "OFF",
-        "TOY_ENGINE_ENABLE_RAY_TRACING": "OFF"
-      }
+      "hidden": true
     },
     {
-      "name": "windows-base",
+      "name": "gpu-profiling",
+      "description": "disables gpu profiling",
+      "inherits": ["no-gpu-profiling"],
+      "cacheVariables": 
+      {
+        "TOY_ENGINE_ENABLE_GPU_PROFILING": "ON",
+        "TOY_ENGINE_ENABLE_VULKAN_VALIDATION": "ON",
+        "TOY_ENGINE_ENABLE_RENDERER_INTERFACE_VALIDATION": "ON",
+        "TOY_ENGINE_ENABLE_RENDER_DOC_CAPTURING": "ON"
+      },
+      "hidden": true
+    },
+    {
+      "name": "base",
       "description": "Target Windows with the Visual Studio development environment.",
       "hidden": true,
       "generator": "Ninja",
-      //"generator": "Visual Studio 17 2022", this generator has issues with relese build preset
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
-      //${VCPKG_ROOT} do not work now, see https://github.com/microsoft/vcpkg/issues/31915
-      "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      "cacheVariables": 
+      { 
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "TOY_ENGINE_ENABLE_RAY_TRACING": "OFF"
       },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       }
+    },
+    {
+      "name": "x64-debug-no-validation",
+      "displayName": "x64 Debug No Validation",
+      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
+      "inherits": [ "base", "x64", "msvc", "debug", "no-gpu-profiling", "vcpkg"]
+    },
+    {
+      "name": "x64-debug",
+      "displayName": "x64 Debug",
+      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
+      "inherits": [ "base", "x64", "msvc", "debug", "gpu-profiling", "vcpkg"]
+    },
+    {
+      "name": "x64-release",
+      "description": "",
+      "displayName": "x64 Release",
+      "inherits": [ "base", "x64", "msvc", "release", "no-gpu-profiling", "vcpkg"]
     }
   ],
   "buildPresets": [

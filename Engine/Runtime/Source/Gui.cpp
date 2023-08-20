@@ -90,7 +90,7 @@ auto toy::Gui::initialize(const GuiDescriptor& descriptor) -> void
 				.type = ImageViewType::_2D
 			});
 
-		fontSampler = renderer_->createSampler(SamplerDescriptor{ Filter::cubic, Filter::cubic, MipFilter::linear });
+		fontSampler = renderer_->createSampler(SamplerDescriptor{ Filter::linear, Filter::linear, MipFilter::linear });
 
 
 		fontTexture = toy::Texture2D

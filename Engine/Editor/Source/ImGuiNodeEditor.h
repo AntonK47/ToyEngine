@@ -1,8 +1,9 @@
 #pragma once 
 
 #define IMGUI_USER_CONFIG "toyimconfig.h"
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
-#include "IconsFontAwesome6.h"
+#include <IconsFontAwesome6.h>
 #include <imgui_node_editor.h>
 #include <imgui_stdlib.h>
 

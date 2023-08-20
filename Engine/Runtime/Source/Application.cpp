@@ -20,7 +20,7 @@
 #include <span>
 #include <stack>
 #include <regex>
-#include <compressonator.h>
+//#include <compressonator.h>
 
 #include "SceneLoader.h"
 #include "Gui.h"
@@ -58,20 +58,20 @@ struct TextureDescriptor
 
 Scene loadScene(TaskSystem& taskSystem, RenderInterface& renderer, ImageDataUploader& textureUploader, TextureManager& textureManager, std::vector<UID>& assetTextures)
 {
-	void* BC7block_encoder;
-	BC7block_encoder = NULL;
-	CMP_EncoderSetting encodeSettings{};
-	encodeSettings.format = CMP_FORMAT_BC7;
-	encodeSettings.quality = 1.0;
-	encodeSettings.width = 16;
-	encodeSettings.height = 16;
+	//void* BC7block_encoder;
+	//BC7block_encoder = NULL;
+	//CMP_EncoderSetting encodeSettings{};
+	//encodeSettings.format = CMP_FORMAT_BC7;
+	//encodeSettings.quality = 1.0;
+	//encodeSettings.width = 16;
+	//encodeSettings.height = 16;
 
-	if (CMP_CreateBlockEncoder(&BC7block_encoder, encodeSettings) != 0) {
-		//CMP_FreeMipSet(&MipSetIn);
-		//CMP_FreeMipSet(&MipSetCmp);
-		std::printf("Error: Creating BC7 block encoder");
-		//return -1;
-	}
+	//if (CMP_CreateBlockEncoder(&BC7block_encoder, encodeSettings) != 0) {
+	//	//CMP_FreeMipSet(&MipSetIn);
+	//	//CMP_FreeMipSet(&MipSetCmp);
+	//	std::printf("Error: Creating BC7 block encoder");
+	//	//return -1;
+	//}
 
 	using namespace std::string_literals;
 	const auto knightTextureSet = std::array
@@ -400,10 +400,10 @@ int Application::run(const std::vector<std::string>& arguments)
 			}
 		}
 
-		if (validationFailed)
-		{
-			return -1;
-		}
+		//if (validationFailed)
+		//{
+		//	return -1;
+		//}
 	}
 	
 
@@ -1710,7 +1710,7 @@ int Application::run(const std::vector<std::string>& arguments)
 					TransferImageDescriptor
 					{
 						.image = swapchainImage.image,
-						.regions = { Region{ 0, 0, 1, glm::uvec3{ 1, 1, 1 }, glm::ivec3{ io.mouseState.position.x, io.mouseState.position.y, 0 } }}
+						.regions = { Region{ 0, 0, 1, glm::uvec3{ 1, 1, 1 }, glm::clamp(glm::ivec3{  io.mouseState.position.x, io.mouseState.position.y, 0 }, glm::ivec3(0,0,0), glm::ivec3(window.width() - 1, window.height() - 1,0)) }}
 					},
 					TransferBufferDescriptor
 					{
